@@ -69,7 +69,7 @@ arms = {}; parts = {}
 for sy, mat in ((-1, "iron"), (1, "back")):
     piv = empty(f"arm{sy}", (0.02, sy * 0.76, 0.66), body)
     up = cyl(f"upper{sy}", mat, (0, 0, -0.2), 0.13, 0.4, piv)
-    fi = sphere(f"fist{sy}", mat, (0.06, 0, -0.56), (0.31, 0.28, 0.28), piv)
+    fi = sphere(f"fist{sy}", mat, (0.06, 0, -0.56), (0.25, 0.23, 0.23), piv)
     cu = torus(f"cuff{sy}", "rust", (0.02, 0, -0.33), 0.17, 0.04, piv)
     arms[sy] = piv; parts[sy] = (up, fi, cu)
 # 다리: 골반 축에서 돌린다
@@ -127,7 +127,7 @@ def pose(anim, u):
         la = [0.85 * math.sin(w), -0.85 * math.sin(w)]; aa = [-1.0 * math.sin(w), 1.0 * math.sin(w)]
     elif anim == "punch":                                      # 당겼다가 뻗고 돌아온다
         # (숙임, 앞팔 각도, 팔 뻗는 길이, 가까운 다리, 먼 다리, 몸 앞으로, 들썩임)
-        keys = [(-0.2, 0.8, 0.0, 0.1, -0.1, -0.05, 0.0), (0.34, -1.5, 0.6, -0.45, 0.5, 0.2, -0.05), (0.3, -1.45, 0.5, -0.4, 0.45, 0.17, -0.05), (0.1, -0.5, 0.0, -0.15, 0.2, 0.04, 0.0)]
+        keys = [(-0.2, 0.8, 0.0, 0.1, -0.1, -0.05, 0.0), (0.36, -1.5, 0.22, -0.45, 0.5, 0.3, -0.05), (0.32, -1.45, 0.17, -0.4, 0.45, 0.26, -0.05), (0.1, -0.5, 0.0, -0.15, 0.2, 0.04, 0.0)]
         lean, a0, ext, l0, l1, bx, bob = keys[min(3, int(u * 4))]; aa = [a0, 0.6 if a0 < 0 else -0.4]; la = [l0, l1]; blow = 0.35 if a0 < -1 else 0.1
     body.location.z = 0.62 + bob; body.location.x = bx; body.rotation_euler = (0, lean, 0)
     for i, sy in enumerate((-1, 1)):
