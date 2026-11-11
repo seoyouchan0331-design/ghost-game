@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>갑옷 속의 유령</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0a10; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { width: min(100vw, calc(100vh * 16 / 9)); height: min(100vh, calc(100vw * 9 / 16)); image-rendering: pixelated; background: #000; }
+</style>
+</head>
+<body>
+<canvas id="screen" width="960" height="540"></canvas>
+<script>
+"use strict";
+/* =====================================================================================
+   갑옷 속의 유령 — 1단계 (보이드 조작 / 투구 2개 / 민병 3마리)
+   배경만 png, 캐릭터·적·이펙트는 전부 코드로 픽셀을 그린다.
+   이펙트는 pixelfx(MIT, Sprite Fusion의 Hugo Duprez 기법 기반)의 방식을 옮겨 썼다:
+   색 레이어 + 가산 빛 레이어, 속도만큼 늘어나는 불꽃, 1~2프레임 흰 섬광, 타격 정지.
+   ===================================================================================== */
+
+// ---------- 기본 설정 ----------
+const W = 480, H = 270, SCALE = 2, FLOOR = 238, ROOM_L = 10, ROOM_R = W - 10;
+const GRAV = 1100;
+const BASE = {            // 기획서 "기본 능력치 (투구 공통)"
+  maxHp: 100, speed: 120, jumpV: -330, jumps: 2,
+  dashCharges: 2, dashRecharge: 1.2, dashInvuln: 0.25, dashTime: 0.16, dashSpeed: 380,
+  hurtInvuln: 0.8, swapCd: 8, critChance: 0.05, critMult: 1.5,
+};
+
+const screen = document.getElementById("screen"), sctx = screen.getContext("2d");
+const mk = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+const buf = mk(W, H), g = buf.getContext("2d");          // 색 레이어 (저해상도)
+const lightC = mk(W, H), lg = lightC.getContext("2d");   // 빛 레이어 (가산 합성)
+const spr = mk(64, 64), sg = spr.getContext("2d");       // 캐릭터 한 명을 그리는 임시 판
+const SX = 32, SY = 56;                                  // 임시 판에서 발 위치
+const bg = new Image(); bg.src = "assets/bg_burning_village.png";
+
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+
+// 임시 판에 사각형 찍기 (발 기준 좌표, 오른쪽을 보는 상태)
+const R = (x, y, w, h, c) => { sg.fillStyle = c; sg.fillRect(SX + Math.round(x), SY + Math.round(y), w, h); };
+
+// ---------- 색 ----------
+const C = {
+  line: "#17131c", iron0: "#2c2733", iron1: "#453e4d", iron2: "#655c6e", iron3: "#8a8094",
+  rust: "#a4552b", rust2: "#c9783a", cape: "#2c7a80", cape2: "#1d5459", gold: "#c9a24a",
+  flame0: "#2f8fb8", flame1: "#63c8ea", flame2: "#b5efff", white: "#ffffff",
+  wood: "#7a4a2a", wood2: "#9c6a3c", steel: "#c8ccd6", steel2: "#8e94a6",
+  skin: "#e0b088", tunic: "#8a6a44", tunic2: "#6b4f32", hat: "#5f6b3a", red: "#d8423a",
+};
+const RAMP_GHOST = ["#12324a", "#2f8fb8", "#63c8ea", "#b5efff", "#ffffff"];
+const RAMP_FIRE = ["#4a1712", "#c9281f", "#f2561d", "#ffae35", "#ffe27a"];
+
+// =====================================================================================
+//  투구 목록 — 투구를 추가하려면 이 배열에 항목 하나만 더 넣으면 된다.
+//  draw: 머리에 얹는 그림 / weapon: 손에 든 무기 그림 / basic: 기본 공격 콤보
+//  skills[0] = A키, skills[1] = S키 / swap: 교체해 들어올 때 나가는 공격
+//  행동 함수(use)는 아래 "행동 도구"(startAct, melee, spawn...)만 써서 조립한다.
+// =====================================================================================
+const HELMETS = [
+  {
+    id: "empty", name: "빈 투구", grade: "기본", type: "밸런스",
+    ramp: RAMP_GHOST,
+    draw(t) {                                    // 둥근 낡은 투구 + 푸른 눈
+      R(-5, -25, 10, 10, C.line); R(-4, -24, 8, 8, C.iron1); R(-4, -24, 8, 2, C.iron2);
+      R(-3, -25, 6, 1, C.iron2); R(-4, -17, 8, 1, C.iron0); R(-1, -20, 6, 3, C.line);
+      R(0, -20, 2, 2, C.flame2); R(3, -20, 2, 2, C.flame2); R(-4, -22, 1, 1, C.rust); R(2, -24, 1, 1, C.rust);
+      flameTuft(0, -26, t, 3);
+    },
+    weapon() {},
+    basic: {                                     // 주먹 3연타, 각 10
+      steps: [
+        { dur: 0.22, hitT: 0.07, dmg: 10, reach: 20, pose: "punch", lunge: 40 },
+        { dur: 0.22, hitT: 0.07, dmg: 10, reach: 20, pose: "punch", lunge: 40 },
+        { dur: 0.34, hitT: 0.10, dmg: 10, reach: 24, pose: "punch", lunge: 70, heavy: true },
+      ],
+    },
+    skills: [
+      { name: "투구 던지기", cd: 5, icon() { R(-4, -4, 8, 7, C.iron2); R(-1, -1, 5, 2, C.flame2); R(-8, -1, 3, 1, C.white); R(-7, 1, 2, 1, C.white); },
+        use(p) {
+          startAct(p, { dur: 0.2, pose: "punch", reach: 14, events: [{ t: 0.06, fn() {
+            p.headless = true;
+            spawn({ kind: "helm", x: p.x + p.dir * 10, y: p.y - 20, vx: p.dir * 300, vy: -90, dmg: 25, hit: new Set(), rest: false, age: 0, owner: "empty" });
+          } }] });
+        } },
+      { name: "갑옷 박치기", cd: 8, icon() { R(-5, -4, 7, 8, C.iron2); R(2, -2, 2, 4, C.white); R(5, -4, 1, 2, C.white); R(5, 2, 1, 2, C.white); R(6, -1, 2, 2, C.white); },
+        use(p) {
+          const hit = new Set();
+          startAct(p, { dur: 0.3, pose: "ram", vx: 330, ghost: true, tick() {
+            melee(p, { x0: 0, x1: 18, y0: -26, y1: 0, dmg: 30, kb: 190, stun: 0.5, heavy: true, once: hit });
+          } });
+          dust(p.x, FLOOR, -p.dir, 6);
+        } },
+    ],
+    swap: { name: "갑옷 낙하", use(p) {       // 갑옷째 떨어지며 주변 20
+      p.vy = Math.max(p.vy, 500);
+      startAct(p, { dur: 0.3, pose: "slam", events: [{ t: 0.08, fn() {
+        melee(p, { x0: -38, x1: 38, y0: -34, y1: 4, dmg: 20, kb: 160, heavy: true, swap: true });
+        fxRing(p.x, FLOOR, 40, p.helm.ramp); dust(p.x, FLOOR, 1, 5); dust(p.x, FLOOR, -1, 5); shake(3, 0.2);
+      } }] });
+    } },
+  },
+  {
+    id: "soldier", name: "병사 투구", grade: "녹슨", type: "파워",
+    ramp: ["#3a2412", "#a4552b", "#e08a3c", "#ffd27a", "#ffffff"],
+    draw(t) {                                    // 챙 넓은 철모
+      R(-4, -24, 8, 8, C.line); R(-3, -23, 6, 6, C.iron0); R(-1, -20, 5, 3, C.line);
+      R(0, -20, 2, 2, C.flame2); R(3, -20, 2, 2, C.flame2);
+      R(-8, -24, 16, 3, C.line); R(-7, -24, 14, 2, C.iron2); R(-7, -24, 14, 1, C.iron3);
+      R(-5, -29, 10, 5, C.line); R(-4, -28, 8, 4, C.iron2); R(-3, -29, 6, 1, C.iron3); R(-4, -25, 8, 1, C.iron1);
+      R(-2, -27, 1, 1, C.rust2); R(3, -26, 1, 1, C.rust); R(-6, -23, 2, 1, C.rust);
+      flameTuft(0, -30, t, 2);
+    },
+    weapon(hx, hy, acting) {                     // 창: 평소엔 세워 들고, 공격 중엔 앞으로 겨눈다
+      if (acting) { R(hx - 12, hy, 26, 2, C.line); R(hx - 11, hy, 24, 1, C.wood2); R(hx + 13, hy - 1, 6, 3, C.line); R(hx + 13, hy, 5, 1, C.steel); R(hx + 18, hy, 1, 1, C.white); }
+      else { R(hx, hy - 20, 2, 26, C.line); R(hx, hy - 19, 1, 24, C.wood2); R(hx - 1, hy - 26, 3, 7, C.line); R(hx, hy - 25, 1, 5, C.steel); }
+    },
+    basic: {                                     // 창 2연타, 각 16, 길고 느림. 3번째마다 1.5배
+      steps: [
+        { dur: 0.42, hitT: 0.16, dmg: 16, reach: 40, pose: "thrust", lunge: 50 },
+        { dur: 0.50, hitT: 0.18, dmg: 16, reach: 44, pose: "thrust", lunge: 80, heavy: true },
+      ],
+      nth: { every: 3, mult: 1.5 },
+    },
+    skills: [
+      { name: "창 돌격", cd: 7, icon() { R(-7, 0, 12, 1, C.wood2); R(4, -1, 4, 3, C.steel); R(-8, -3, 4, 1, C.white); R(-8, 3, 4, 1, C.white); },
+        use(p) {
+          const hit = new Set();               // 3칸(96px) 돌진, 경로의 적에게 35
+          startAct(p, { dur: 0.24, pose: "thrust", reach: 30, vx: 400, ghost: true, tick() {
+            melee(p, { x0: 0, x1: 34, y0: -22, y1: -2, dmg: 35, kb: 120, heavy: true, once: hit });
+          } });
+          dust(p.x, FLOOR, -p.dir, 6);
+        } },
+      { name: "창벽", cd: 12, icon() { for (const x of [-5, -1, 3]) { R(x, -3, 1, 8, C.wood2); R(x - 1, -6, 3, 3, C.steel); } },
+        use(p) {                                 // 창 3개, 2초간 매초 12, 밀어냄
+          startAct(p, { dur: 0.3, pose: "slam", events: [{ t: 0.1, fn() {
+            spawn({ kind: "wall", x: p.x + p.dir * 30, dir: p.dir, life: 2, tickT: 0, dmg: 12, rise: 0 });
+            shake(2, 0.12);
+          } }] });
+        } },
+    ],
+    swap: { name: "창 내리꽂기", use(p) {    // 위에서 창을 내리꽂아 30
+      const x = clamp(p.x + p.dir * 26, ROOM_L, ROOM_R);
+      spawn({ kind: "skySpear", x, y: FLOOR - 150, dir: p.dir, dmg: 30, done: false, life: 0.7 });
+      startAct(p, { dur: 0.25, pose: "slam" });
+    } },
+  },
+];
+const helmById = (id) => HELMETS.find((h) => h.id === id);
+
+function flameTuft(x, y, t, n) {                // 투구 위로 새어 나오는 유령불
+  const f = Math.floor(t * 9);
+  R(x - 1, y - 1, 3, 2, C.flame1); R(x - 1 + (f % 3), y - 2 - (f % 2), 1, 2, C.flame1); R(x, y - 1, 1, 1, C.flame2);
+  if (n > 2) R(x + 1 - (f % 2), y - 3, 1, 1, C.flame0);
+}
+
+// ---------- 입력 ----------
+const keys = {}, pressed = {};
+addEventListener("keydown", (e) => {
+  if (["Space", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.code)) e.preventDefault();
+  if (!e.repeat) pressed[e.code] = 0.12;        // 눌림을 잠깐 기억해 둔다 (선입력)
+  keys[e.code] = true;
+});
+addEventListener("keyup", (e) => { keys[e.code] = false; });
+const take = (code) => { if (pressed[code] > 0) { pressed[code] = 0; return true; } return false; };
+
+// ---------- 게임 상태 ----------
+let player, enemies, objs, sparks, puffs, lights, flashes, ghosts, texts, glints;
+let time = 0, hitstop = 0, shakeT = 0, shakeAmp = 0, shakeDur = 1, whiteT = 0, state = "play";
+
+function reset() {
+  player = {
+    x: 90, y: FLOOR, vx: 0, vy: 0, dir: 1, ground: true, hp: BASE.maxHp,
+    jumps: BASE.jumps, dashes: BASE.dashCharges, dashT: 0, dashing: 0, invuln: 0, blink: 0,
+    slots: ["empty", "soldier"], active: 0, swapCd: 0,
+    cds: { empty: [0, 0], soldier: [0, 0] }, counts: {},
+    act: null, combo: 0, comboT: 0, headless: false, flash: 0, walkT: 0,
+    get helm() { return helmById(this.slots[this.active]); },
+  };
+  enemies = [300, 370, 440].map((x, i) => newMilitia(x, i));
+  objs = []; sparks = []; puffs = []; lights = []; flashes = []; ghosts = []; texts = []; glints = [];
+  hitstop = 0; shakeT = 0; whiteT = 0; state = "play";
+}
+function newMilitia(x, i) {
+  return { x, y: FLOOR, vx: 0, vy: 0, dir: -1, hp: 30, maxHp: 30, st: "walk", t: rnd(0, 0.6), stun: 0, flash: 0, walkT: i * 0.3, dead: 0, did: false, speed: rnd(26, 34) };
+}
+const spawn = (o) => { objs.push(o); return o; };
+
+// =====================================================================================
+//  행동 도구 — 투구 목록의 use()가 쓰는 부품
+// =====================================================================================
+function startAct(p, a) { p.act = { t: 0, ei: 0, events: [], reach: 0, ...a }; }
+
+// 앞쪽 상자 안의 적을 때린다. x0..x1은 바라보는 방향 기준.
+function melee(p, o) {
+  const xa = p.x + (p.dir > 0 ? o.x0 : -o.x1), xb = p.x + (p.dir > 0 ? o.x1 : -o.x0);
+  let n = 0;
+  for (const e of enemies) {
+    if (e.dead || (o.once && o.once.has(e))) continue;
+    if (e.x + 6 < xa || e.x - 6 > xb || e.y < p.y + o.y0 || e.y - 22 > p.y + o.y1) continue;
+    if (o.once) o.once.add(e);
+    const dir = o.swap ? Math.sign(e.x - p.x) || p.dir : p.dir;
+    damage(e, o.dmg, { dir, kb: o.kb ?? 90, stun: o.stun, heavy: o.heavy, mult: o.mult, ramp: p.helm.ramp, y: clamp(p.y - 12, e.y - 20, e.y - 4) });
+    n++;
+  }
+  return n;
+}
+
+// 기획서 피해 공식: 기본 피해 × (1 + 공격력 증가 합) × 치명타 배율
+function damage(e, base, o = {}) {
+  const atkBonus = 0, crit = Math.random() < BASE.critChance;
+  const dmg = Math.round(base * (o.mult ?? 1) * (1 + atkBonus) * (crit ? BASE.critMult : 1));
+  e.hp -= dmg; e.flash = 0.1; e.vx = (o.dir ?? 1) * (o.kb ?? 90); e.vy = -60;
+  if (o.stun) e.stun = Math.max(e.stun, o.stun);
+  if (e.st === "windup") { e.st = "walk"; e.t = 0.35; }
+  const big = crit || o.heavy || (o.mult ?? 1) > 1;
+  fxHit(e.x - (o.dir ?? 1) * 4, o.y ?? e.y - 12, o.dir ?? 1, o.ramp ?? RAMP_FIRE, big);
+  hitstop = Math.max(hitstop, big ? 0.09 : 0.05); shake(big ? 3 : 1.5, big ? 0.18 : 0.1);
+  texts.push({ x: e.x + rnd(-4, 4), y: e.y - 30, vy: -40, t: 0.7, s: String(dmg), c: crit ? "#ffe27a" : "#ffffff", big: crit });
+  if (e.hp <= 0 && !e.dead) { e.dead = 0.001; for (let i = 0; i < 8; i++) puff(e.x + rnd(-6, 6), e.y - rnd(2, 20), rnd(-30, 30), rnd(-50, -10), rnd(0.3, 0.6), "#cfc6d8", rnd(2, 4)); }
+}
+
+function hurtPlayer(dmg, dir) {
+  const p = player;
+  if (p.invuln > 0 || state !== "play") return;
+  p.hp = Math.max(0, p.hp - dmg); p.invuln = BASE.hurtInvuln; p.blink = BASE.hurtInvuln; p.flash = 0.1;
+  p.vx = dir * 150; p.vy = -140; p.act = null; p.dashing = 0;
+  fxHit(p.x, p.y - 12, dir, ["#4a1218", "#d8423a", "#ff7a6a", "#ffd0c8", "#ffffff"], false);
+  hitstop = 0.08; shake(3, 0.2);
+  texts.push({ x: p.x, y: p.y - 34, vy: -40, t: 0.7, s: "-" + dmg, c: "#ff6a5a" });
+  if (p.hp <= 0) state = "dead";
+}
+
+// =====================================================================================
+//  이펙트 (전부 코드로 그림)
+// =====================================================================================
+const shake = (amp, dur) => { if (amp >= shakeAmp || shakeT <= 0) { shakeAmp = amp; shakeT = dur; shakeDur = dur; } };
+const light = (x, y, r, c, k, life) => lights.push({ x, y, r, c, k, life, max: life });
+function spark(x, y, vx, vy, life, ramp) { sparks.push({ x, y, vx, vy, life, max: life, ramp }); }
+function puff(x, y, vx, vy, life, c, r) { puffs.push({ x, y, vx, vy, life, max: life, c, r }); }
+function dust(x, y, dir, n) { for (let i = 0; i < n; i++) puff(x + rnd(-3, 3), y - rnd(0, 3), dir * rnd(10, 60), rnd(-30, -5), rnd(0.25, 0.5), "#b9a995", rnd(1.5, 3)); }
+
+// 타격 불꽃: 흰 다이아몬드 심 + 치우친 십자 섬광(2~3프레임) → 불꽃 부채꼴이 떨어지며 바닥에 튄다
+function fxHit(x, y, dir, ramp, big) {
+  const aim = dir > 0 ? rnd(-0.15, 0.1) : Math.PI + rnd(-0.1, 0.15);
+  flashes.push({ kind: "cross", x, y, aim, t: 0, ramp, s: big ? 1.35 : 1 });
+  light(x, y, big ? 46 : 32, ramp[3], 0.5, 0.18); light(x, FLOOR - 2, 22, ramp[2], 0.25, 0.22);
+  const n = big ? 12 : 7;
+  for (let i = 0; i < n; i++) { const a = aim + rnd(-0.7, 0.7) - 0.15 * dir, v = rnd(150, 340); spark(x, y, Math.cos(a) * v, Math.sin(a) * v - 40, rnd(0.22, 0.45), ramp); }
+}
+// 교체 섬광: 흰 실루엣 → 세로 빛기둥이 가늘어지며 사라짐 → 바닥 고리 + 유령불 조각이 위로 튐
+function fxSwap(p) {
+  const ramp = p.helm.ramp;
+  flashes.push({ kind: "pillar", x: p.x, y: p.y, t: 0, ramp });
+  fxRing(p.x, p.y, 34, ramp);
+  light(p.x, p.y - 14, 70, ramp[2], 0.75, 0.3); light(p.x, p.y - 14, 26, "#ffffff", 0.7, 0.14);
+  for (let i = 0; i < 16; i++) { const a = rnd(-Math.PI, 0), v = rnd(90, 260); spark(p.x + rnd(-4, 4), p.y - rnd(6, 22), Math.cos(a) * v, Math.sin(a) * v - 60, rnd(0.3, 0.6), ramp); }
+  p.flash = 0.09; whiteT = 0.07; shake(2.5, 0.16);
+}
+const fxRing = (x, y, r, ramp) => flashes.push({ kind: "ring", x, y, r, t: 0, ramp });
+// 대시 잔상: 지금 실루엣을 투구 색으로 찍어 남긴다
+function fxGhost(p) {
+  drawPlayerSprite(p);
+  const c = mk(64, 64), cg = c.getContext("2d");
+  cg.drawImage(spr, 0, 0); cg.globalCompositeOperation = "source-atop"; cg.fillStyle = p.helm.ramp[2]; cg.fillRect(0, 0, 64, 64);
+  ghosts.push({ c, x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, t: 0, life: 0.26 });
+}
+// 쿨타임 반짝임: HUD 아이콘 위의 별 모양 반짝이 + 아이콘 흰 테두리
+const fxGlint = (x, y, ramp) => glints.push({ x, y, t: 0, ramp });
+
+function starGlint(ctx, x, y, arm, c, tip) {
+  for (let d = 1; d <= arm; d++) { ctx.fillStyle = d > arm * 0.6 ? tip : c; ctx.fillRect(x + d, y, 1, 1); ctx.fillRect(x - d, y, 1, 1); ctx.fillRect(x, y + d, 1, 1); ctx.fillRect(x, y - d, 1, 1); }
+  if (arm >= 3) { ctx.fillStyle = c; for (const [a, b] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) ctx.fillRect(x + a, y + b, 1, 1); }
+  ctx.fillStyle = "#fff"; ctx.fillRect(x, y, 1, 1);
+}
+function glow(x, y, r, c, k) {
+  if (r < 1 || k <= 0.01) return;
+  const gr = lg.createRadialGradient(x, y, 0, x, y, r);
+  gr.addColorStop(0, c); gr.addColorStop(1, "rgba(0,0,0,0)");
+  lg.globalAlpha = clamp(k); lg.fillStyle = gr; lg.fillRect(x - r, y - r, r * 2, r * 2); lg.globalAlpha = 1;
+}
+function ray(x, y, a, L, w, ramp, from = 0) {     // 뿌리는 굵고 끝은 가는 광선, 바깥으로 갈수록 식는 색
+  const c = Math.cos(a), s = Math.sin(a);
+  for (let d = from * L; d <= L; d += 0.5) {
+    const u = d / L, hw = w * Math.pow(1 - u, 1.6);
+    g.fillStyle = u < 0.3 ? "#fff" : u < 0.62 ? ramp[4] : u < 0.88 ? ramp[3] : ramp[2];
+    g.fillRect(Math.round(x + c * d), Math.round(y + s * d), 1, 1);
+    for (let o = 0.5; o <= hw; o += 0.5) for (const e of [-o, o]) g.fillRect(Math.round(x + c * d - s * e), Math.round(y + s * d + c * e), 1, 1);
+  }
+}
+
+function updateFx(dt) {
+  for (const s of sparks) {
+    s.life -= dt; s.vy += 950 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.vx *= 1 - 1.5 * dt;
+    if (s.y > FLOOR && s.vy > 0) { s.y = FLOOR; s.vy *= -0.45; s.vx *= 0.6; }
+  }
+  for (const q of puffs) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 1 - 3 * dt; q.vy *= 1 - 2 * dt; }
+  for (const l of lights) l.life -= dt;
+  for (const f of flashes) f.t += dt;
+  for (const gh of ghosts) gh.t += dt;
+  for (const t of texts) { t.t -= dt; t.y += t.vy * dt; t.vy *= 1 - 4 * dt; }
+  for (const gl of glints) gl.t += dt;
+  sparks = sparks.filter((s) => s.life > 0); puffs = puffs.filter((q) => q.life > 0); lights = lights.filter((l) => l.life > 0);
+  flashes = flashes.filter((f) => f.t < 0.5); ghosts = ghosts.filter((gh) => gh.t < gh.life); texts = texts.filter((t) => t.t > 0);
+  glints = glints.filter((gl) => gl.t < 0.5);
+}
+
+function drawFxBack() {
+  for (const gh of ghosts) {                    // 잔상: 3단계로 뚝뚝 옅어진다
+    const k = 1 - gh.t / gh.life;
+    g.globalAlpha = k > 0.66 ? 0.6 : k > 0.33 ? 0.38 : 0.18;
+    blit(gh.c, gh.x, gh.y, gh.dir); g.globalAlpha = 1;
+  }
+  for (const f of flashes) if (f.kind === "ring") { // 바닥에 누운 고리
+    const u = f.t / 0.3; if (u >= 1) continue;
+    const r = f.r * (1 - Math.pow(1 - u, 3));
+    for (let a = 0; a < Math.PI * 2; a += 0.5 / Math.max(4, r)) {
+      if (u > 0.5 && ((a * 7) | 0) % 2) continue;
+      g.fillStyle = u < 0.25 ? "#fff" : u < 0.6 ? f.ramp[3] : f.ramp[2];
+      g.fillRect(Math.round(f.x + Math.cos(a) * r), Math.round(f.y - 1 + Math.sin(a) * r * 0.18), 1, 1);
+    }
+    glow(f.x, f.y, r * 1.2, f.ramp[2], 0.35 * (1 - u));
+  }
+}
+function drawFxFront() {
+  for (const q of puffs) { const k = q.life / q.max; g.globalAlpha = k > 0.5 ? 0.55 : 0.28; g.fillStyle = q.c; const r = Math.max(1, Math.round(q.r * (1.4 - k * 0.6))); g.fillRect(Math.round(q.x - r / 2), Math.round(q.y - r / 2), r, r); }
+  g.globalAlpha = 1;
+  for (const s of sparks) {                     // 속도만큼 늘어나는 두 색 불꽃
+    const sp = Math.hypot(s.vx, s.vy), len = clamp(sp * 0.028, 1, 8), k = s.life / s.max, ux = s.vx / (sp || 1), uy = s.vy / (sp || 1);
+    for (let d = 0; d < len; d++) {
+      g.fillStyle = d < len * 0.4 ? (k > 0.6 ? "#fff" : s.ramp[4]) : k > 0.4 ? s.ramp[3] : s.ramp[2];
+      g.fillRect(Math.round(s.x - ux * d), Math.round(s.y - uy * d), 1, 1);
+    }
+    glow(s.x, s.y, 5, s.ramp[3], 0.25 * k);
+  }
+  for (const f of flashes) {
+    if (f.kind === "cross") {
+      const A = f.aim, S = f.s, rays = [[A, 34, 2.2], [A + Math.PI, 9, 2.2], [A - Math.PI / 2, 16, 2.6], [A + Math.PI / 2, 11, 2.3], [A - Math.PI / 4, 6, 1]];
+      if (f.t < 0.035) { for (const [a, L, w] of rays) ray(f.x, f.y, a, L * S, w, f.ramp); diamond(f.x, f.y, 4, f.ramp); }
+      else if (f.t < 0.07) { for (const [a, L, w] of rays) ray(f.x, f.y, a, L * S * 1.2, w * 0.55, f.ramp, 0.12); diamond(f.x, f.y, 3, f.ramp); }
+      else if (f.t < 0.105) ray(f.x, f.y, A, 34 * S * 1.3, 0.6, [f.ramp[0], f.ramp[0], f.ramp[1], f.ramp[2], f.ramp[3]], 0.4);
+      const pop = Math.exp(-f.t / 0.045); glow(f.x, f.y, 22 * S, f.ramp[3], 0.5 * pop); glow(f.x, f.y, 8, "#fff", 0.4 * pop);
+    } else if (f.kind === "pillar") {             // 교체 빛기둥
+      const u = f.t / 0.22; if (u >= 1) continue;
+      const hw = Math.round(7 * Math.pow(1 - u, 2)), top = f.y - 34 - 60 * u;
+      g.fillStyle = f.ramp[2]; g.fillRect(f.x - hw - 1, top, hw * 2 + 3, f.y - top);
+      g.fillStyle = f.ramp[3]; g.fillRect(f.x - hw, top + 2, hw * 2 + 1, f.y - top - 2);
+      g.fillStyle = "#fff"; g.fillRect(f.x - Math.max(0, hw - 2), top + 4, Math.max(1, hw * 2 - 3), f.y - top - 4);
+      glow(f.x, f.y - 20, 50, f.ramp[2], 0.6 * (1 - u));
+    }
+  }
+  for (const l of lights) { const k = l.life / l.max; glow(l.x, l.y, l.r * (0.55 + 0.45 * k), l.c, l.k * k * k); }
+}
+function diamond(x, y, r, ramp) {
+  x = Math.round(x); y = Math.round(y);
+  for (let dy = -r - 1; dy <= r + 1; dy++) for (let dx = -r - 1; dx <= r + 1; dx++) {
+    const m = Math.abs(dx) + Math.abs(dy);
+    if (m <= r) { g.fillStyle = "#fff"; g.fillRect(x + dx, y + dy, 1, 1); } else if (m === r + 1) { g.fillStyle = ramp[2]; g.fillRect(x + dx, y + dy, 1, 1); }
+  }
+}
+
+// =====================================================================================
+//  플레이어
+// =====================================================================================
+function updatePlayer(dt) {
+  const p = player, helm = p.helm, cds = p.cds[helm.id];
+  // 쿨타임
+  for (const id in p.cds) for (let i = 0; i < 2; i++) if (p.cds[id][i] > 0) {
+    p.cds[id][i] -= dt;
+    if (p.cds[id][i] <= 0) { p.cds[id][i] = 0; if (id === helm.id) fxGlint(HUD.skill[i].x + 9, HUD.skill[i].y + 9, helm.ramp); if (id === "empty") recallHelm(); }
+  }
+  if (p.swapCd > 0) { p.swapCd -= dt; if (p.swapCd <= 0) { p.swapCd = 0; fxGlint(HUD.sub.x + 7, HUD.sub.y + 7, helmById(p.slots[1 - p.active]).ramp); } }
+  if (p.dashes < BASE.dashCharges) { p.dashT += dt; if (p.dashT >= BASE.dashRecharge) { p.dashT = 0; p.dashes++; fxGlint(HUD.dash.x + 2 + (p.dashes - 1) * 9, HUD.dash.y + 2, RAMP_GHOST); } }
+  p.invuln = Math.max(0, p.invuln - dt); p.blink = Math.max(0, p.blink - dt); p.flash = Math.max(0, p.flash - dt);
+  if (p.comboT > 0 && !p.act) { p.comboT -= dt; if (p.comboT <= 0) p.combo = 0; }
+
+  const ax = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
+  const speed = BASE.speed * (p.headless ? 1.2 : 1);
+
+  // 투구 교체
+  if (take("Space") && p.swapCd <= 0 && !p.dashing) {
+    recallHelm(); p.active = 1 - p.active; p.swapCd = BASE.swapCd; p.combo = 0;
+    const nh = p.helm; p.cds[nh.id] = [0, 0];       // 들어온 투구는 스킬 쿨 초기화
+    if (ax) p.dir = ax;
+    fxSwap(p); nh.swap.use(p);
+  }
+  // 대시 (행동을 끊고 나간다)
+  if (take("KeyZ") && p.dashes > 0 && !p.dashing) {
+    p.dashes--; p.dashing = BASE.dashTime; p.invuln = Math.max(p.invuln, BASE.dashInvuln); p.act = null; p.vy = 0;
+    if (ax) p.dir = ax; p.ghostT = 0; dust(p.x, p.y, -p.dir, 5);
+  }
+  if (p.dashing > 0) {
+    p.dashing = Math.max(0, p.dashing - dt); p.vx = p.dir * BASE.dashSpeed; p.vy = 0;
+    p.ghostT -= dt; if (p.ghostT <= 0) { fxGhost(p); p.ghostT = 0.032; }
+  } else if (p.act) {
+    const a = p.act; a.t += dt;
+    while (a.ei < a.events.length && a.t >= a.events[a.ei].t) a.events[a.ei++].fn();
+    if (a.tick) a.tick();
+    if (a.ghost) { a.ghostT = (a.ghostT ?? 0) - dt; if (a.ghostT <= 0) { fxGhost(p); a.ghostT = 0.04; } }
+    p.vx = a.vx != null ? p.dir * a.vx : a.lunge && a.t < 0.1 ? p.dir * a.lunge : p.ground ? 0 : ax * speed * 0.6;
+    if (a.vx != null) p.vy = Math.min(p.vy, 0);
+    if (p.act === a && a.t >= a.dur) { p.act = null; p.comboT = 0.45; if (a.vx != null) p.vx = 0; }
+  } else {
+    p.vx = ax * speed; if (ax) p.dir = ax;
+    if (take("KeyC") && p.jumps > 0) { p.vy = BASE.jumpV * (p.jumps === BASE.jumps ? 1 : 0.9); if (!p.ground) { fxRing(p.x, p.y, 12, RAMP_GHOST); } else dust(p.x, p.y, 0, 3); p.jumps--; p.ground = false; }
+    if (take("KeyA") && cds[0] <= 0) { cds[0] = helm.skills[0].cd; helm.skills[0].use(p); }
+    else if (take("KeyS") && cds[1] <= 0) { cds[1] = helm.skills[1].cd; helm.skills[1].use(p); }
+    else if (take("KeyX")) basicAttack(p);
+  }
+  // 물리
+  if (!p.dashing) p.vy += GRAV * dt;
+  p.x = clamp(p.x + p.vx * dt, ROOM_L, ROOM_R); p.y += p.vy * dt;
+  if (p.y >= FLOOR) { if (!p.ground && p.vy > 250) dust(p.x, FLOOR, 0, 4); p.y = FLOOR; p.vy = 0; p.ground = true; p.jumps = BASE.jumps; } else p.ground = false;
+  if (p.ground && Math.abs(p.vx) > 10 && !p.act) p.walkT += dt; else p.walkT = 0;
+}
+function basicAttack(p) {
+  const helm = p.helm, b = helm.basic, step = b.steps[p.combo % b.steps.length];
+  const n = (p.counts[helm.id] = (p.counts[helm.id] ?? 0) + 1);
+  const empowered = b.nth && n % b.nth.every === 0;
+  p.combo = (p.combo + 1) % b.steps.length;
+  startAct(p, { ...step, empowered, events: [{ t: step.hitT, fn() {
+    melee(p, { x0: 0, x1: step.reach + 6, y0: -24, y1: 0, dmg: step.dmg, heavy: step.heavy || empowered, mult: empowered ? b.nth.mult : 1, kb: step.heavy ? 150 : 80 });
+    if (empowered) light(p.x + p.dir * step.reach, p.y - 12, 30, helm.ramp[3], 0.5, 0.15);
+  } }] });
+}
+function recallHelm() { player.headless = false; objs = objs.filter((o) => o.kind !== "helm"); }
+
+function drawPlayerSprite(p) {
+  sg.clearRect(0, 0, 64, 64);
+  const a = p.act, helm = p.helm, t = time;
+  let ext = 0, lean = 0, squash = 0;
+  if (a) {
+    const u = a.t / a.dur, hitU = (a.hitT ?? a.dur * 0.3) / a.dur;
+    const reach = a.reach || 10;
+    ext = u < hitU ? -4 * (u / hitU) : reach * (u < hitU + 0.25 ? 1 : 1 - (u - hitU - 0.25) / (1 - hitU - 0.25) * 0.8);
+    if (a.pose === "thrust") { ext = Math.min(ext, 14); lean = u < hitU ? -1 : 2; }
+    if (a.pose === "ram") { lean = 4; ext = -2; }
+    if (a.pose === "slam") { squash = 2; ext = 2; }
+    if (a.pose === "punch") lean = u < hitU ? -1 : 1;
+  } else if (p.dashing) lean = 4;
+  const walk = p.ground && Math.abs(p.vx) > 10 && !a, f = Math.floor(p.walkT * 10) % 4;
+  const bob = walk ? (f % 2) : !a && p.ground ? Math.floor(t * 2) % 2 : 0;
+  const air = !p.ground;
+  const by = -bob + squash;                       // 몸통 흔들림
+  // 망토 (뒤)
+  const cw = p.dashing || Math.abs(p.vx) > 10 ? 3 : 0;
+  R(-10 - cw + lean / 2, -17 + by, 6 + cw, 12, C.line); R(-9 - cw + lean / 2, -16 + by, 5 + cw, 10, C.cape); R(-9 - cw + lean / 2, -8 + by, 2, 3, C.cape2); R(-6 - cw + lean / 2, -6 + by, 2, 2, C.line);
+  // 다리
+  const l1 = walk ? (f === 0 ? -2 : f === 2 ? 1 : 0) : air ? -2 : 0, l2 = walk ? (f === 2 ? -2 : f === 0 ? 1 : 0) : air ? -1 : 0;
+  R(-6 + (walk ? -l1 : 0), -6 + l1, 5, 6, C.line); R(-5 + (walk ? -l1 : 0), -5 + l1, 3, 4, C.iron1); R(-5 + (walk ? -l1 : 0), -2 + l1, 3, 1, C.rust);
+  R(1 + (walk ? -l2 : 0), -6 + l2, 5, 6, C.line); R(2 + (walk ? -l2 : 0), -5 + l2, 3, 4, C.iron2); R(2 + (walk ? -l2 : 0), -2 + l2, 3, 1, C.rust);
+  // 뒷손
+  R(-9 + lean, -11 + by, 4, 5, C.line); R(-8 + lean, -10 + by, 2, 3, C.iron1);
+  // 몸통
+  const bx = lean;
+  R(-7 + bx, -18 + by, 14, 13, C.line); R(-6 + bx, -17 + by, 12, 11, C.iron1); R(-5 + bx, -16 + by, 8, 5, C.iron2); R(-4 + bx, -16 + by, 4, 1, C.iron3);
+  R(-6 + bx, -8 + by, 12, 1, C.iron0); R(-1 + bx, -8 + by, 2, 1, C.gold); R(2 + bx, -14 + by, 1, 3, C.line); R(-4 + bx, -11 + by, 2, 1, C.rust); R(3 + bx, -10 + by, 2, 2, C.rust); R(-6 + bx, -7 + by, 3, 1, C.rust2);
+  R(-8 + bx, -19 + by, 5, 5, C.line); R(-7 + bx, -18 + by, 3, 3, C.iron2); R(-7 + bx, -18 + by, 3, 1, C.iron3);
+  R(4 + bx, -19 + by, 5, 5, C.line); R(5 + bx, -18 + by, 3, 3, C.iron2); R(5 + bx, -18 + by, 3, 1, C.iron3);
+  // 목깃
+  R(-4 + bx, -20 + by, 8, 2, C.line); R(-3 + bx, -20 + by, 6, 1, C.rust2);
+  // 머리: 투구 또는 맨 유령불
+  sg.save(); sg.translate(bx, by + 3);
+  if (p.headless) {
+    const fl = Math.floor(t * 10);
+    R(-3, -27, 7, 7, C.flame0); R(-2, -26, 5, 6, C.flame1); R(-1, -24, 3, 4, C.flame2);
+    R(-2 + (fl % 3), -29 - (fl % 2), 2, 3, C.flame1); R(1 - (fl % 2), -31, 1, 2, C.flame0);
+    R(-1, -24, 1, 2, C.white); R(2, -24, 1, 2, C.white);
+  } else helm.draw(t);
+  sg.restore();
+  // 앞손 + 무기
+  const hx = 5 + bx + ext, hy = -12 + by;
+  helm.weapon(hx + 1, hy + 1, !!a && a.pose !== "slam");
+  R(hx - 1, hy - 1, 6, 6, C.line); R(hx, hy, 4, 4, C.iron2); R(hx, hy, 4, 1, C.iron3); R(hx + 3, hy + 1, 1, 2, C.rust);
+  if (a && a.pose === "punch" && a.t > (a.hitT ?? 0) && a.t < (a.hitT ?? 0) + 0.07) { R(hx + 6, hy - 2, 1, 8, C.flame2); R(hx + 8, hy, 1, 4, C.white); }
+  if (a && a.empowered) { R(hx + 20, hy - 2, 3, 1, C.white); R(hx + 20, hy + 4, 3, 1, C.white); }
+  if (p.flash > 0) whiten();
+}
+function whiten() { sg.globalCompositeOperation = "source-atop"; sg.fillStyle = "#fff"; sg.fillRect(0, 0, 64, 64); sg.globalCompositeOperation = "source-over"; }
+function blit(c, x, y, dir) { g.save(); g.translate(Math.round(x), Math.round(y)); g.scale(dir, 1); g.drawImage(c, -SX, -SY); g.restore(); }
+
+// =====================================================================================
+//  적: 민병 (체력 30, 창 찌르기 8, 느리게 다가와 찌름)
+// =====================================================================================
+function updateEnemy(e, dt) {
+  if (e.dead) { e.dead += dt; return; }
+  e.flash = Math.max(0, e.flash - dt);
+  e.vy += GRAV * dt; e.y += e.vy * dt; if (e.y >= FLOOR) { e.y = FLOOR; e.vy = 0; }
+  e.x = clamp(e.x + e.vx * dt, ROOM_L, ROOM_R); e.vx *= Math.max(0, 1 - 7 * dt);
+  if (e.stun > 0) { e.stun -= dt; return; }
+  const p = player, dx = p.x - e.x, ad = Math.abs(dx);
+  e.t -= dt;
+  if (e.st === "walk") {
+    if (state !== "play") return;
+    e.dir = Math.sign(dx) || e.dir;
+    if (ad > 30) { e.x += e.dir * e.speed * dt; e.walkT += dt; }
+    else if (e.t <= 0 && Math.abs(p.y - e.y) < 40) { e.st = "windup"; e.t = 0.55; }
+  } else if (e.st === "windup") {
+    if (e.t <= 0) { e.st = "thrust"; e.t = 0.16; e.did = false; }
+  } else if (e.st === "thrust") {
+    if (!e.did) {
+      e.did = true;
+      const x0 = Math.min(e.x, e.x + e.dir * 36), x1 = Math.max(e.x, e.x + e.dir * 36);
+      if (p.x + 5 > x0 && p.x - 5 < x1 && p.y > e.y - 26 && p.y - 24 < e.y) hurtPlayer(8, e.dir);
+    }
+    if (e.t <= 0) { e.st = "walk"; e.t = 0.9; }
+  }
+}
+function drawEnemySprite(e) {
+  sg.clearRect(0, 0, 64, 64);
+  const f = Math.floor(e.walkT * 6) % 2, wind = e.st === "windup", thr = e.st === "thrust";
+  const lean = wind ? -2 : thr ? 3 : 0, bob = e.st === "walk" ? f : 0;
+  R(-5 + f, -6, 4, 6, C.line); R(-4 + f, -5, 2, 4, C.tunic2); R(1 - f, -6, 4, 6, C.line); R(2 - f, -5, 2, 4, C.tunic2);
+  R(-6 + lean, -17 - bob, 12, 12, C.line); R(-5 + lean, -16 - bob, 10, 10, C.tunic); R(-5 + lean, -9 - bob, 10, 1, C.wood); R(-5 + lean, -16 - bob, 3, 10, C.tunic2);
+  R(-4 + lean, -25 - bob, 9, 9, C.line); R(-3 + lean, -24 - bob, 7, 7, C.skin); R(1 + lean, -21 - bob, 1, 2, C.line); R(4 + lean, -21 - bob, 1, 2, C.line);
+  R(-5 + lean, -27 - bob, 11, 4, C.line); R(-4 + lean, -26 - bob, 9, 2, C.hat);
+  const hx = 4 + lean + (wind ? -5 : thr ? 10 : 0), hy = -12 - bob;
+  R(hx - 10, hy, 26, 2, C.line); R(hx - 9, hy, 24, 1, C.wood2); R(hx + 15, hy - 1, 6, 3, C.line); R(hx + 15, hy, 5, 1, wind && Math.floor(time * 16) % 2 ? C.red : C.steel);
+  R(hx - 1, hy - 1, 5, 5, C.line); R(hx, hy, 3, 3, C.skin);
+  if (wind) { R(lean, -33 - bob, 2, 4, C.red); R(lean, -28 - bob, 2, 1, C.red); }   // 공격 예고 느낌표
+  if (e.stun > 0) for (let i = 0; i < 3; i++) { const a = time * 7 + i * 2.1; R(Math.cos(a) * 6, -31 + Math.sin(a) * 2, 1, 1, "#ffe27a"); }
+  if (e.flash > 0) whiten();
+}
+
+// =====================================================================================
+//  떠 있는 물체: 던진 투구, 창벽, 하늘에서 떨어지는 창
+// =====================================================================================
+function updateObjs(dt) {
+  const p = player;
+  for (const o of objs) {
+    if (o.kind === "helm") {
+      o.age += dt;
+      if (!o.rest) {
+        o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt; o.vx *= 1 - 1.2 * dt;
+        for (const e of enemies) if (!e.dead && !o.hit.has(e) && Math.abs(e.x - o.x) < 10 && o.y > e.y - 28 && o.y < e.y + 2) {
+          o.hit.add(e); damage(e, o.dmg, { dir: Math.sign(o.vx) || 1, kb: 110, ramp: RAMP_GHOST, y: o.y }); o.vx *= -0.3; o.vy = -150;
+        }
+        if (o.x < ROOM_L || o.x > ROOM_R) { o.x = clamp(o.x, ROOM_L, ROOM_R); o.vx *= -0.4; }
+        if (o.y >= FLOOR - 4) { o.y = FLOOR - 4; if (Math.abs(o.vy) > 80) { o.vy *= -0.35; o.vx *= 0.5; dust(o.x, FLOOR, 0, 2); } else { o.rest = true; o.vx = 0; } }
+      }
+      if (o.age > 0.25 && Math.abs(p.x - o.x) < 12 && Math.abs(p.y - 12 - o.y) < 22) {   // 다시 주우면 쿨 초기화
+        o.gone = true; p.headless = false; p.cds.empty[0] = 0; p.flash = 0.06;
+        fxGlint(HUD.skill[0].x + 9, HUD.skill[0].y + 9, RAMP_GHOST); light(p.x, p.y - 22, 26, RAMP_GHOST[2], 0.6, 0.2);
+      }
+    } else if (o.kind === "wall") {
+      o.life -= dt; o.rise = Math.min(1, o.rise + dt * 10); o.tickT -= dt;
+      const x0 = o.x - 6, x1 = o.x + 30, lo = o.dir > 0 ? x0 : o.x - 30, hi = o.dir > 0 ? x1 : o.x + 6;
+      const tick = o.tickT <= 0; if (tick) o.tickT = 1;
+      for (const e of enemies) if (!e.dead && e.x > lo - 6 && e.x < hi + 6) {
+        if (tick) damage(e, o.dmg, { dir: o.dir, kb: 170, ramp: helmById("soldier").ramp });
+        else e.vx += o.dir * 500 * dt;           // 밀어냄
+      }
+      if (o.life <= 0) { o.gone = true; for (let i = 0; i < 3; i++) dust(o.x + o.dir * i * 11, FLOOR, 0, 2); }
+    } else if (o.kind === "skySpear") {
+      o.life -= dt;
+      if (!o.done) {
+        o.y += 900 * dt;
+        if (o.y >= FLOOR) {
+          o.y = FLOOR; o.done = true;
+          for (const e of enemies) if (!e.dead && Math.abs(e.x - o.x) < 24) damage(e, o.dmg, { dir: Math.sign(e.x - o.x) || o.dir, kb: 170, heavy: true, ramp: helmById("soldier").ramp });
+          fxRing(o.x, FLOOR, 30, helmById("soldier").ramp); dust(o.x, FLOOR, 1, 5); dust(o.x, FLOOR, -1, 5); shake(4, 0.22);
+          light(o.x, FLOOR - 6, 50, "#ffd27a", 0.6, 0.25);
+        }
+      }
+      if (o.life <= 0) o.gone = true;
+    }
+  }
+  objs = objs.filter((o) => !o.gone);
+}
+function spearUp(x, tipY, baseY) {                // 세로 창 하나
+  g.fillStyle = C.line; g.fillRect(x - 1, tipY + 5, 3, baseY - tipY - 5); g.fillStyle = C.wood2; g.fillRect(x, tipY + 5, 1, baseY - tipY - 5);
+  g.fillStyle = C.line; g.fillRect(x - 2, tipY, 5, 7); g.fillStyle = C.steel; g.fillRect(x - 1, tipY + 2, 3, 4); g.fillRect(x, tipY, 1, 2); g.fillStyle = "#fff"; g.fillRect(x, tipY + 1, 1, 3);
+}
+function drawObjs() {
+  for (const o of objs) {
+    if (o.kind === "helm") {
+      const x = Math.round(o.x), y = Math.round(o.y);
+      g.fillStyle = C.line; g.fillRect(x - 5, y - 5, 10, 10); g.fillStyle = C.iron1; g.fillRect(x - 4, y - 4, 8, 8); g.fillStyle = C.iron2; g.fillRect(x - 4, y - 4, 8, 2);
+      g.fillStyle = C.line; g.fillRect(x - 2, y - 1, 6, 3);
+      if (o.rest && Math.floor(time * 3) % 2) starGlint(g, x + 3, y - 6, 2, C.flame2, C.flame1);
+      glow(x, y, 12, C.flame1, o.rest ? 0.25 : 0.4);
+    } else if (o.kind === "wall") {
+      const k = o.life < 0.2 ? o.life / 0.2 : o.rise;
+      for (let i = 0; i < 3; i++) spearUp(Math.round(o.x + o.dir * i * 11), FLOOR - Math.round((26 + (i === 1 ? 5 : 0)) * k), FLOOR);
+      glow(o.x + o.dir * 11, FLOOR - 14, 26, "#ffd27a", 0.15);
+    } else if (o.kind === "skySpear") {
+      const x = Math.round(o.x), y = Math.round(o.y), a = o.done ? clamp(o.life / 0.15) : 1;
+      g.globalAlpha = a;
+      g.fillStyle = C.line; g.fillRect(x - 1, y - 40, 3, 34); g.fillStyle = C.wood2; g.fillRect(x, y - 40, 1, 34);
+      g.fillStyle = C.line; g.fillRect(x - 2, y - 8, 5, 7); g.fillStyle = C.steel; g.fillRect(x - 1, y - 7, 3, 4); g.fillRect(x, y - 3, 1, 2);
+      if (!o.done) { g.fillStyle = "#fff"; g.fillRect(x, y - 70, 1, 28); g.fillStyle = "#ffd27a"; g.fillRect(x - 2, y - 58, 1, 16); g.fillRect(x + 2, y - 52, 1, 12); }
+      g.globalAlpha = 1; glow(x, y - 6, 16, "#ffd27a", 0.4 * a);
+    }
+  }
+}
+
+// =====================================================================================
+//  HUD
+// =====================================================================================
+const HUD = { hp: { x: 8, y: 8, w: 110, h: 8 }, main: { x: 8, y: 22 }, sub: { x: 32, y: 28 }, skill: [{ x: 54, y: 22 }, { x: 76, y: 22 }], dash: { x: 100, y: 32 } };
+function box(x, y, s, on) { g.fillStyle = C.line; g.fillRect(x - 1, y - 1, s + 2, s + 2); g.fillStyle = on ? "#3a3346" : "#221e2a"; g.fillRect(x, y, s, s); }
+function icon(x, y, fn) { sg.clearRect(0, 0, 64, 64); fn(); g.drawImage(spr, x - SX, y - SY); }
+function drawHud() {
+  const p = player, helm = p.helm, sub = helmById(p.slots[1 - p.active]), cds = p.cds[helm.id];
+  // 체력바
+  const b = HUD.hp, k = p.hp / BASE.maxHp;
+  g.fillStyle = C.line; g.fillRect(b.x - 1, b.y - 1, b.w + 2, b.h + 2); g.fillStyle = "#3a1418"; g.fillRect(b.x, b.y, b.w, b.h);
+  g.fillStyle = k > 0.3 ? "#c9342c" : "#ff5a3c"; g.fillRect(b.x, b.y, Math.round(b.w * k), b.h); g.fillStyle = "#f07860"; g.fillRect(b.x, b.y, Math.round(b.w * k), 2);
+  // 투구 슬롯
+  box(HUD.main.x, HUD.main.y, 20, true); icon(HUD.main.x + 10, HUD.main.y + 39, () => helm.draw(time));
+  box(HUD.sub.x, HUD.sub.y, 14, false); g.save(); g.beginPath(); g.rect(HUD.sub.x, HUD.sub.y, 14, 14); g.clip(); icon(HUD.sub.x + 7, HUD.sub.y + 34, () => sub.draw(0)); g.restore();
+  if (p.swapCd > 0) { const h = Math.ceil(14 * p.swapCd / BASE.swapCd); g.fillStyle = "rgba(10,8,16,0.72)"; g.fillRect(HUD.sub.x, HUD.sub.y + 14 - h, 14, h); }
+  // 스킬
+  for (let i = 0; i < 2; i++) {
+    const s = HUD.skill[i], sk = helm.skills[i];
+    box(s.x, s.y, 18, cds[i] <= 0); icon(s.x + 9, s.y + 9, sk.icon);
+    if (cds[i] > 0) { const h = Math.ceil(18 * cds[i] / sk.cd); g.fillStyle = "rgba(10,8,16,0.72)"; g.fillRect(s.x, s.y + 18 - h, 18, h); }
+  }
+  // 대시 충전
+  for (let i = 0; i < BASE.dashCharges; i++) {
+    const x = HUD.dash.x + i * 9, y = HUD.dash.y;
+    g.fillStyle = C.line; g.fillRect(x - 1, y - 1, 7, 7); g.fillStyle = "#1c2a36"; g.fillRect(x, y, 5, 5);
+    if (i < p.dashes) { g.fillStyle = C.flame1; g.fillRect(x, y, 5, 5); g.fillStyle = C.flame2; g.fillRect(x, y, 5, 2); }
+    else if (i === p.dashes) { g.fillStyle = C.flame0; g.fillRect(x, y + 5 - Math.round(5 * p.dashT / BASE.dashRecharge), 5, Math.round(5 * p.dashT / BASE.dashRecharge)); }
+  }
+  // 쿨타임 반짝임
+  for (const gl of glints) {
+    const u = gl.t / 0.5, arm = Math.round(7 * Math.sin(Math.min(1, u * 1.6) * Math.PI));
+    if (gl.t < 0.07) { g.fillStyle = "#fff"; g.fillRect(gl.x - 9, gl.y - 9, 18, 18); }
+    else if (gl.t < 0.2) { g.strokeStyle = "#fff"; g.lineWidth = 1; g.strokeRect(gl.x - 9.5, gl.y - 9.5, 19, 19); }
+    if (arm > 0) starGlint(g, gl.x + 5, gl.y - 5, arm, gl.ramp[3], gl.ramp[2]);
+    glow(gl.x, gl.y, 20, gl.ramp[2], 0.6 * (1 - u));
+  }
+}
+function drawHudText() {                          // 글자는 화면 해상도로 또렷하게
+  const p = player, helm = p.helm, cds = p.cds[helm.id], S = SCALE, c = sctx;
+  const txt = (s, x, y, size = 11, col = "#fff", align = "left") => { c.font = `bold ${size}px "Malgun Gothic","Apple SD Gothic Neo",sans-serif`; c.textAlign = align; c.lineWidth = 3; c.strokeStyle = "#17131c"; c.strokeText(s, x * S, y * S); c.fillStyle = col; c.fillText(s, x * S, y * S); };
+  txt(`${p.hp} / ${BASE.maxHp}`, HUD.hp.x + HUD.hp.w + 5, HUD.hp.y + 7, 12);
+  txt(`${helm.name} · ${helm.grade} · ${helm.type}`, 8, 61, 12, "#d8f4ff");
+  ["A", "S"].forEach((kname, i) => {
+    const s = HUD.skill[i];
+    txt(kname, s.x + 1, s.y + 5, 10, "#ffe27a");
+    if (cds[i] > 0) txt(cds[i].toFixed(1), s.x + 9, s.y + 13, 13, "#fff", "center");
+  });
+  txt(p.swapCd > 0 ? p.swapCd.toFixed(1) : "Space", HUD.sub.x + 7, HUD.sub.y + 21, 10, p.swapCd > 0 ? "#fff" : "#ffe27a", "center");
+  txt("Z", HUD.dash.x + 21, HUD.dash.y + 5, 10, "#ffe27a");
+  txt(`${helm.skills[0].name} / ${helm.skills[1].name}`, 8, 69, 10, "#b8b0c4");
+  txt("←→ 이동   C 점프(2단)   Z 대시   X 공격   A·S 스킬   Space 투구 교체   R 다시 시작", W / 2, H - 5, 11, "#d0c8dc", "center");
+  for (const t of texts) txt(t.s, t.x, t.y, t.big ? 18 : 13, t.c, "center");
+  const alive = enemies.filter((e) => !e.dead).length;
+  txt(`민병 ${alive} / ${enemies.length}`, W - 8, 15, 12, "#fff", "right");
+  if (state !== "play") {
+    c.fillStyle = "rgba(8,6,14,0.55)"; c.fillRect(0, 0, W * S, H * S);
+    txt(state === "clear" ? "방 클리어!" : "보이드가 쓰러졌다…", W / 2, H / 2 - 6, 34, state === "clear" ? "#ffe27a" : "#ff6a5a", "center");
+    txt("R 키로 다시 시작", W / 2, H / 2 + 16, 16, "#fff", "center");
+  }
+}
+
+// =====================================================================================
+//  메인 루프
+// =====================================================================================
+function update(dt) {
+  for (const k in pressed) pressed[k] -= dt;
+  if (take("KeyR")) { reset(); return; }
+  shakeT = Math.max(0, shakeT - dt); whiteT = Math.max(0, whiteT - dt);
+  if (hitstop > 0) { hitstop -= dt; return; }     // 타격 정지: 모두 멈춘다
+  time += dt;
+  if (state === "play") updatePlayer(dt);
+  else { const p = player; p.vx = 0; p.vy += GRAV * dt; p.y = Math.min(FLOOR, p.y + p.vy * dt); p.act = null; p.dashing = 0; }
+  for (const e of enemies) updateEnemy(e, dt);
+  updateObjs(dt); updateFx(dt);
+  if (state === "play" && enemies.every((e) => e.dead > 0.5)) state = "clear";
+}
+function render() {
+  g.clearRect(0, 0, W, H); lg.clearRect(0, 0, W, H);
+  if (bg.complete && bg.naturalWidth) g.drawImage(bg, 0, 0, W, H); else { g.fillStyle = "#241c33"; g.fillRect(0, 0, W, H); g.fillStyle = "#3a3346"; g.fillRect(0, FLOOR, W, H - FLOOR); }
+  g.fillStyle = "rgba(14,10,24,0.28)"; g.fillRect(0, 0, W, H);     // 배경을 살짝 눌러 캐릭터가 잘 보이게
+  drawFxBack();
+  for (const e of enemies) {
+    if (e.dead > 0.25) continue;
+    g.fillStyle = "rgba(0,0,0,0.35)"; g.fillRect(Math.round(e.x) - 7, FLOOR, 14, 2);
+    drawEnemySprite(e); if (e.dead) whiten(); blit(spr, e.x, e.y, e.dir);
+    if (!e.dead && e.hp < e.maxHp) { g.fillStyle = C.line; g.fillRect(e.x - 9, e.y - 38, 18, 4); g.fillStyle = "#c9342c"; g.fillRect(e.x - 8, e.y - 37, Math.round(16 * e.hp / e.maxHp), 2); }
+  }
+  drawObjs();
+  const p = player;
+  g.fillStyle = "rgba(0,0,0,0.35)"; g.fillRect(Math.round(p.x) - 8, FLOOR, 16, 2);
+  if (!(p.blink > 0 && Math.floor(time * 20) % 2)) { drawPlayerSprite(p); blit(spr, p.x, p.y, p.dir); }
+  glow(p.x, p.y - 22, 16, C.flame1, 0.22);
+  drawFxFront();
+  if (whiteT > 0) { lg.fillStyle = "rgba(190,230,255,0.35)"; lg.fillRect(0, 0, W, H); }
+  g.globalCompositeOperation = "lighter"; g.drawImage(lightC, 0, 0); g.globalCompositeOperation = "source-over";
+  // 화면으로 (흔들림 적용) + HUD
+  const k = shakeT > 0 ? shakeAmp * (shakeT / shakeDur) : 0, ox = Math.round(rnd(-k, k)), oy = Math.round(rnd(-k, k));
+  sctx.imageSmoothingEnabled = false; sctx.fillStyle = "#000"; sctx.fillRect(0, 0, screen.width, screen.height);
+  sctx.drawImage(buf, ox * SCALE, oy * SCALE, W * SCALE, H * SCALE);
+  g.clearRect(0, 0, W, H); lg.clearRect(0, 0, W, H); drawHud();
+  g.globalCompositeOperation = "lighter"; g.drawImage(lightC, 0, 0); g.globalCompositeOperation = "source-over";
+  sctx.drawImage(buf, 0, 0, W * SCALE, H * SCALE);
+  drawHudText();
+}
+
+let last = 0, acc = 0;
+const STEP = 1 / 120;
+function frame(now) {
+  acc += Math.min(0.05, (now - last) / 1000 || 0); last = now;
+  while (acc >= STEP) { update(STEP); acc -= STEP; }
+  render(); requestAnimationFrame(frame);
+}
+reset(); requestAnimationFrame(frame);
+window.__game = { get player() { return player; }, get enemies() { return enemies; }, get state() { return state; } };
+</script>
+</body>
+</html>
