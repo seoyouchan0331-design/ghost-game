@@ -65,13 +65,13 @@ sphere("spark", "flame", (-0.3, 0, 0.95), (0.06, 0.06, 0.06), head)
 for ey in (-0.19, 0.05):
     sphere(f"eye{ey}", "dark", (0.285, ey, 0.27), (0.05, 0.07, 0.11), head)
 # 팔: 어깨 축에서 돌린다
-arms = {}
+arms = {}; parts = {}
 for sy, mat in ((-1, "iron"), (1, "back")):
     piv = empty(f"arm{sy}", (0.02, sy * 0.76, 0.66), body)
-    cyl(f"upper{sy}", mat, (0, 0, -0.2), 0.13, 0.4, piv)
-    sphere(f"fist{sy}", mat, (0.06, 0, -0.56), (0.31, 0.28, 0.28), piv)
-    torus(f"cuff{sy}", "rust", (0.02, 0, -0.33), 0.17, 0.04, piv)
-    arms[sy] = piv
+    up = cyl(f"upper{sy}", mat, (0, 0, -0.2), 0.13, 0.4, piv)
+    fi = sphere(f"fist{sy}", mat, (0.06, 0, -0.56), (0.31, 0.28, 0.28), piv)
+    cu = torus(f"cuff{sy}", "rust", (0.02, 0, -0.33), 0.17, 0.04, piv)
+    arms[sy] = piv; parts[sy] = (up, fi, cu)
 # 다리: 골반 축에서 돌린다
 legs = {}
 for sy, mat in ((-1, "iron"), (1, "back")):
@@ -119,20 +119,22 @@ def render(path, lit):
 # ---- 포즈: 동작 이름과 진행도(0..1)로 각 부위를 놓는다 ----
 def pose(anim, u):
     w = u * 6.283
-    bob = lean = 0.0; la = [0.0, 0.0]; aa = [0.15, -0.15]; ext = 1.0; blow = 0.0; fl = u
+    bob = lean = 0.0; la = [0.0, 0.0]; aa = [0.15, -0.15]; ext = 0.0; blow = 0.0; fl = u; bx = 0.0
     if anim == "idle":
         bob = 0.03 * math.sin(w); aa = [0.12 + 0.05 * math.sin(w), -0.12 - 0.05 * math.sin(w)]
     elif anim == "run":
         bob = 0.07 * abs(math.sin(w)); lean = 0.3; blow = 0.8
         la = [0.85 * math.sin(w), -0.85 * math.sin(w)]; aa = [-1.0 * math.sin(w), 1.0 * math.sin(w)]
     elif anim == "punch":                                      # 당겼다가 뻗고 돌아온다
-        keys = [(-0.25, 0.9, 0.8), (0.3, -1.5, 1.7), (0.26, -1.45, 1.6), (0.1, -0.6, 1.0)]
-        lean, a0, ext = keys[min(3, int(u * 4))]; aa = [a0, 0.7 if a0 < 0 else -0.5]; la = [-0.35, 0.3]; blow = 0.35 if a0 < 0 else 0.1
-    body.location.z = 0.62 + bob; body.rotation_euler = (0, lean, 0)
+        # (숙임, 앞팔 각도, 팔 뻗는 길이, 가까운 다리, 먼 다리, 몸 앞으로, 들썩임)
+        keys = [(-0.2, 0.8, 0.0, 0.1, -0.1, -0.05, 0.0), (0.34, -1.5, 0.6, -0.45, 0.5, 0.2, -0.05), (0.3, -1.45, 0.5, -0.4, 0.45, 0.17, -0.05), (0.1, -0.5, 0.0, -0.15, 0.2, 0.04, 0.0)]
+        lean, a0, ext, l0, l1, bx, bob = keys[min(3, int(u * 4))]; aa = [a0, 0.6 if a0 < 0 else -0.4]; la = [l0, l1]; blow = 0.35 if a0 < -1 else 0.1
+    body.location.z = 0.62 + bob; body.location.x = bx; body.rotation_euler = (0, lean, 0)
     for i, sy in enumerate((-1, 1)):
         legs[sy].rotation_euler = (0, -la[i], 0); arms[sy].rotation_euler = (0, aa[i], 0)
         legs[sy].location.z = 0.5 + (0.1 * max(0, math.sin(w + (0 if i == 0 else math.pi))) if anim == "run" else 0)
-    arms[-1].scale = (1, 1, ext)
+    up, fi, cu = parts[-1]                                      # 팔만 길어지고 주먹 크기는 그대로
+    up.location.z = -(0.2 + ext / 2); up.scale.z = (0.4 + ext) / 0.4; fi.location.z = -0.56 - ext; cu.location.z = -0.33 - ext
     for i, l in enumerate(licks):                               # 불꽃 혀가 번갈아 길어지고 흔들린다
         s = 1 + 0.35 * math.sin(fl * 6.283 + i * 2.1); l.scale = (1, 1, s); l.rotation_euler = (0, -0.25 - blow * 0.7 + 0.2 * math.sin(fl * 6.283 + i), 0)
     head.rotation_euler = (0, -lean * 0.6, 0)
