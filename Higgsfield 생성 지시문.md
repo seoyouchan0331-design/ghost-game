@@ -16,9 +16,10 @@
    - "ch1 전부", "2부 전부"처럼 묶음 이름: 그 묶음 전부.
    - "다음 N개": 이 대화에서 아직 안 뽑은 것 중 표 순서로 N개.
 2. 프롬프트는 「이미지 프롬프트 전체.md」의 해당 [이름] 아래 코드 블록 안 영어 문장을 한 글자도 바꾸지 말고 그대로 쓴다.
-3. 설정: 모델 gpt_image_2_6, aspect_ratio는 목록 표의 비율, resolution "2k", quality "high", 한 그림당 1장.
-4. 먼저 get_cost로 전체 크레딧을 계산해서 한 줄로 알려 주고, 잔액이 모자라면 표 순서대로 잔액 안에서 뽑을 수 있는 것까지만 뽑는다. 모자라지 않으면 묻지 말고 바로 뽑는다.
-5. 여러 장이면 generate_image_batch로 한 번에(최대 12장씩) 보내고 jobs_wait로 기다린 뒤 show_generation_by_ids로 한 번에 보여 준다.
+3. 설정: 모델 gpt_image_2_6, aspect_ratio는 목록 표의 비율, 한 그림당 1장, 그리고 반드시 use_unlim: true (무료 무제한 생성).
+   resolution과 quality는 models_explore(action "get", model_id "gpt_image_2_6")의 무료 생성(Unlim configs)이 허용하는 것 중 가장 높은 값을 쓴다. 허용 목록이 안 보이면 resolution과 quality를 아예 빼고 보낸다.
+4. 크레딧은 절대 쓰지 않는다. get_cost도 하지 않는다. 무료 생성이 거절되거나 무료 한도가 끝나면 그 자리에서 멈추고, 크레딧으로 바꿔 뽑지 말고, 어디까지 뽑았는지 알려 준다.
+5. 여러 장이면 generate_image_batch로 한 번에(최대 12장씩, 항목마다 use_unlim: true) 보내고 jobs_wait로 기다린 뒤 show_generation_by_ids로 한 번에 보여 준다.
 6. 끝나면 표로 정리한다: 이름 | 결과(성공/실패) | job id. 실패한 건 이유와 함께 다시 뽑을지 묻는다.
 7. 그림 내용이 프롬프트와 크게 다르면(격자 순서가 섞임, 글자가 들어감, 배경색이 다름) 표에 "확인 필요"라고 적는다.
 8. 마지막에 한 줄로: "다운로드해서 ghost-game 저장소 main에 올리면 돼(zip으로 묶어도 됨)."
