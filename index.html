@@ -341,20 +341,55 @@ const advImg = new Image(); advImg.src = "assets/adv.png";
 const advC = mk(SP, SP), advG = advC.getContext("2d");
 function drawAdvSprite(e) {
   const q = ADV_SPR[e.id]; if (!q || !ready(advImg)) return false;
-  const wind = /Wind$/.test(e.st) || e.st === "aim" || e.st === "cast", atk = e.st === "combo" || e.st === "dash" || e.st === "shoot";
+  const wind = /Wind$/.test(e.st) || e.st === "aim" || e.st === "cast" || e.st === "charge", atk = e.st === "combo" || e.st === "dash" || e.st === "shoot";
   const ang = wind ? -0.13 : atk ? 0.15 : e.st === "flip" ? -0.45 : 0, bob = e.st === "walk" && Math.abs(Math.sin(e.walkT * 9)) > 0.5 ? -1 : 0;
   const sq = e.st === "walk" ? 1 + Math.sin(e.walkT * 18) * 0.03 : wind ? 0.96 : 1;
   const c = advG; c.clearRect(0, 0, SP, SP); c.imageSmoothingEnabled = false;   // 그림은 따로 캔버스에 (로컬 파일로 열면 그림 그린 캔버스는 픽셀을 못 읽는다)
   c.save(); c.translate(SX + (atk ? 2 : 0), SY + bob); c.rotate(ang); c.scale(q.face, sq);   // 그림이 보는 방향을 오른쪽으로 맞춘다
   c.drawImage(advImg, q.r[0], q.r[1], q.r[2], q.r[3], -Math.round(q.r[2] / 2), -q.r[3], q.r[2], q.r[3]); c.restore();
-  const t0 = T; T = c; if (wind) exclaim(0, -46); if (e.stun > 0) for (let i = 0; i < 3; i++) { const a = time * 7 + i * 2.1; R(Math.cos(a) * 7, -44 + Math.sin(a) * 2, 2, 2, "#ffe27a"); } T = t0;
+  const t0 = T; T = c; if (wind) exclaim(0, -46);
+  if (e.st === "potion") { R(4, -26, 4, 6, "#d8423a"); R(5, -28, 2, 2, "#c8ccd6"); R(4, -25, 1, 3, "#ff9aa0"); }
+  if (e.st === "charge") { const f = 1 - Math.min(1, e.chargeDmg / (e.maxHp * ULT_CANCEL)); R(-12, -54, 24, 3, "#17131c"); R(-11, -53, Math.round(22 * f), 1, "#63c8ea"); } if (e.stun > 0) for (let i = 0; i < 3; i++) { const a = time * 7 + i * 2.1; R(Math.cos(a) * 7, -44 + Math.sin(a) * 2, 2, 2, "#ffe27a"); } T = t0;
   if (e.flash > 0 || e.dead) { c.globalCompositeOperation = "source-atop"; c.fillStyle = "#fff"; c.fillRect(0, 0, SP, SP); c.globalCompositeOperation = "source-over"; }
   return true;
 }
 // 견습 용사 파티 (기획서: 검사 220 돌진·3연타 / 궁수 150 거리 유지 3연사·뒤로 점프 / 사제 130 4초마다 아군 30 회복)
 const advFace = (e, dx) => { e.dir = Math.sign(dx) || e.dir; };
+// 모험가 공통 규칙: 체력 50%에서 기를 모아 필살기 (모으는 동안 최대 체력 12%를 깎으면 캔슬) → 쓰든 캔슬되든 그로기.
+// 체력 30%에서 포션을 마신다 (멈춰 서서 받는 피해 1.5배). 챕터별 인원: 1명, 2명, 3명, 4챕터는 3명 중 1명 각성, 5챕터는 없음.
+let chapter = 1;
+const ADV_COUNT = [0, 1, 2, 3, 3, 0];
+const ULT_CANCEL = 0.12, GROGGY = 3, GROGGY_CANCEL = 4;
+function strike(x, delay, dmg, r, c) { spawn({ kind: "strike", x, gy: groundAt(x, FLOOR - 2), t: delay, max: delay, dmg, r, c }); }
+function advCommon(e, dx) {                         // true를 돌려주면 이번 프레임은 직업 AI를 건너뛴다
+  if (e.st === "charge") {
+    if (Math.random() < 0.5) spark(e.x + rnd(-20, 20), e.y - rnd(0, 40), -rnd(-1, 1) * 30, -rnd(20, 60), 0.4, RAMP_GHOST, true);
+    if (e.t <= 0) { e.type.ult(e, dx); texts.push({ x: e.x, y: e.y - 56, vy: -30, t: 0.8, s: e.type.ultName, c: "#ff7a6a" }); }
+    return true;
+  }
+  if (e.st === "leap") {                            // 검사 필살기: 플레이어 위로 뛰어올라 내려찍기
+    e.x = clamp(e.x + (e.tx - e.x) * Math.min(1, STEP * 4), e.minX, e.maxX);
+    if (e.vy >= 0 && e.y >= (e.gy ?? FLOOR) - 0.5) { slam(e.x, 48, 22); advGroggy(e, GROGGY); }
+    return true;
+  }
+  if (e.st === "potion") {
+    if (e.t <= 0) { const h = Math.round(e.maxHp * 0.25); e.hp = Math.min(e.maxHp, e.hp + h); fxRing(e.x, e.y, 16, ["#1a2a10", "#3a8a3a", "#8fe08a", "#d8ffd0", "#ffffff"]); texts.push({ x: e.x, y: e.y - 48, vy: -40, t: 0.8, s: "+" + h, c: "#8fe08a" }); setSt(e, "walk", 0.6); }
+    return true;
+  }
+  if (e.st !== "walk") return false;
+  const k = e.hp / e.maxHp;
+  if (e.ultAt.length && k <= e.ultAt[0]) { e.ultAt.shift(); setSt(e, "charge", e.awake ? 1.3 : 1.6); e.chargeDmg = 0; e.vx = 0; banner = { s: `${e.type.name} — 기를 모은다! 몰아쳐서 끊어라`, t: 1.6 }; return true; }
+  if (!e.potionDone && k <= 0.3) { e.potionDone = true; setSt(e, "potion", 1.4); e.vx = 0; texts.push({ x: e.x, y: e.y - 56, vy: -20, t: 1, s: "포션!", c: "#ff9aa0" }); return true; }
+  return false;
+}
+function advGroggy(e, t) { e.st = "walk"; e.t = 0.5; e.stun = t; texts.push({ x: e.x, y: e.y - 56, vy: -25, t: 1, s: "그로기", c: "#ffe27a" }); }
+function slam(x, r, dmg) {
+  shake(5, 0.3); dust(x, FLOOR, 1, 6); dust(x, FLOOR, -1, 6); fxRing(x, FLOOR, r, RAMP_FIRE); light(x, FLOOR - 10, 60, "#ffae35", 0.6, 0.3);
+  if (Math.abs(player.x - x) < r && player.y > FLOOR - 40) hurtPlayer(dmg, Math.sign(player.x - x) || 1);
+}
 const ADV = {
-  adv_sword: { name: "견습 검사", hp: 220, speed: 62, mid: true, spr: true,
+  adv_sword: { name: "견습 검사", hp: 220, speed: 62, mid: true, spr: true, ultName: "용사의 낙하참",
+    ult(e) { e.st = "leap"; e.tx = clamp(player.x, e.minX, e.maxX); e.vy = -420; },
     ai(e, p, dx, ad) {
       if (e.st === "walk") { advFace(e, dx); if (e.t <= 0 && ad > 110 && Math.random() < 0.02) setSt(e, "dashWind", 0.5); else if (ad > 34) walkTo(e, dx); else if (e.t <= 0) setSt(e, "comboWind", 0.35); }
       else if (e.st === "comboWind") { if (e.t <= 0) { setSt(e, "combo", 0); e.n = 0; } }
@@ -369,7 +404,8 @@ const ADV = {
       if (up) { R(hx, hy - 16, 2, 16, C.steel); R(hx, hy - 16, 1, 16, C.white); } else { R(hx, hy, 18, 2, C.steel); R(hx, hy, 18, 1, C.white); } R(hx - 2, hy - 1, 2, 4, C.gold);
       hand(hx, hy); if (wind) exclaim(lean, -40);
     } },
-  adv_archer: { name: "견습 궁수", hp: 150, speed: 70, mid: true, spr: true,
+  adv_archer: { name: "견습 궁수", hp: 150, speed: 70, mid: true, spr: true, ultName: "화살비",
+    ult(e) { for (let i = 0; i < (e.awake ? 12 : 8); i++) strike(clamp(player.x + (i - 3.5) * 22 + rnd(-6, 6), ROOM_L, ROOM_R), 0.7 + i * 0.12, 12, 12, "#e8dcc0"); advGroggy(e, GROGGY); },
     ai(e, p, dx, ad) {
       if (e.st === "walk") {
         if (ad < 70 && e.t <= 0) { setSt(e, "flip", 0.45); e.vy = -280; e.fdir = -(Math.sign(dx) || 1); }
@@ -385,13 +421,15 @@ const ADV = {
       for (let i = -8; i <= 8; i++) R(hx + 2 + Math.round(3 * (1 - (i / 8) ** 2)), hy + i, 1, 1, C.wood2);
       R(hx + 2 - (aim ? 3 : 0), hy - 8, 1, 17, C.cream); hand(hx, hy); if (e.st === "aim") exclaim(lean, -40);
     } },
-  adv_cleric: { name: "견습 사제", hp: 130, speed: 52, mid: true, spr: true,
+  adv_cleric: { name: "견습 사제", hp: 130, speed: 52, mid: true, spr: true, ultName: "성광 폭발",
+    ult(e) { for (const a of enemies) if (live(a) && a.type.mid) { a.hp = Math.min(a.maxHp, a.hp + Math.round(a.maxHp * 0.3)); fxRing(a.x, a.y, 18, ["#3a2a10", "#c9a24a", "#ffe27a", "#fff6c8", "#ffffff"]); }
+      for (let i = -2; i <= 2; i++) strike(clamp(e.x + i * 40, ROOM_L, ROOM_R), 0.5 + Math.abs(i) * 0.15, 14, 16, "#ffe27a"); advGroggy(e, GROGGY); },
     ai(e, p, dx, ad) {
       if (e.st === "walk") {
         if (ad < 140) walkTo(e, -dx, 0.9, Math.sign(dx)); else advFace(e, dx);
         e.healT -= STEP;
-        if (e.healT <= 0) { const hurt = enemies.filter((x) => live(x) && x.hp < x.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]; if (hurt) { e.target = hurt; setSt(e, "cast", 0.6); } else e.healT = 1; }
-      } else if (e.st === "cast") { if (e.t <= 0) { const h = e.target; if (h && !h.dead) { h.hp = Math.min(h.maxHp, h.hp + 30); fxRing(h.x, h.y, 18, ["#3a2a10", "#c9a24a", "#ffe27a", "#fff6c8", "#ffffff"]); light(h.x, h.y - 20, 40, "#ffe27a", 0.7, 0.4); texts.push({ x: h.x, y: h.y - 40, vy: -40, t: 0.8, s: "+30", c: "#8fe08a" }); } e.healT = 4; setSt(e, "walk", 0.4); } }
+        if (e.healT <= 0) { const hurt = enemies.filter((x) => live(x) && x.hp < x.maxHp).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]; if (hurt) { e.target = hurt; setSt(e, "cast", 0.6); } else { strike(player.x, 0.8, 10, 12, "#ffe27a"); setSt(e, "cast", 0.5); e.target = null; e.healT = e.awake ? 1.5 : 2.5; } }
+      } else if (e.st === "cast") { if (e.t <= 0) { const h = e.target; if (h && !h.dead && h.hp < h.maxHp) { h.hp = Math.min(h.maxHp, h.hp + 30); fxRing(h.x, h.y, 18, ["#3a2a10", "#c9a24a", "#ffe27a", "#fff6c8", "#ffffff"]); light(h.x, h.y - 20, 40, "#ffe27a", 0.7, 0.4); texts.push({ x: h.x, y: h.y - 40, vy: -40, t: 0.8, s: "+30", c: "#8fe08a" }); } e.healT = 4; setSt(e, "walk", 0.4); } }
     },
     draw(e) {
       const cast = e.st === "cast";
@@ -831,8 +869,12 @@ function startRoom() {
   wave = 0; waveT = 0; objs = []; const r = ROOMS[room];
   L = buildRoom(r === "boss" || r === "midboss" ? BOSS_MAP : r === "shop" ? SHOP_MAP : typeof r === "string" ? FLAT : layoutPool.pop() ?? pick(LAYOUTS)); ROOM_R = L.w - 20; buildTerrain(); player.safe = [40, FLOOR];
   if (r === "midboss") {                                      // 붉은 문: 견습 용사 파티 3명 동시
-    phase = "fight"; banner = { s: "견습 용사 파티", t: 2.5 };
-    [["adv_sword", L.w - 220], ["adv_cleric", L.w - 120], ["adv_archer", L.w - 70]].forEach(([id, x], i) => { const e = newEnemy(id, x, i); e.gy = e.y = FLOOR; e.minX = ROOM_L + 10; e.maxX = ROOM_R - 10; e.dir = -1; e.healT = 3; enemies.push(e); });
+    phase = "fight"; const n = ADV_COUNT[chapter] || 1, ids = ["adv_sword", "adv_archer", "adv_cleric"].sort(() => Math.random() - 0.5).slice(0, n), xs = [L.w - 120, L.w - 220, L.w - 70];
+    const awake = chapter === 4 ? Math.floor(Math.random() * n) : -1;
+    ids.forEach((id, i) => { const e = newEnemy(id, xs[i], i); e.gy = e.y = FLOOR; e.minX = ROOM_L + 10; e.maxX = ROOM_R - 10; e.dir = -1; e.healT = 3; e.ultAt = [0.5]; e.potionDone = false;
+      if (i === awake) { e.awake = true; e.hp = e.maxHp = Math.round(e.maxHp * 2.5); e.speed *= 1.25; e.ultAt = [0.6, 0.25]; }
+      enemies.push(e); });
+    banner = { s: n === 1 ? ENEMIES[ids[0]].name : awake >= 0 ? `각성한 ${ENEMIES[ids[awake]].name}와 일행` : "견습 용사 파티", t: 2.5 };
   } else if (r === "boss") {                                         // 보스 방: 골렘이 땅에서 솟아오른다
     phase = "fight"; banner = { s: "마을 수호 골렘", t: 2.5 };
     const g = newEnemy("golem", L.w - 150); g.born = 1.2; g.dir = -1; g.gy = g.y = FLOOR; g.minX = ROOM_L + 40; g.maxX = ROOM_R - 40; g.phase = 1; g.t = 1.5; enemies.push(g); shake(4, 1);
@@ -935,7 +977,9 @@ function damage(e, base, o = {}) {
   if (e.frozen > 0 && !o.quiet) { if (cr("frost", 4)) { mult *= 1.4; shard = 20; } e.frozen = 0; fxRing(e.x, e.y - 12, 14, ["#0c1430", "#58b4ec", "#9bdcff", "#d8f4ff", "#fff"]); }   // 맞으면 빙결이 풀린다
   const crit = !o.quiet && Math.random() < BASE.critChance + stat("crit"), dir = o.dir ?? 1;
   const blocked = !!e.type.shield && !stat("pierce") && e.stun <= 0 && !e.frozen && !o.above && !o.quiet && o.sx != null && (o.sx - e.x) * e.dir > 0;   // 방패 정면
-  const dmg = Math.max(1, Math.round(base * mult * (1 + atkBonus) * (crit ? BASE.critMult : 1) * (blocked ? 0.2 : 1)));
+  const dmg = Math.max(1, Math.round(base * mult * (1 + atkBonus) * (crit ? BASE.critMult : 1) * (blocked ? 0.2 : 1) * (e.st === "potion" ? 1.5 : 1)));
+  if (e.st === "charge") { e.chargeDmg += dmg; if (e.chargeDmg >= e.maxHp * ULT_CANCEL) { advGroggy(e, GROGGY_CANCEL); fxRing(e.x, e.y - 20, 30, RAMP_GHOST); hitstop = 0.12; shake(4, 0.25); texts.push({ x: e.x, y: e.y - 70, vy: -30, t: 1, s: "캔슬!", c: "#63c8ea" }); } }
+  const armor = e.st === "charge" || e.st === "potion" || e.st === "leap";
   const bleeding = e.bleedT > 0, wasFrozen = shard > 0;
   e.hp -= dmg + shard; e.flash = 0.1;
   if (o.burn) { e.burn = o.burn; e.burnT = 1; }
@@ -952,7 +996,7 @@ function damage(e, base, o = {}) {
       e.vx = dir * 40; fxHit(e.x + e.dir * 10, e.y - 14, -dir, ["#30343c", "#6a7284", "#a8b0c0", "#dfe6f0", "#ffffff"], false);
       texts.push({ x: e.x, y: e.y - 46, vy: -30, t: 0.6, s: "막힘", c: "#a8b0c0" }); hitstop = Math.max(hitstop, 0.04);
     } else {
-      if (!e.type.boss) { e.vx = dir * (o.kb ?? 90) * (e.type.shield ? 0.5 : 1); e.vy = Math.min(e.vy, -60);
+      if (!e.type.boss && !armor) { e.vx = dir * (o.kb ?? 90) * (e.type.shield ? 0.5 : 1); e.vy = Math.min(e.vy, -60);
       if (o.stun) e.stun = Math.max(e.stun, o.stun);
       if (e.st === "windup" && !e.type.shield) setSt(e, "walk", 0.35); }
       const big = crit || o.heavy || (o.mult ?? 1) > 1.2;
@@ -1328,9 +1372,10 @@ function updateEnemy(e, dt) {
   }
   if (e.frozen > 0) { e.frozen -= dt; return; }                  // 빙결: 행동 정지, 다음 피격 시 해제
   if (e.stun > 0) { e.stun -= dt; return; }
-  e.t -= dt;
+  e.t -= dt * (e.awake ? 1.4 : 1);
   if (state !== "play" && e.st === "walk") return;
   const dx = player.x - e.x;
+  if (e.type.mid && advCommon(e, dx)) return;
   e.type.ai(e, player, dx, Math.abs(dx));
 }
 function drawEnemySprite(e) {
@@ -1406,6 +1451,9 @@ function updateObjs(dt) {
       o.age += dt; o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt;
       if (Math.abs(p.x - o.x) < 9 && o.y > p.y - 28 && o.y < p.y) { hurtPlayer(10, Math.sign(o.vx) || 1); o.gone = true; }
       else if (o.y >= groundAt(o.x, o.y - 8)) { o.gone = true; spawn({ kind: "fire", x: clamp(o.x, ROOM_L, ROOM_R), gy: groundAt(o.x, o.y - 8), life: 2 }); light(o.x, FLOOR - 6, 40, "#ffae35", 0.6, 0.25); }
+    } else if (o.kind === "strike") {                            // 표시 후 떨어지는 공격 (화살비·빛기둥)
+      o.t -= dt; if (o.t <= 0) { o.gone = true; fxRing(o.x, o.gy, o.r, ["#2a2010", "#8a7a4a", o.c, "#fff6c8", "#ffffff"]); light(o.x, o.gy - 10, 30, o.c, 0.6, 0.2); dust(o.x, o.gy, 0, 3);
+        if (Math.abs(p.x - o.x) < o.r && p.y > o.gy - 40 && p.y < o.gy + 4) hurtPlayer(o.dmg, Math.sign(p.x - o.x) || 1); }
     } else if (o.kind === "eshot") {                             // 적 화살
       o.x += o.vx * dt; o.age = (o.age ?? 0) + dt;
       if (Math.abs(p.x - o.x) < 8 && o.y > p.y - 28 && o.y < p.y + 2) { hurtPlayer(o.dmg, Math.sign(o.vx)); o.gone = true; }
@@ -1468,6 +1516,9 @@ function drawObjs(back) {
     } else if (o.kind === "torch") {
       world(o.x, o.y, () => { const a = o.age * 14; R(Math.cos(a) * -4 - 1, Math.sin(a) * -4 - 1, 3, 3, C.wood2); R(-1, -1, 3, 3, C.wood); flame(Math.cos(a) * 4, Math.sin(a) * 4 + 3, 2, 7, time, FIRE); });
       glow(o.x, o.y, 20, "#ffae35", 0.5);
+    } else if (o.kind === "strike") {
+      const k = 1 - o.t / o.max, x = Math.round(o.x), w = Math.round(o.r * 2 * k); g.fillStyle = "#d8423a"; g.fillRect(x - Math.round(w / 2), Math.round(o.gy) - 1, w, 2);
+      if (o.t < 0.25) { g.fillStyle = o.c; g.fillRect(x - 1, Math.round(o.gy) - 60 + Math.round(60 * (1 - o.t / 0.25)), 2, 14); glow(o.x, o.gy - 10, 20, o.c, 0.5); }
     } else if (o.kind === "eshot") {
       const d = Math.sign(o.vx); g.fillStyle = "#e8dcc0"; g.fillRect(Math.round(o.x - d * 10), Math.round(o.y), 10, 1); g.fillStyle = "#c8ccd6"; g.fillRect(Math.round(o.x - (d < 0 ? 0 : 1)), Math.round(o.y) - 1, 2, 3); g.fillStyle = "#d8423a"; g.fillRect(Math.round(o.x - d * 11), Math.round(o.y) - 1, 2, 3);
     } else if (o.kind === "rock") {
@@ -1643,6 +1694,8 @@ function render() {
     blit(drawEnemySprite(e), e.x, e.y, e.dir);
     if (e.burn > 0) glow(e.x, e.y - 12, 18, "#ff8a2a", 0.35);
     if (e.type.mid && e.st === "cast") glow(e.x, e.y - 30, 26, "#ffe27a", 0.5);
+    if (e.st === "charge") glow(e.x, e.y - 20, 30 + Math.sin(time * 20) * 4, "#63c8ea", 0.6);
+    if (e.awake && !e.dead) glow(e.x, e.y - 20, 24, "#d8423a", 0.35);
     if (!e.dead && e.hp < e.maxHp) { const yy = Math.round(e.y) - (e.type.low ? 26 : 44), xx = Math.round(e.x); g.fillStyle = C.line; g.fillRect(xx - 10, yy, 20, 4); g.fillStyle = "#c9342c"; g.fillRect(xx - 9, yy + 1, Math.round(18 * e.hp / e.maxHp), 2); }
   }
   drawObjs(false);
@@ -1756,7 +1809,7 @@ goCastle(); requestAnimationFrame(frame);
 // 시험용 손잡이
 window.__gameL = () => L; window.__items = ITEMS;
 window.__meta = () => meta; window.__startRun = () => startRun();
-window.__game = { goto(n) { room = n; enemies = []; player.x = 60; player.y = FLOOR; startRoom(); }, get player() { return player; }, get enemies() { return enemies; }, get state() { return state; }, get room() { return room; }, get wave() { return wave; }, get objs() { return objs; },
+window.__game = { set chapter(v) { chapter = v; }, goto(n) { room = n; enemies = []; player.x = 60; player.y = FLOOR; startRoom(); }, get player() { return player; }, get enemies() { return enemies; }, get state() { return state; }, get room() { return room; }, get wave() { return wave; }, get objs() { return objs; },
   lineup() { enemies = ["militia", "torch", "shield", "hound"].map((id, i) => Object.assign(newEnemy(id, 200 + i * 60), { born: 0, speed: 0, t: 99, dir: -1 })); } };
 </script>
 </body>
