@@ -22,7 +22,10 @@ sq = sorted([s for s in boxes if 0.6 < asp(s) < 1.6], key=lambda s: s[1].start)
 hz = sorted([s for s in boxes if asp(s) >= 2.2], key=lambda s: s[0].start)
 vt = [s for s in boxes if asp(s) <= 0.45]
 print("pieces", len(sq), len(hz), len(vt))
-cut = lambda s: rgba(a[s], m[s] * 255); full = lambda s: rgba(a[s], np.full(m[s].shape, 255))
+cut = lambda s: rgba(a[s], m[s] * 255)
+def full(s):                                  # 질감은 가장자리 테두리를 6% 잘라내고 통째로 (이음매 줄 방지)
+    h, w = s[0].stop - s[0].start, s[1].stop - s[1].start; s = (slice(s[0].start + h * 6 // 100, s[0].stop - h * 6 // 100), slice(s[1].start + w * 6 // 100, s[1].stop - w * 6 // 100))
+    return rgba(a[s], np.full((s[0].stop - s[0].start, s[1].stop - s[1].start), 255))
 out = {"fill": (full(sq[0]), (64, 64)), "back": (full(sq[1]), (64, 64))}
 for name, s, h in (("top", hz[0], 22), ("under", hz[1], 18), ("plank", hz[2], 12)):
     p = cut(s); p = p.crop(p.getbbox()); out[name] = (p, (round(p.width * h / p.height), h))

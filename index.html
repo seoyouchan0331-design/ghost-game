@@ -1433,7 +1433,11 @@ function render() {
   glow(p.x + p.dir * 2, p.y - 30, 18, C.flame1, 0.3); glow(p.x, p.y - 12, 34, C.flame0, 0.12);
   drawFxFront();
   g.restore(); lg.restore();
-  if (ready(ch1Img.front)) layer(ch1Img.front, CH1.front[0], CH1.front[1], 1.2, 22);   // 앞 덤불 실루엣
+  if (ready(ch1Img.front)) {                                     // 앞 실루엣: 위쪽 잎은 화면 맨 위에 붙이고, 아래 덤불만 바닥 쪽으로 내린다
+    const fw = CH1.front[0], fh = CH1.front[1];
+    g.save(); g.beginPath(); g.rect(0, 0, W, H / 2); g.clip(); layer(ch1Img.front, fw, fh, 1.2, -46); g.restore();
+    g.save(); g.beginPath(); g.rect(0, H / 2, W, H / 2); g.clip(); layer(ch1Img.front, fw, fh, 1.2, 22); g.restore();
+  }
   for (const m of embers) if (m.near) { g.fillStyle = "#f2ffc8"; g.fillRect(Math.round(m.x), Math.round(m.y), 2, 2); glow(m.x, m.y, 7, "#c8ff9a", 0.35 + 0.25 * Math.sin(time * 4 + m.ph)); }
   g.drawImage(vignette, 0, 0);
   if (whiteT > 0) { lg.fillStyle = "rgba(190,230,255,0.35)"; lg.fillRect(0, 0, W, H); }
