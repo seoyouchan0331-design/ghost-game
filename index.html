@@ -15,7 +15,7 @@
 <script>
 "use strict";
 /* =====================================================================================
-   갑옷 속의 유령 — 9단계 (챕터 1 맵 그림: 원근 배경 3겹·지형 질감·소품)
+   갑옷 속의 유령 — 10단계 (보스: 마을 수호 골렘 — 2페이즈, 핵 약점, 주먹 발판)
    보이드 몸은 Blender로 뽑은 스프라이트 시트(art/void), 투구·무기·적·이펙트는 코드로 그린다.
    이펙트는 pixelfx(MIT, Sprite Fusion의 Hugo Duprez 기법 기반)의 방식을 옮겨 썼다:
    색 레이어 + 가산 빛 레이어, 속도만큼 늘어나는 불꽃, 1~2프레임 흰 섬광, 타격 정지.
@@ -266,7 +266,74 @@ function human(e, o) {                           // 사람형 적의 공통 몸
 const hand = (x, y) => { E(x, y, 2, 2, C.skin); R(x - 1, y + 1, 3, 1, C.skin2); };
 function exclaim(x, y) { R(x, y - 6, 2, 5, C.red); R(x, y, 2, 2, C.red); R(x, y - 6, 1, 5, "#ff8a7a"); }
 
+// 마을 수호 골렘 (기획서: 체력 1200, 50%에서 2페이즈, 가슴 핵 1.5배)
+// 상태: walk(다음 패턴 고르기) → slamWind/slam/fistRest, throwWind/throw, stompWind/stomp, (2페이즈) chargeWind/charge/stunned, roar
+function golemAI(e, p, dx, ad) {
+  const k = e.phase === 2 ? 1.25 : 1, T = (v) => v / k;
+  e.fist = e.st === "fistRest" ? e.fist : null;
+  if (e.st !== "charge" && Math.abs(p.x - e.x) < e.type.hw - 6 && p.y > e.y - 96) hurtPlayer(10, Math.sign(p.x - e.x) || 1);   // 몸에 닿으면 피해
+  if (e.phase === 1 && e.hp <= e.maxHp / 2) { e.phase = 2; setSt(e, "roar", 1.5); e.invuln = 1.5; shake(5, 0.8); banner = { s: "골렘이 불타오른다!", t: 2 }; e.summonT = 3; }
+  if (e.invuln > 0) e.invuln -= STEP;
+  if (e.phase === 2 && e.st !== "roar" && (e.summonT -= STEP) <= 0) { e.summonT = 15; for (let i = 0; i < 2; i++) { const q = L.spawns[i % L.spawns.length], t = newEnemy("torch", q.x, i); t.gy = t.y = q.y; [t.minX, t.maxX] = span(q.x, q.y); enemies.push(t); } }
+  const fx = () => e.x + e.dir * 58;
+  if (e.st === "walk") {
+    e.dir = Math.sign(dx) || e.dir;
+    if (ad > 140) { e.x = clamp(e.x + e.dir * e.speed * k * STEP, e.minX, e.maxX); e.walkT += STEP; }
+    if (e.t <= 0) {
+      const n = ad < 100 ? "slam" : pick(["slam", "throw", "stomp", ...(e.phase === 2 ? ["charge", "charge"] : [])]);
+      setSt(e, n + "Wind", T({ slam: 1, throw: 0.7, stomp: 0.8, charge: 0.8 }[n])); e.n = 0;
+    }
+  } else if (e.st === "slamWind") { if (e.t <= 0) {                       // 내려치기: 앞쪽 바닥 20, 끝나면 2초간 주먹이 발판
+      setSt(e, "fistRest", 2); const x = fx(); e.fist = { x0: x - 20, x1: x + 20, y: FLOOR - 18 };
+      if (Math.abs(p.x - x) < 30 && p.y > FLOOR - 34) hurtPlayer(20, e.dir);
+      shake(5, 0.3); dust(x, FLOOR, 1, 6); dust(x, FLOOR, -1, 6); fxRing(x, FLOOR, 36, RAMP_FIRE); light(x, FLOOR - 10, 60, "#ffae35", 0.5, 0.3);
+      if (e.phase === 2) for (const o of [-16, 16]) spawn({ kind: "fire", x: x + o, gy: FLOOR, life: 3 });
+    } }
+  else if (e.st === "fistRest") { if (e.t <= 0) setSt(e, "walk", T(1.2)); }
+  else if (e.st === "throwWind") { if (e.t <= 0) setSt(e, "throw", 0); }
+  else if (e.st === "throw") { if (e.t <= 0) {                             // 바위 3개, 0.5초 간격, 던질 때의 보이드 위치로
+      const sx = e.x - e.dir * 10, sy = e.y - 120; spawn({ kind: "rock", x: sx, y: sy, vx: clamp((p.x - sx) / 0.9, -320, 320), vy: -200, age: 0 });
+      e.n++; e.t = T(0.5); if (e.n >= 3) setSt(e, "walk", T(1.3)); } }
+  else if (e.st === "stompWind") { if (e.t <= 0) {                        // 충격파 2번: 점프로 피한다
+      for (const d of [-1, 1]) spawn({ kind: "wave", x: e.x + d * 30, dir: d, age: 0 }); shake(4, 0.25); dust(e.x, FLOOR, 1, 5); dust(e.x, FLOOR, -1, 5);
+      e.n++; if (e.n < 2) e.t = T(0.7); else setSt(e, "walk", T(1.3)); } }
+  else if (e.st === "chargeWind") { if (e.t <= 0) setSt(e, "charge", 4); }
+  else if (e.st === "charge") {                                           // 화염 돌진: 맵 끝까지, 벽에 박으면 3초 기절
+    e.x = clamp(e.x + e.dir * 300 * STEP, e.minX, e.maxX); e.walkT += STEP * 3;
+    if (Math.abs(p.x - e.x) < e.type.hw && p.y > e.y - 96) hurtPlayer(25, e.dir);
+    if (Math.random() < 0.5) spark(e.x - e.dir * 20, e.y - rnd(10, 90), -e.dir * rnd(40, 120), rnd(-60, 0), 0.4, RAMP_FIRE, true);
+    if (e.x <= e.minX || e.x >= e.maxX) { setSt(e, "stunned", 3); shake(7, 0.5); dust(e.x + e.dir * 30, FLOOR, -e.dir, 10); texts.push({ x: e.x, y: e.y - 120, vy: -20, t: 1.5, s: "기절!", c: "#ffe27a" }); }
+  }
+  else if (e.st === "stunned" || e.st === "roar") { if (e.t <= 0) setSt(e, "walk", T(1)); }
+}
+// 골렘 그림 (그림 boss1_parts가 오기 전 임시): 돌 덩어리를 쌓고 상태마다 주먹 위치를 바꾼다
+function drawGolem(e) {
+  const d = e.dir, fl = e.flash > 0, ph2 = e.phase === 2, st = e.st, tt = time;
+  const col = (c) => (fl ? "#ffffff" : c), S = ["#3b3646", "#565063", "#736c80", "#938ba0"], MOSS = ["#3f6630", "#5f8a42"], CORE = "#ffae35";
+  const rr = (x, y, w, h, c) => R(d > 0 ? x : -x - w, y, w, h, col(c)), ee = (x, y, rx, ry, c) => E(d * x, y, rx, ry, col(c));
+  const bob = st === "stomp" || st === "stompWind" ? -3 + Math.round(Math.sin(tt * 30)) : st === "chargeWind" ? 8 : st === "stunned" ? 6 : st === "roar" ? Math.round(Math.sin(tt * 40) * 2) : Math.round(Math.sin(e.walkT * 6));
+  const [fx, fy] = { slamWind: [24, -134], slam: [58, -14], fistRest: [58, -14], throwWind: [-26, -124], throw: [34, -100], chargeWind: [50, -34], charge: [52, -50], stunned: [44, -20] }[st] ?? [42, -40];
+  world(e.x, e.y, () => {
+    rr(-28, -32, 22, 32, S[1]); rr(-28, -32, 22, 4, S[2]); rr(6, -32, 22, 32, S[0]); rr(6, -32, 22, 4, S[1]); rr(-30, -6, 26, 6, S[0]); rr(4, -6, 26, 6, S[0]);   // 다리
+    at(0, bob, () => {
+      ee(-34, -86, 15, 13, S[0]); for (let i = 0; i < 4; i++) ee(-40, -74 + i * 10, 9, 7, S[0]); ee(-40, -34, 15, 12, S[1]);   // 뒷팔
+      rr(-32, -44, 64, 16, S[0]); ee(0, -70, 36, 30, S[1]); ee(-4, -74, 30, 24, S[2]); ee(-12, -86, 14, 8, S[3]);              // 몸통
+      for (const [x, y, w] of [[-28, -96, 16], [14, -50, 12], [-30, -58, 8]]) { rr(x, y, w, 3, MOSS[1]); rr(x + 2, y + 3, 3, 5, MOSS[0]); rr(x + w - 5, y + 3, 2, 7, MOSS[0]); }
+      if (ph2) for (const [x, y, h] of [[-14, -90, 18], [18, -78, 14], [-22, -60, 12], [8, -40, 8]]) { rr(x, y, 2, h, "#ff7a2a"); rr(x + 1, y + 3, 1, h - 6, "#ffe27a"); }
+      ee(6, -56, 10, 10, "#7a2a10"); ee(6, -56, 8, 8, st === "stunned" && (tt * 8 | 0) % 2 ? "#fff2b0" : CORE); ee(4, -58, 3, 3, "#fff2b0");   // 가슴 핵
+      rr(-16, -116, 32, 22, S[1]); rr(-16, -116, 32, 4, S[2]); rr(-12, -120, 24, 5, S[2]); rr(3, -108, 5, 3, ph2 ? "#ff5a2a" : CORE); rr(10, -108, 5, 3, ph2 ? "#ff5a2a" : CORE);   // 머리
+      ee(30, -86, 15, 13, S[1]); ee(28, -90, 10, 7, S[2]);                                                                      // 앞 어깨
+      for (let i = 1; i < 6; i++) { const u = i / 6; ee(30 + (fx - 30) * u, -86 + (fy - bob - -86) * u, 9, 8, S[1]); }
+      ee(fx, fy - bob, 16, 14, S[1]); ee(fx - 2, fy - bob - 4, 11, 8, S[2]); rr(fx - 8, fy - bob - 10, 6, 2, S[3]);           // 앞 주먹
+      if (ph2) for (const sx of [-34, 30]) flame(d * sx, -100, 4, 12, tt + sx, FIRE);
+    });
+  });
+  glow(e.x + d * 6, e.y - 56 + bob, 26, CORE, st === "stunned" ? 0.8 : 0.45); glow(e.x + d * 12, e.y - 106 + bob, 14, ph2 ? "#ff5a2a" : CORE, 0.4);
+  if (ph2) glow(e.x, e.y - 60, 70, "#ff5a2a", 0.18 + 0.05 * Math.sin(tt * 9));
+  if (st === "slamWind" || st === "throwWind" || st === "stompWind" || st === "chargeWind") glow(e.x, e.y - 60, 60, "#ff3a2a", 0.15 + 0.12 * Math.sin(tt * 30));   // 예고 동작: 붉게 깜빡임
+}
 const ENEMIES = {
+  golem: { name: "마을 수호 골렘", hp: 1200, speed: 22, boss: true, hw: 34, hh: 108, core: (e) => ({ x: e.x + e.dir * 6, y: e.y - 56 }), ai: golemAI, draw() {}, drawWorld: drawGolem },
   militia: { name: "민병", hp: 30, speed: 30,      // 느리게 다가와 창 찌르기 8
     ai(e, p, dx, ad) {
       if (e.st === "walk") { if (ad > 32) walkTo(e, dx); else if (e.t <= 0 && Math.abs(p.y - e.y) < 44) setSt(e, "windup", 0.55); }
@@ -342,6 +409,7 @@ const ROOMS = [
   "shop",
   [["shield", "torch", "hound", "hound"], ["militia", "militia", "torch", "torch"], ["shield", "shield", "torch", "hound", "hound"]],
   [["hound", "hound", "hound", "hound"], ["shield", "torch", "torch", "militia"], ["shield", "shield", "torch", "torch", "militia"]],
+  "boss",
 ];
 // 아이템 20개 (기획서 순서 = assets/items48.png 아이콘 순서). grade 0 녹슨 / 1 단련된 / 2 명품.
 // mod의 값은 stat()으로 모두 더해져 적용되고, crest 두 개는 각인 개수로 세어진다.
@@ -395,7 +463,7 @@ function nine(n, x, y, w, h, t, sd) {                           // 9칸 늘이�
 }
 const itemImg = { big: new Image(), small: new Image() }; itemImg.big.src = "assets/items48.png"; itemImg.small.src = "assets/items16.png";
 // 보상 문 4종과 등장 비중 (휴식은 고정 방 표시용)
-const REWARDS = { gold: { name: "금화", w: 35, c: "#ffd24a" }, chest: { name: "상자", w: 30, c: "#e08a3c" }, helm: { name: "투구", w: 20, c: "#63c8ea" }, scrap: { name: "쇳조각", w: 15, c: "#b0a8ba" }, rest: { name: "휴식", w: 0, c: "#8fc05a" }, shop: { name: "상점", w: 0, c: "#ffd24a" } };
+const REWARDS = { gold: { name: "금화", w: 35, c: "#ffd24a" }, chest: { name: "상자", w: 30, c: "#e08a3c" }, helm: { name: "투구", w: 20, c: "#63c8ea" }, scrap: { name: "쇳조각", w: 15, c: "#b0a8ba" }, boss: { name: "보스", w: 0, c: "#ff7a2a" }, rest: { name: "휴식", w: 0, c: "#8fc05a" }, shop: { name: "상점", w: 0, c: "#ffd24a" } };
 // 방 프리팹: w = 방 너비, plats = 단방향 발판 [x, 바닥에서의 높이, 너비], spawns = 적이 나오는 바닥 자리.
 // 전투 방은 이 목록에서 겹치지 않게 하나씩 뽑아 쓴다. 방 모양을 늘리려면 여기에 추가.
 // 방 지도(프리팹): 위에서 아래로 한 줄씩. 맨 아래 줄이 바닥이고 그 윗면이 FLOOR 높이다. 한 칸 16px.
@@ -404,6 +472,10 @@ const REWARDS = { gold: { name: "금화", w: 35, c: "#ffd24a" }, chest: { name: 
 // 규칙: 시작 지점(왼쪽 2~3칸), 가운데(보상 자리), 오른쪽 끝 7칸(문 자리)은 바닥을 비워 두지 않는다.
 const MAP = (...rows) => rows;
 const FLAT = MAP("............................", "............................", "............................", "............................", "............................", "............................", "............................", "############################");
+// 보스 방: 넓고 평평한 바닥, 양옆에 피할 발판
+const BOSS_MAP = MAP("......................................", "......................................", "......................................", "......................................",
+  "......................................", "...=======....................=======.", "......................................", "......................................",
+  "......................................", ".......E......................E.......", "######################################");
 const LAYOUTS = [
   MAP("......................................",
       "......................................",
@@ -617,8 +689,11 @@ const freeItems = () => ITEMS.filter((it) => !player.items.includes(it));
 const fightNo = () => ROOMS.slice(0, room + 1).filter((r) => typeof r !== "string").length;
 function startRoom() {
   wave = 0; waveT = 0; objs = []; const r = ROOMS[room];
-  L = buildRoom(typeof r === "string" ? FLAT : layoutPool.pop() ?? pick(LAYOUTS)); ROOM_R = L.w - 20; buildTerrain(); player.safe = [40, FLOOR];
-  if (r === "start") { phase = "clear"; banner = { s: "투구를 줍고(↑) 문을 고르자", t: 3 }; spawn({ kind: "pickup", id: pick(freeHelms()).id, x: 240 }); openDoors(); }
+  L = buildRoom(r === "boss" ? BOSS_MAP : typeof r === "string" ? FLAT : layoutPool.pop() ?? pick(LAYOUTS)); ROOM_R = L.w - 20; buildTerrain(); player.safe = [40, FLOOR];
+  if (r === "boss") {                                         // 보스 방: 골렘이 땅에서 솟아오른다
+    phase = "fight"; banner = { s: "마을 수호 골렘", t: 2.5 };
+    const g = newEnemy("golem", L.w - 150); g.born = 1.2; g.dir = -1; g.gy = g.y = FLOOR; g.minX = ROOM_L + 40; g.maxX = ROOM_R - 40; g.phase = 1; g.t = 1.5; enemies.push(g); shake(4, 1);
+  } else if (r === "start") { phase = "clear"; banner = { s: "투구를 줍고(↑) 문을 고르자", t: 3 }; spawn({ kind: "pickup", id: pick(freeHelms()).id, x: 240 }); openDoors(); }
   else if (r === "shop") {                                     // 상점: 아이템 3개(80G) + 회복 물약(50G)
     phase = "clear"; banner = { s: "상점 — ↑로 구매", t: 2.5 };
     freeItems().sort(() => Math.random() - 0.5).slice(0, 3).forEach((it, i) => spawn({ kind: "shop", x: 140 + i * 62, item: it, price: priceOf(it) }));
@@ -681,10 +756,11 @@ function melee(p, o) {
   let n = 0;
   for (const e of enemies) {
     if (!live(e) || (o.once && o.once.has(e))) continue;
-    if (e.x + 7 < xa || e.x - 7 > xb || e.y < p.y + o.y0 || e.y - (e.type.low ? 14 : 26) > p.y + o.y1) continue;
+    const hw = e.type.hw ?? 7, hh = e.type.hh ?? (e.type.low ? 14 : 26);
+    if (e.x + hw < xa || e.x - hw > xb || e.y < p.y + o.y0 || e.y - hh > p.y + o.y1) continue;
     if (o.once) o.once.add(e);
     const dir = o.swap ? Math.sign(e.x - p.x) || p.dir : p.dir;
-    damage(e, o.dmg, { dir, kb: o.kb ?? 90, stun: o.stun, heavy: o.heavy, mult: o.mult, ramp: p.helm.ramp, y: clamp(p.y - 12, e.y - 22, e.y - 4), sx: p.x, above: p.y < e.y - 16 });
+    damage(e, o.dmg, { dir, kb: o.kb ?? 90, stun: o.stun, heavy: o.heavy, mult: o.mult, ramp: p.helm.ramp, y: clamp(p.y - 12, e.y - (e.type.hh ?? 26) + 4, e.y - 4), sx: p.x, above: p.y < e.y - 16, box: [xa, xb, p.y + o.y0, p.y + o.y1] });
     n++;
   }
   return n;
@@ -695,7 +771,7 @@ function shot(p, o) {
 }
 // 원형 폭발
 function blast(x, y, r, dmg, ramp) {
-  for (const e of enemies) if (live(e) && Math.hypot(e.x - x, e.y - 12 - y) < r + 8) damage(e, dmg, { dir: Math.sign(e.x - x) || 1, kb: 180, heavy: true, ramp, above: true });
+  for (const e of enemies) if (live(e) && Math.hypot(Math.max(0, Math.abs(e.x - x) - (e.type.hw ?? 0)), e.y - 12 - y) < r + 8) damage(e, dmg, { dir: Math.sign(e.x - x) || 1, kb: 180, heavy: true, ramp, above: true });
   fxRing(x, FLOOR, r, ramp); flashes.push({ kind: "burst", x, y, r, t: 0, ramp });
   light(x, y, r * 1.8, ramp[2], 0.8, 0.3); light(x, y, r * 0.7, "#fff", 0.7, 0.14); shake(4, 0.22);
   for (let i = 0; i < 18; i++) { const a = rnd(0, 6.28), v = rnd(120, 300); spark(x, y, Math.cos(a) * v, Math.sin(a) * v - 40, rnd(0.25, 0.5), ramp); }
@@ -704,6 +780,9 @@ function blast(x, y, r, dmg, ramp) {
 // 기획서 피해 공식: 기본 피해 × (1 + 공격력 증가 합) × 치명타 배율
 function damage(e, base, o = {}) {
   if (e.dead) return;
+  if (e.invuln > 0 && !o.quiet) { texts.push({ x: e.x, y: e.y - 60, vy: -30, t: 0.5, s: "무적", c: "#ff9a7a" }); return; }
+  if (e.type.core && o.box) { const k = e.type.core(e), b = o.box;   // 약점(핵)에 닿으면 1.5배
+    if (k.x > b[0] - 14 && k.x < b[1] + 14 && k.y > b[2] - 14 && k.y < b[3] + 14) { o = { ...o, mult: (o.mult ?? 1) * 1.5, heavy: true, y: k.y }; texts.push({ x: k.x, y: k.y - 18, vy: -40, t: 0.6, s: "약점!", c: "#ffae35" }); } }
   const p = player, atkBonus = o.quiet ? 0 : stat(p.helm.magic ? "magic" : "phys") + stat(p.src) + stat("atk")
     + (cr("gold", 4) ? Math.min(0.3, Math.floor(p.gold / 100) * 0.03) : 0) + (p.swapAtkT > 0 ? stat("swapAtk") : 0);
   let mult = (o.mult ?? 1) * (p.src === "swap" && cr("ghost", 4) && !o.quiet && !o.noProc ? 2 : 1), shard = 0;
@@ -719,7 +798,7 @@ function damage(e, base, o = {}) {
       const x = e.x, y = e.y - 12; fxRing(x, e.y, 26, RAMP_FIRE); flashes.push({ kind: "burst", x, y, r: 18, t: 0, ramp: RAMP_FIRE }); light(x, y, 40, "#ffae35", 0.6, 0.2);
       for (const t of enemies) if (live(t) && Math.hypot(t.x - x, t.y - 12 - y) < 30) damage(t, 15, { dir: Math.sign(t.x - x) || 1, kb: 120, ramp: RAMP_FIRE, noProc: true, above: true, burn: cr("powder", 4) ? 3 : 0 });
     }
-    if (cr("frost", 2) && e.hp > 0 && Math.random() < 0.08) { e.frozen = 1.5 + stat("freezeDur"); e.st = "walk"; texts.push({ x: e.x, y: e.y - 46, vy: -30, t: 0.6, s: "빙결", c: "#9bdcff" }); }
+    if (cr("frost", 2) && e.hp > 0 && !e.type.boss && Math.random() < 0.08) { e.frozen = 1.5 + stat("freezeDur"); e.st = "walk"; texts.push({ x: e.x, y: e.y - 46, vy: -30, t: 0.6, s: "빙결", c: "#9bdcff" }); }
     if (cr("blood", 2) && e.hp > 0 && Math.random() < 0.1) { e.bleedN = Math.min(3, (e.bleedN ?? 0) + 1); e.bleedT = 4; e.bleedTick = e.bleedTick > 0 ? e.bleedTick : 1; }
   }
   if (!o.quiet) {
@@ -727,9 +806,9 @@ function damage(e, base, o = {}) {
       e.vx = dir * 40; fxHit(e.x + e.dir * 10, e.y - 14, -dir, ["#30343c", "#6a7284", "#a8b0c0", "#dfe6f0", "#ffffff"], false);
       texts.push({ x: e.x, y: e.y - 46, vy: -30, t: 0.6, s: "막힘", c: "#a8b0c0" }); hitstop = Math.max(hitstop, 0.04);
     } else {
-      e.vx = dir * (o.kb ?? 90) * (e.type.shield ? 0.5 : 1); e.vy = Math.min(e.vy, -60);
+      if (!e.type.boss) { e.vx = dir * (o.kb ?? 90) * (e.type.shield ? 0.5 : 1); e.vy = Math.min(e.vy, -60);
       if (o.stun) e.stun = Math.max(e.stun, o.stun);
-      if (e.st === "windup" && !e.type.shield) setSt(e, "walk", 0.35);
+      if (e.st === "windup" && !e.type.shield) setSt(e, "walk", 0.35); }
       const big = crit || o.heavy || (o.mult ?? 1) > 1.2;
       fxHit(e.x - dir * 4, o.y ?? e.y - 12, dir, o.ramp ?? RAMP_FIRE, big);
       hitstop = Math.max(hitstop, big ? 0.09 : 0.05); shake(big ? 3 : 1.5, big ? 0.18 : 0.1);
@@ -929,7 +1008,7 @@ function updatePlayer(dt) {
   if (take("Space") && p.swapCd <= 0 && !p.dashing && p.slots[1 - p.active]) {
     recallHelm(); p.active = 1 - p.active; p.swapMax = p.swapCd = BASE.swapCd * (cr("ghost", 2) ? 0.75 : 1); p.combo = 0; p.swapAtkT = 3;
     if (cr("ghost", 4)) p.invuln = Math.max(p.invuln, 2);
-    if (stat("swapRoot")) for (const e of enemies) if (live(e) && Math.abs(e.x - p.x) < 70) { e.stun = Math.max(e.stun, 1); fxRing(e.x, e.y, 12, RAMP_GHOST); }
+    if (stat("swapRoot")) for (const e of enemies) if (live(e) && !e.type.boss && Math.abs(e.x - p.x) < 70) { e.stun = Math.max(e.stun, 1); fxRing(e.x, e.y, 12, RAMP_GHOST); }
     const nh = p.helm; p.cds[nh.id] = [0, 0];       // 들어온 투구는 스킬 쿨 초기화
     if (ax) p.dir = ax;
     p.src = "swap"; p.hp = Math.min(maxHp(), p.hp + stat("swapHeal")); fxSwap(p); nh.swap.use(p);
@@ -967,6 +1046,8 @@ function updatePlayer(dt) {
   if (p.vy < 0 && [-4, 4].some((dx) => isSolid(p.x + dx, p.y - 28))) { p.y = rowTop(Math.floor((p.y - 28 - FLOOR) / TS) + L.rows - 1) + TS + 28; p.vy = 0; }   // 천장에 머리
   let gy = Infinity;                                             // 발판은 떨어지는 중에 위에서 닿을 때만 선다
   if (p.vy >= 0) for (const dx of [-4, 4]) gy = Math.min(gy, groundAt(p.x + dx, y0 - 0.5, p.dropT <= 0));
+  const fp = enemies.find((e) => e.fist && !e.dead)?.fist;       // 골렘이 내려친 주먹 위에 올라설 수 있다
+  if (fp && p.vy >= 0 && p.x > fp.x0 && p.x < fp.x1 && y0 <= fp.y + 0.5) gy = Math.min(gy, fp.y);
   if (p.y >= gy) { if (!p.ground && p.vy > 250) dust(p.x, gy, 0, 4); p.y = gy; p.vy = 0; p.ground = true; p.jumps = BASE.jumps; if (isSolid(p.x - 4, gy + 2) && isSolid(p.x + 4, gy + 2)) p.safe = [p.x, gy]; } else p.ground = false;
   if (p.y > FLOOR + 90) { [p.x, p.y] = p.safe; p.vy = 0; p.invuln = 0; hurtPlayer(10, 0); p.vx = 0; p.vy = 0; }   // 구덩이
   if (p.ground && Math.abs(p.vx) > 10 && !p.act) p.walkT += dt; else p.walkT = 0;
@@ -1076,8 +1157,8 @@ function updateObjs(dt) {
       o.age += dt;
       if (!o.rest) {
         o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt; o.vx *= 1 - 1.2 * dt;
-        for (const e of enemies) if (live(e) && !o.hit.has(e) && Math.abs(e.x - o.x) < 11 && o.y > e.y - 30 && o.y < e.y + 2) {
-          o.hit.add(e); damage(e, o.dmg, { dir: Math.sign(o.vx) || 1, kb: 110, ramp: RAMP_GHOST, y: o.y, sx: o.x - Math.sign(o.vx) * 20 }); o.vx *= -0.3; o.vy = -150;
+        for (const e of enemies) if (live(e) && !o.hit.has(e) && Math.abs(e.x - o.x) < (e.type.hw ?? 11) && o.y > e.y - (e.type.hh ?? 30) && o.y < e.y + 2) {
+          o.hit.add(e); damage(e, o.dmg, { dir: Math.sign(o.vx) || 1, kb: 110, ramp: RAMP_GHOST, y: o.y, box: [o.x, o.x, o.y, o.y], sx: o.x - Math.sign(o.vx) * 20 }); o.vx *= -0.3; o.vy = -150;
         }
         if (o.x < ROOM_L || o.x > ROOM_R) { o.x = clamp(o.x, ROOM_L, ROOM_R); o.vx *= -0.4; }
         if (o.y >= groundAt(o.x, o.y - 12) - 6) { o.y = groundAt(o.x, o.y - 12) - 6; if (Math.abs(o.vy) > 80) { o.vy *= -0.35; o.vx *= 0.5; dust(o.x, FLOOR, 0, 2); } else { o.rest = true; o.vx = 0; } }
@@ -1101,7 +1182,7 @@ function updateObjs(dt) {
         o.y += 900 * dt;
         if (o.y >= o.gy) {
           o.y = o.gy; o.done = true;
-          for (const e of enemies) if (live(e) && Math.abs(e.x - o.x) < 24) damage(e, o.dmg, { dir: Math.sign(e.x - o.x) || o.dir, kb: 170, heavy: true, ramp: RAMP_IRON, above: true });
+          for (const e of enemies) if (live(e) && Math.abs(e.x - o.x) < 24 + (e.type.hw ?? 0)) damage(e, o.dmg, { dir: Math.sign(e.x - o.x) || o.dir, kb: 170, heavy: true, ramp: RAMP_IRON, above: true });
           fxRing(o.x, o.gy, 30, RAMP_IRON); dust(o.x, o.gy, 1, 5); dust(o.x, o.gy, -1, 5); shake(4, 0.22); light(o.x, o.gy - 6, 50, "#ffd27a", 0.6, 0.25);
         }
       }
@@ -1110,9 +1191,9 @@ function updateObjs(dt) {
       o.life -= dt; o.x += o.vx * dt; o.y += o.vy * dt;
       if (o.look === "fire" && Math.random() < dt * 60) spark(o.x, o.y + rnd(-2, 2), -o.vx * 0.1, rnd(-40, 10), 0.25, RAMP_FIRE, true);
       if (o.look === "bolt" && Math.random() < dt * 30) spark(o.x, o.y + rnd(-2, 2), -o.vx * 0.1, rnd(-20, 20), 0.2, o.ramp, true);
-      for (const e of enemies) if (live(e) && !o.hit.has(e) && Math.abs(e.x - o.x) < 10 && o.y > e.y - (e.type.low ? 18 : 30) && o.y < e.y + 2) {
+      for (const e of enemies) if (live(e) && !o.hit.has(e) && Math.abs(e.x - o.x) < (e.type.hw ?? 10) && o.y > e.y - (e.type.hh ?? (e.type.low ? 18 : 30)) && o.y < e.y + 2) {
         o.hit.add(e);
-        damage(e, o.dmg, { dir: Math.sign(o.vx) || 1, kb: 70, ramp: o.ramp, y: o.y, burn: o.burn, mult: 1 + o.far * clamp(Math.abs(o.x - o.x0) / 220), sx: o.x - Math.sign(o.vx) * 20, above: o.above });
+        damage(e, o.dmg, { dir: Math.sign(o.vx) || 1, kb: 70, ramp: o.ramp, y: o.y, box: [o.x, o.x, o.y, o.y], burn: o.burn, mult: 1 + o.far * clamp(Math.abs(o.x - o.x0) / 220), sx: o.x - Math.sign(o.vx) * 20, above: o.above });
         if (!o.pierce) { o.gone = true; break; }
       }
       if (o.y >= groundAt(o.x, o.y - 8) || isSolid(o.x, o.y)) { o.gone = true; dust(o.x, o.y, 0, 2); }
@@ -1130,6 +1211,15 @@ function updateObjs(dt) {
       o.age += dt; o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt;
       if (Math.abs(p.x - o.x) < 9 && o.y > p.y - 28 && o.y < p.y) { hurtPlayer(10, Math.sign(o.vx) || 1); o.gone = true; }
       else if (o.y >= groundAt(o.x, o.y - 8)) { o.gone = true; spawn({ kind: "fire", x: clamp(o.x, ROOM_L, ROOM_R), gy: groundAt(o.x, o.y - 8), life: 2 }); light(o.x, FLOOR - 6, 40, "#ffae35", 0.6, 0.25); }
+    } else if (o.kind === "rock") {                              // 골렘이 던진 바위 15
+      o.age += dt; o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt;
+      if (Math.abs(p.x - o.x) < 11 && o.y > p.y - 30 && o.y < p.y + 2) { hurtPlayer(15, Math.sign(o.vx) || 1); o.gone = true; dust(o.x, o.y, 0, 4); }
+      else if (o.y >= groundAt(o.x, o.y - 8)) { o.gone = true; shake(2, 0.12); dust(o.x, groundAt(o.x, o.y - 8), 1, 4); dust(o.x, groundAt(o.x, o.y - 8), -1, 4); }
+    } else if (o.kind === "wave") {                              // 바닥 충격파 18: 땅에 서 있으면 맞는다
+      o.age += dt; o.x += o.dir * 230 * dt;
+      if (!o.hit && Math.abs(p.x - o.x) < 10 && p.y > FLOOR - 10) { o.hit = true; hurtPlayer(18, o.dir); }
+      if (Math.random() < dt * 40) dust(o.x, FLOOR, -o.dir, 1);
+      if (o.x < ROOM_L - 10 || o.x > ROOM_R + 10) o.gone = true;
     } else if (o.kind === "fire") {
       o.life -= dt;
       if (Math.abs(p.x - o.x) < 15 && Math.abs(p.y - o.gy) < 8) hurtPlayer(10, Math.sign(p.x - o.x) || 1);
@@ -1179,6 +1269,11 @@ function drawObjs(back) {
     } else if (o.kind === "torch") {
       world(o.x, o.y, () => { const a = o.age * 14; R(Math.cos(a) * -4 - 1, Math.sin(a) * -4 - 1, 3, 3, C.wood2); R(-1, -1, 3, 3, C.wood); flame(Math.cos(a) * 4, Math.sin(a) * 4 + 3, 2, 7, time, FIRE); });
       glow(o.x, o.y, 20, "#ffae35", 0.5);
+    } else if (o.kind === "rock") {
+      world(o.x, o.y, () => { const a = o.age * 8; E(0, 0, 7, 6, "#17131c"); E(0, 0, 6, 5, "#565063"); E(-1 - Math.round(Math.cos(a)), -1 - Math.round(Math.sin(a)), 3, 2, "#938ba0"); R(2, 1, 2, 2, "#3b3646"); });
+    } else if (o.kind === "wave") {
+      world(o.x, FLOOR, () => { for (let i = 0; i < 4; i++) { const h = 14 - i * 3; R(-o.dir * i * 4 - 1, -h, 3, h, i ? "#c9a37a" : "#fff2d0"); } R(-o.dir * 12, -3, 16, 3, "#8a6a48"); });
+      glow(o.x, FLOOR - 6, 18, "#ffae35", 0.4);
     } else if (o.kind === "fire") {
       const k = clamp(o.life / 0.3);
       world(o.x, o.gy, () => { for (let i = -2; i <= 2; i++) flame(i * 6, 0, 3, Math.max(1, Math.round((9 + (i % 2 ? 4 : 0)) * k)), time + i, FIRE); });
@@ -1256,15 +1351,22 @@ function drawHudText() {                          // 글자는 화면 해상도�
     if (o.kind === "door") txt((Math.abs(o.x - p.x) < 18 ? "↑ " : "") + REWARDS[o.reward].name, o.x - camX, FLOOR - camY - 61, 11, REWARDS[o.reward].c, "center");
     if (o.kind === "shop") { txt(o.potion ? "회복 물약" : o.item.name, o.x - camX, FLOOR - camY - 39, 10, o.potion ? "#fff" : GRADES[o.item.grade].c, "center"); txt(`${o.price}G`, o.x - camX, FLOOR - camY - 30, 11, p.gold >= o.price ? "#ffd24a" : "#ff6a5a", "center"); if (Math.abs(o.x - p.x) < 16) tip("↑ " + (o.potion ? "체력 40 회복" : o.item.desc), o.x - camX, FLOOR - camY - 52, "#ffe27a"); }
   }
-  const alive = enemies.filter((e) => !e.dead).length;
+  const alive = enemies.filter((e) => !e.dead).length, boss = enemies.find((e) => e.type.boss && !e.dead && e.born <= 0);
+  if (boss) {                                                     // 보스 체력바: 화면 아래 가운데
+    const bw = 520, bx = (960 - bw) / 2, by = 488, k = clamp(boss.hp / boss.maxHp);
+    c.fillStyle = "#0e0b14"; c.fillRect(bx - 4, by - 4, bw + 8, 22); c.fillStyle = "#7a4a2a"; c.fillRect(bx - 2, by - 2, bw + 4, 18); c.fillStyle = "#2a1016"; c.fillRect(bx, by, bw, 14);
+    c.fillStyle = boss.phase === 2 ? "#ff5a2a" : "#c9342c"; c.fillRect(bx, by, Math.round(bw * k), 14); c.fillStyle = "rgba(255,255,255,0.25)"; c.fillRect(bx, by, Math.round(bw * k), 3);
+    c.fillStyle = "#ffe27a"; c.fillRect(bx + bw / 2 - 1, by, 2, 14);
+    txt(boss.type.name, 480 / S * S / 2, by / S - 4, 11, "#ffe27a", "center");
+  }
   txt(`방 ${room + 1} / ${ROOMS.length}`, W - 8, 15, 12, "#fff", "right");
   txt(`${p.gold}`, 425, 39, 12, "#ffd24a"); txt(`${p.scrap}`, 463, 39, 12, "#d0c8dc");
   p.items.forEach((it, i) => txt(it.name, W - 8, 54 + i * 9, 10, "#b8b0c4", "right"));
-  txt(phase === "fight" ? `웨이브 ${wave + 1} / ${ROOMS[room].length} · 적 ${alive}` : ROOMS[room] === "start" ? "시작 방" : ROOMS[room] === "rest" ? "휴식 방" : ROOMS[room] === "shop" ? "상점" : "방 클리어", W - 8, 25, 11, "#d0c8dc", "right");
+  txt(ROOMS[room] === "boss" ? "보스전" : phase === "fight" ? `웨이브 ${wave + 1} / ${ROOMS[room].length} · 적 ${alive}` : ROOMS[room] === "start" ? "시작 방" : ROOMS[room] === "rest" ? "휴식 방" : ROOMS[room] === "shop" ? "상점" : "방 클리어", W - 8, 25, 11, "#d0c8dc", "right");
   if (banner && banner.t > 0 && state === "play") { c.globalAlpha = clamp(banner.t / 0.4); c.font = `22px ${FONT}`; const bw = Math.max(342, c.measureText(banner.s).width + 150); pan("banner", W - bw / 2, 104, bw, 62); txt(banner.s, W / 2, 69, 22, "#ffe27a", "center"); c.globalAlpha = 1; }
   if (state !== "play") {
     c.fillStyle = "rgba(8,6,14,0.55)"; c.fillRect(0, 0, W * S, H * S);
-    txt(state === "clear" ? "스테이지 1 앞부분 돌파!" : "보이드가 쓰러졌다…", W / 2, H / 2 - 6, 34, state === "clear" ? "#ffe27a" : "#ff6a5a", "center");
+    txt(state === "clear" ? "챕터 1 클리어!" : "보이드가 쓰러졌다…", W / 2, H / 2 - 6, 34, state === "clear" ? "#ffe27a" : "#ff6a5a", "center");
     txt("R 키로 다시 시작", W / 2, H / 2 + 16, 16, "#fff", "center");
   }
 }
@@ -1286,7 +1388,8 @@ function update(dt) {
   enemies = enemies.filter((e) => e.dead < 0.5);
   updateObjs(dt); updateFx(dt);
   // 웨이브 → 방 클리어 → 보상 투구 + 문
-  if (state === "play" && phase === "fight" && enemies.length === 0) {
+  if (state === "play" && ROOMS[room] === "boss" && phase === "fight" && enemies.some((e) => e.type.boss && e.dead)) { phase = "clear"; for (const e of enemies) if (!e.dead) { e.hp = 0; e.dead = 0.001; } slowT = 1.2; setTimeout(() => { if (state === "play") state = "clear"; }, 1600); }
+  if (state === "play" && phase === "fight" && enemies.length === 0 && ROOMS[room] !== "boss") {
     waveT += dt;
     if (waveT > 0.7) {
       waveT = 0;
@@ -1316,7 +1419,8 @@ function render() {
   for (const e of enemies) {
     if (e.dead > 0.25) continue;
     if (e.born > 0) { const k = e.born * 2; glow(e.x, e.y - 12, 22, "#8a5cc0", 0.5); g.fillStyle = "#b08ae0"; for (let i = 0; i < 6; i++) g.fillRect(Math.round(e.x + Math.cos(time * 9 + i) * 10 * k), Math.round(e.y - 12 + Math.sin(time * 9 + i) * 12 * k), 2, 2); continue; }
-    shadow(e.x, e.type.low ? 10 : 8, e.gy ?? FLOOR);
+    shadow(e.x, e.type.boss ? 40 : e.type.low ? 10 : 8, e.gy ?? FLOOR);
+    if (e.type.drawWorld) { e.type.drawWorld(e); continue; }
     drawEnemySprite(e); blit(spr, e.x, e.y, e.dir);
     if (e.burn > 0) glow(e.x, e.y - 12, 18, "#ff8a2a", 0.35);
     if (!e.dead && e.hp < e.maxHp) { const yy = Math.round(e.y) - (e.type.low ? 26 : 44), xx = Math.round(e.x); g.fillStyle = C.line; g.fillRect(xx - 10, yy, 20, 4); g.fillStyle = "#c9342c"; g.fillRect(xx - 9, yy + 1, Math.round(18 * e.hp / e.maxHp), 2); }
@@ -1425,7 +1529,7 @@ function frame(now) {
 reset(); requestAnimationFrame(frame);
 // 시험용 손잡이
 window.__gameL = () => L; window.__items = ITEMS;
-window.__game = { get player() { return player; }, get enemies() { return enemies; }, get state() { return state; }, get room() { return room; }, get wave() { return wave; }, get objs() { return objs; },
+window.__game = { goto(n) { room = n; enemies = []; player.x = 60; player.y = FLOOR; startRoom(); }, get player() { return player; }, get enemies() { return enemies; }, get state() { return state; }, get room() { return room; }, get wave() { return wave; }, get objs() { return objs; },
   lineup() { enemies = ["militia", "torch", "shield", "hound"].map((id, i) => Object.assign(newEnemy(id, 200 + i * 60), { born: 0, speed: 0, t: 99, dir: -1 })); } };
 </script>
 </body>
