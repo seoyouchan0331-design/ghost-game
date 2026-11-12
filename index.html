@@ -607,7 +607,7 @@ function buildTerrain() {
   const R2 = L.rows + 5, open = (r, cc) => at(r, cc) !== "#";
   // 1) 땅 채우기: 방 테두리는 어두운 뒷벽, 안쪽은 바위. 표면에서 깊을수록 어둡게
   for (let r = 0; r < R2; r++) for (let cc = 0; cc < L.cols; cc++) {
-    if (at(r, cc) !== "#") continue; const x = cc * TS, y = r * TS + OY, edge = r === 0 || cc === 0 || cc === L.cols - 1;
+    if (at(r, cc) !== "#" || r === 0) continue; const x = cc * TS, y = r * TS + OY, edge = cc === 0 || cc === L.cols - 1;   // 천장 줄은 보이지 않게 (부딪히기만)
     c.fillStyle = pat ? (edge ? pat.back : pat.fill) : "#2b2437"; c.fillRect(x, y, TS, TS);
     let d = 0; while (d < 4 && !open(r - d - 1, cc) && !open(r, cc - d - 1) && !open(r, cc + d + 1) && !open(r + d + 1, cc)) d++;
     c.fillStyle = `rgba(10,6,18,${edge ? 0.45 : Math.min(0.6, d * 0.16)})`; c.fillRect(x, y, TS, TS);
@@ -620,7 +620,7 @@ function buildTerrain() {
       if (open(r, cc + 1)) { c.save(); c.translate(x + TS + 3, y); c.scale(-1, 1); c.drawImage(img, q[0], q[1] + ((r * 16) % (q[3] - 16)), q[2], 16, 0, 0, q[2], 16); c.restore(); }
     }
     for (let r = 1; r < L.rows - 1; r++) for (let cc = 1; cc < L.cols - 1; cc++) if (at(r, cc) === "#" && open(r + 1, cc)) seg("under", cc, cc * TS, r * TS + OY + TS - 6);
-    for (let r = 1; r < R2; r++) for (let cc = 1; cc < L.cols - 1; cc++) if (at(r, cc) === "#" && open(r - 1, cc)) seg("top", cc, cc * TS, r * TS + OY - 7);
+    for (let r = 1; r < R2; r++) for (let cc = 0; cc < L.cols; cc++) if (at(r, cc) === "#" && (open(r - 1, cc) || r === 1)) seg("top", cc, cc * TS, r * TS + OY - 7);   // 벽 꼭대기도 잔디로
     for (let r = 1; r < L.rows; r++) for (let cc = 1; cc < L.cols - 1; cc++) if (at(r, cc) === "=") {
       const x = cc * TS, y = r * TS + OY; seg("plank", cc, x, y);
       if (at(r, cc - 1) !== "=" || at(r, cc + 1) !== "=") { const sx = at(r, cc - 1) !== "=" ? x + 2 : x + TS - 5; c.fillStyle = "#17131c"; c.fillRect(sx, y + 8, 3, 9); c.fillStyle = "#6a3f24"; c.fillRect(sx + 1, y + 8, 1, 8); }
