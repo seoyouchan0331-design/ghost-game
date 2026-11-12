@@ -15,15 +15,15 @@
 <script>
 "use strict";
 /* =====================================================================================
-   갑옷 속의 유령 — 7단계 (Higgsfield 문 8종 · 각인 6개 · 글씨 판 · 갈무리 도트 폰트)
+   갑옷 속의 유령 — 8단계 (타일 지도 방: 다층 지형·떠 있는 땅·구덩이·세로 카메라)
    보이드 몸은 Blender로 뽑은 스프라이트 시트(art/void), 투구·무기·적·이펙트는 코드로 그린다.
    이펙트는 pixelfx(MIT, Sprite Fusion의 Hugo Duprez 기법 기반)의 방식을 옮겨 썼다:
    색 레이어 + 가산 빛 레이어, 속도만큼 늘어나는 불꽃, 1~2프레임 흰 섬광, 타격 정지.
    ===================================================================================== */
 
 // ---------- 기본 설정 ----------
-const W = 480, H = 270, SCALE = 2, FLOOR = 238, ROOM_L = 12;
-let ROOM_R = W - 12, camX = 0, L = null, slowT = 0, layoutPool = [];   // L = 지금 방의 프리팹
+const W = 480, H = 270, SCALE = 2, FLOOR = 238, ROOM_L = 20, TS = 16;
+let ROOM_R = W - 20, camX = 0, camY = 0, L = null, slowT = 0, layoutPool = [];   // L = 지금 방의 프리팹
 const GRAV = 1100, STEP = 1 / 120;
 const BASE = {            // 기획서 "기본 능력치 (투구 공통)"
   maxHp: 100, speed: 120, jumpV: -330, jumps: 2,
@@ -37,7 +37,6 @@ const buf = mk(W, H), g = buf.getContext("2d");          // 색 레이어 (저�
 const lightC = mk(W, H), lg = lightC.getContext("2d");   // 빛 레이어 (가산 합성)
 const SP = 128, SX = 64, SY = 100;                       // 캐릭터 한 명을 그리는 임시 판과 발 위치
 const spr = mk(SP, SP), sg = spr.getContext("2d", { willReadFrequently: true });
-const bg = new Image(); bg.src = "assets/bg_burning_village.png";
 // 보이드 스프라이트 시트: body = 머리 없는 몸(투구를 얹는다), full = 유령불 머리. 한 칸 48px.
 const voidImg = { body: new Image(), full: new Image() }; voidImg.body.src = "assets/void_body.png"; voidImg.full.src = "assets/void_full.png";
 const VOID = { S: 48, feet: [22, 39], rows: { idle: 0, run: 1, punch: 2, jump: 3, dash: 4, slam: 5 } };
@@ -178,11 +177,11 @@ const HELMETS = [
         } },
       { name: "창벽", cd: 12, icon() { for (const x of [-5, -1, 3]) { R(x, -3, 1, 8, C.wood2); R(x - 1, -6, 3, 3, C.steel); } },
         use(p) {                                 // 창 3개, 2초간 매초 12, 밀어냄
-          startAct(p, { dur: 0.3, pose: "slam", events: [{ t: 0.1, fn() { spawn({ kind: "wall", x: p.x + p.dir * 30, dir: p.dir, life: 2, tickT: 0, dmg: 12, rise: 0 }); shake(2, 0.12); } }] });
+          startAct(p, { dur: 0.3, pose: "slam", events: [{ t: 0.1, fn() { spawn({ kind: "wall", x: p.x + p.dir * 30, gy: p.y, dir: p.dir, life: 2, tickT: 0, dmg: 12, rise: 0 }); shake(2, 0.12); } }] });
         } },
     ],
     swap: { name: "창 내리꽂기", use(p) {        // 위에서 창을 내리꽂아 30
-      spawn({ kind: "skySpear", x: clamp(p.x + p.dir * 26, ROOM_L, ROOM_R), y: FLOOR - 150, dir: p.dir, dmg: 30, done: false, life: 0.7 });
+      const sx = clamp(p.x + p.dir * 26, ROOM_L, ROOM_R); spawn({ kind: "skySpear", x: sx, gy: groundAt(sx, p.y - 20), y: p.y - 150, dir: p.dir, dmg: 30, done: false, life: 0.7 });
       startAct(p, { dur: 0.25, pose: "slam" });
     } },
   },
@@ -207,7 +206,7 @@ const HELMETS = [
     skills: [
       { name: "덫 설치", cd: 8, icon() { R(-6, 2, 13, 2, C.steel2); for (const x of [-5, -2, 1, 4]) { R(x, -1, 2, 3, C.steel); R(x, -2, 1, 1, C.white); } },
         use(p) {
-          startAct(p, { dur: 0.25, pose: "slam", events: [{ t: 0.1, fn() { objs = objs.filter((o) => o.kind !== "trap"); spawn({ kind: "trap", x: p.x + p.dir * 14, age: 0 }); dust(p.x + p.dir * 14, FLOOR, 0, 3); } }] });
+          startAct(p, { dur: 0.25, pose: "slam", events: [{ t: 0.1, fn() { objs = objs.filter((o) => o.kind !== "trap"); spawn({ kind: "trap", x: p.x + p.dir * 14, gy: p.y, age: 0 }); dust(p.x + p.dir * 14, FLOOR, 0, 3); } }] });
         } },
       { name: "화살비", cd: 14, icon() { for (const [x, y] of [[-5, -4], [0, -1], [4, -5], [-2, 3]]) { R(x, y, 1, 5, C.cream); R(x - 1, y + 4, 3, 2, C.steel); } },
         use(p) {                                 // 앞쪽 넓은 범위에 2초간 8발, 각 10
@@ -399,40 +398,152 @@ const itemImg = { big: new Image(), small: new Image() }; itemImg.big.src = "ass
 const REWARDS = { gold: { name: "금화", w: 35, c: "#ffd24a" }, chest: { name: "상자", w: 30, c: "#e08a3c" }, helm: { name: "투구", w: 20, c: "#63c8ea" }, scrap: { name: "쇳조각", w: 15, c: "#b0a8ba" }, rest: { name: "휴식", w: 0, c: "#8fc05a" }, shop: { name: "상점", w: 0, c: "#ffd24a" } };
 // 방 프리팹: w = 방 너비, plats = 단방향 발판 [x, 바닥에서의 높이, 너비], spawns = 적이 나오는 바닥 자리.
 // 전투 방은 이 목록에서 겹치지 않게 하나씩 뽑아 쓴다. 방 모양을 늘리려면 여기에 추가.
-// blocks = 솟은 땅 [x, 너비, 높이] (옆은 벽, 위는 걸을 수 있다). 시작 지점·가운데·오른쪽 끝은 비워 둔다.
-const FLAT = { w: 480, blocks: [], plats: [], spawns: [300, 360, 420] };
+// 방 지도(프리팹): 위에서 아래로 한 줄씩. 맨 아래 줄이 바닥이고 그 윗면이 FLOOR 높이다. 한 칸 16px.
+//   # 땅(벽·천장)  = 아래에서 뚫고 올라가는 발판  E 땅 위 적 자리  T 높은 곳 적 자리(횃불병 우선)  . 빈칸
+// 바닥 줄의 빈칸은 구덩이(떨어지면 피해 10, 마지막에 선 곳으로 돌아옴). 양옆 벽과 천장은 자동으로 붙는다.
+// 규칙: 시작 지점(왼쪽 2~3칸), 가운데(보상 자리), 오른쪽 끝 7칸(문 자리)은 바닥을 비워 두지 않는다.
+const MAP = (...rows) => rows;
+const FLAT = MAP("............................", "............................", "............................", "............................", "............................", "............................", "............................", "############################");
 const LAYOUTS = [
-  { w: 480, blocks: [[110, 80, 26], [300, 70, 26]], plats: [[180, -68, 110]], spawns: [150, 240, 330, 420] },
-  { w: 560, blocks: [[150, 90, 24]], plats: [[330, -62, 110]], spawns: [200, 300, 400, 470] },
-  { w: 640, blocks: [[120, 110, 28], [410, 110, 28]], plats: [[250, -74, 140]], spawns: [170, 320, 460, 560] },
-  { w: 720, blocks: [[170, 100, 22], [270, 60, 44]], plats: [[430, -50, 110], [560, -92, 90]], spawns: [220, 300, 400, 500, 620] },
-  { w: 800, blocks: [[200, 150, 30], [520, 120, 30]], plats: [[380, -70, 110], [230, -84, 90]], spawns: [260, 300, 440, 560, 600, 700] },
+  MAP("......................................",
+      "......................................",
+      "..............==========..............",
+      "......................................",
+      "......................................",
+      "....T.......................T.........",
+      "..#######..................#######....",
+      "..#######......E...........#######....",
+      ".........====..###..====..............",
+      "...............###....................",
+      ".......E.......###.......E............",
+      ".....######....###....######..........",
+      ".....######..E.###....######..........",
+      "######################################"),
+  MAP("..............................................",
+      "..............................................",
+      ".....................========.................",
+      "..............................................",
+      "..........T.......................T...........",
+      ".......######..................######.........",
+      ".......######.....=======......######.........",
+      "..............................................",
+      ".....E.................E.................E....",
+      "...########.....#############......#######....",
+      "...########.....#############......#######....",
+      "..............................................",
+      ".........E.......................E............",
+      "..............................................",
+      "##############################################"),
+  MAP("......................................",
+      "......................................",
+      "..........=======......=======........",
+      "......................................",
+      "......................................",
+      ".T................................T...",
+      "####............E...............####..",
+      "####.........#######............####..",
+      ".............#######..................",
+      "......................................",
+      "....E............................E....",
+      "########.....############.....########"),
+  MAP("......................................",
+      "......................................",
+      ".......T..................T...........",
+      ".....######...........#######.........",
+      "......................................",
+      "..............=========...............",
+      "......................................",
+      "..========......................====..",
+      "......................................",
+      "..........T................E..........",
+      "........######.........#######........",
+      "........######.........#######........",
+      "......................................",
+      "..==========.....................====.",
+      "......................................",
+      "......E..................E............",
+      "....#####...............####..........",
+      "######################################"),
+  MAP("......................................................",
+      "......................................................",
+      "...........==========..............==========.........",
+      "......................................................",
+      "......................................................",
+      "....T.......................T.........................",
+      "..#######.............##########.............T........",
+      "..#######.............##########..........######......",
+      "..........====.....................====...######......",
+      "......................................................",
+      "......................................................",
+      "........E........E..........................E.........",
+      "......#####...#########..................#####........",
+      "######################################################"),
 ];
-// 그 자리의 땅 높이, 같은 높이로 이어진 구간
-const groundAt = (x) => { let h = 0; for (const [bx, bw, bh] of L.blocks) if (x >= bx && x <= bx + bw && bh > h) h = bh; return FLOOR - h; };
-function span(x) { const g0 = groundAt(x); let a = x, b = x; while (a > ROOM_L && groundAt(a - 4) === g0) a -= 4; while (b < ROOM_R && groundAt(b + 4) === g0) b += 4; return [a + 6, b - 6]; }
-// 방에 들어갈 때 지형을 한 번 그려 둔다: 돌바닥, 벽돌 몸통, 이끼, 소품(통·상자·가로등)
+// 지도 → 방: 벽과 천장을 두르고, 적 자리를 뽑는다
+function buildRoom(rows) {
+  const grid = ["#".repeat(rows[0].length + 2), ...rows.map((r) => "#" + r + "#")].map((r) => r.split(""));
+  const L2 = { grid, rows: grid.length, cols: grid[0].length, w: grid[0].length * TS, spawns: [], lamps: [] };
+  grid.forEach((row, r) => row.forEach((ch, c) => { if (ch === "E" || ch === "T") { row[c] = "."; L2.spawns.push({ x: c * TS + 8, y: FLOOR - (L2.rows - 2 - r) * TS, ledge: ch === "T" }); } }));
+  return L2;
+}
+const rowTop = (r) => FLOOR - (L.rows - 1 - r) * TS;
+function tileAt(x, y) {
+  const c = Math.floor(x / TS); let r = Math.floor((y - FLOOR) / TS) + L.rows - 1;
+  if (c < 0 || c >= L.cols || r < 0) return "#"; if (r >= L.rows) r = L.rows - 1;
+  return L.grid[r][c];
+}
+const isSolid = (x, y) => tileAt(x, y) === "#";
+// y 아래(같은 높이 포함)에서 처음 만나는 땅 윗면. plats=false면 발판은 무시. 없으면 구덩이(아주 아래)
+function groundAt(x, y = -1e4, plats = true) {
+  const c = Math.floor(x / TS); if (c < 0 || c >= L.cols) return FLOOR;
+  for (let r = 1; r < L.rows; r++) { const top = rowTop(r), ch = L.grid[r][c]; if (top >= y - 0.5 && (ch === "#" || (plats && ch === "=")) && L.grid[r - 1][c] !== "#") return top; }
+  return FLOOR + 400;
+}
+function span(x, gy) { let a = x, b = x; const ok = (v) => groundAt(v, gy - 1) === gy && !isSolid(v, gy - 10) && v > ROOM_L && v < ROOM_R; while (ok(a - 4)) a -= 4; while (ok(b + 4)) b += 4; return [a + 6, b - 6]; }
+// 배경(그림이 오기 전 임시): 밤하늘 → 먼 산과 성 → 불타는 집 실루엣. 겹마다 다른 속도로 움직인다
+const backdrop = (() => {
+  const rs = (n) => { const v = Math.sin(n * 91.7) * 43758.5; return v - Math.floor(v); };
+  const far = mk(960, H), f = far.getContext("2d"), mid = mk(960, H), m = mid.getContext("2d");
+  const sky = f.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#0d0a1c"); sky.addColorStop(0.55, "#2a1636"); sky.addColorStop(0.85, "#5a2232"); sky.addColorStop(1, "#7a3022");
+  f.fillStyle = sky; f.fillRect(0, 0, 960, H);
+  for (let i = 0; i < 60; i++) { f.fillStyle = rs(i) > 0.7 ? "#cfc6e8" : "#6d6488"; f.fillRect(Math.floor(rs(i + 3) * 960), Math.floor(rs(i + 7) * 120), 1, 1); }
+  f.fillStyle = "#e8e0d0"; f.beginPath(); f.arc(760, 46, 16, 0, 7); f.fill(); f.fillStyle = "#2a1636"; f.beginPath(); f.arc(752, 42, 15, 0, 7); f.fill();
+  for (const [col, base, amp, k] of [["#231735", 150, 34, 0.011], ["#1a1128", 175, 26, 0.019]]) { f.fillStyle = col; f.beginPath(); f.moveTo(0, H); for (let x = 0; x <= 960; x += 4) f.lineTo(x, base - amp * (0.5 + 0.5 * Math.sin(x * k * 6.283 / 960 * 50 / 3)) - 10 * Math.sin(x * 0.05)); f.lineTo(960, H); f.fill(); }
+  f.fillStyle = "#120c1c"; for (const [x, w, h] of [[600, 14, 52], [618, 30, 34], [652, 12, 60], [668, 26, 30], [698, 10, 44]]) { f.fillRect(x, 150 - h, w, h + 30); f.beginPath(); f.moveTo(x - 2, 150 - h); f.lineTo(x + w / 2, 150 - h - 14); f.lineTo(x + w + 2, 150 - h); f.fill(); }
+  for (let x = -20; x < 980; x += 60 + Math.floor(rs(x) * 40)) {   // 불타는 집들
+    const w = 40 + rs(x + 1) * 30, h = 34 + rs(x + 2) * 26, y = 205 - h;
+    const glw = m.createRadialGradient(x + w / 2, y, 4, x + w / 2, y, 70); glw.addColorStop(0, "rgba(255,120,40,0.55)"); glw.addColorStop(1, "rgba(255,80,30,0)"); m.fillStyle = glw; m.fillRect(x - 60, y - 70, w + 120, 140);
+    m.fillStyle = "#140d1c"; m.fillRect(x, y, w, h + 70); m.beginPath(); m.moveTo(x - 4, y); m.lineTo(x + w / 2, y - 22); m.lineTo(x + w + 4, y); m.fill();
+    for (let k = 0; k < 3; k++) { m.fillStyle = rs(x + k) > 0.4 ? "#ff9a3a" : "#7a2a1a"; m.fillRect(x + 6 + k * (w / 3), y + 10, 5, 7); }
+  }
+  return { far, mid };
+})();
+// 방에 들어갈 때 지형을 한 번 그려 둔다 (타일 그림이 오기 전 임시: 돌벽돌, 이끼 덮인 윗면, 나무 발판)
 let terr = null;
 function buildTerrain() {
-  terr = mk(L.w, H); const c = terr.getContext("2d"), rs = (n) => { const v = Math.sin(n * 127.1 + L.w * 3.3) * 43758.5; return v - Math.floor(v); };
-  const box = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), w, h); };
+  const top0 = rowTop(0), Hh = L.rows * TS + 80; terr = mk(L.w, Hh); const c = terr.getContext("2d");
+  const rs = (n) => { const v = Math.sin(n * 127.1 + L.w * 3.3) * 43758.5; return v - Math.floor(v); };
+  const box = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+  const at = (r, cc) => (r < 0 ? "#" : r >= L.rows ? L.grid[L.rows - 1][cc] : cc < 0 || cc >= L.cols ? "#" : L.grid[r][cc]);
   L.lamps = [];
-  for (let i = 0; i < L.w / 110; i++) {                          // 소품은 땅 위에만, 벽 가장자리는 피한다
-    const x = Math.round(60 + i * 110 + rs(i) * 50), gy = groundAt(x), k = rs(i + 40);
-    if (x > L.w - 130 || groundAt(x - 10) !== gy || groundAt(x + 12) !== gy) continue;
-    if (k < 0.34) { box(x, gy - 34, 4, 34, "#17131c"); box(x + 1, gy - 33, 2, 33, "#4a3226"); box(x - 4, gy - 44, 12, 11, "#17131c"); box(x - 3, gy - 43, 10, 9, "#3a2a22"); box(x - 1, gy - 41, 6, 6, "#ffae35"); box(x, gy - 40, 4, 3, "#ffe27a"); L.lamps.push([x + 2, gy - 38]); }
-    else if (k < 0.68) { box(x - 1, gy - 15, 13, 15, "#17131c"); box(x, gy - 14, 11, 14, "#7a4a2a"); box(x, gy - 14, 3, 14, "#9c6a3c"); box(x, gy - 11, 11, 2, "#433c4b"); box(x, gy - 4, 11, 2, "#433c4b"); }
-    else { box(x - 1, gy - 13, 14, 13, "#17131c"); box(x, gy - 12, 12, 12, "#6a3f24"); box(x, gy - 12, 12, 2, "#9c6a3c"); box(x + 5, gy - 12, 2, 12, "#4a3226"); box(x, gy - 7, 12, 1, "#4a3226"); }
+  for (let r = 0; r < L.rows + 5; r++) for (let cc = 0; cc < L.cols; cc++) {
+    const ch = at(r, cc), x = cc * TS, y = r * TS;
+    if (ch === "#") {
+      const up = at(r - 1, cc) !== "#", lf = at(r, cc - 1) !== "#", rt = at(r, cc + 1) !== "#", dn = at(r + 1, cc) !== "#", deep = !up && r > 0 && at(r - 2, cc) === "#";
+      box(x, y, TS, TS, deep ? "#1d1826" : "#2b2437");
+      for (let k = 0; k < 2; k++) { const yy = y + k * 8, off = (r * 2 + k) % 2 ? 8 : 0; box(x, yy + 7, TS, 1, "#1a1522"); box(x + off, yy, 1, 7, "#1a1522"); if (!deep && rs(r * 31 + cc * 7 + k) > 0.6) box(x + off + 2, yy + 2, 3, 2, "#3a3148"); }
+      if (up) { box(x, y, TS, 5, "#4d4359"); box(x, y, TS, 1, "#8a7e9c"); box(x, y + 1, TS, 1, "#62576f"); box(x, y + 5, TS, 1, "#17131c");
+        for (let k = 0; k < 4; k++) if (rs(x * 3 + k) < 0.5) box(x + k * 4 + 1, y - 1 - Math.round(rs(x + k) * 2), 2, 2 + Math.round(rs(x + k) * 2), rs(k + x) > 0.5 ? "#5f8a42" : "#3f6630");
+        if (rs(x + 77) < 0.12 && !lf && !rt && r > 1) L.lamps.push([x + 8, y]); }
+      if (lf) { box(x, y, 2, TS, "#17131c"); box(x + 2, y, 1, TS, "#3a3148"); } if (rt) { box(x + TS - 2, y, 2, TS, "#17131c"); }
+      if (dn && r < L.rows) { box(x, y + TS - 3, TS, 3, "#17131c"); if (rs(x + y) < 0.3) box(x + 6, y + TS, 2, 4 + Math.round(rs(x) * 6), "#3f6630"); }
+    } else if (ch === "=") {
+      box(x - 1, y, TS + 2, 6, "#17131c"); box(x, y + 1, TS, 4, "#6a3f24"); box(x, y + 1, TS, 1, "#9c6a3c"); box(x, y + 4, TS, 1, "#3a2a22"); box(x + 7, y + 2, 1, 2, "#3a2a22");
+      if (at(r, cc - 1) !== "=" || at(r, cc + 1) !== "=") { const sx = at(r, cc - 1) !== "=" ? x + 2 : x + TS - 5; box(sx, y + 6, 3, 10, "#17131c"); box(sx + 1, y + 6, 1, 9, "#6a3f24"); }
+    }
   }
-  for (let x = 0; x < L.w; x++) {
-    const gy = groundAt(x), l = groundAt(x - 1), r = groundAt(x + 1);
-    box(x, gy, 1, H - gy, "#2b2437");
-    for (let y = gy + 6, row = 0; y < H; y += 9, row++) { box(x, y + 8, 1, 1, "#1c1726"); if ((x + row % 2 * 7) % 14 === 0) box(x, y, 1, 8, "#1c1726"); else if ((x + row * 5) % 23 === 3) box(x, y + 2, 1, 2, "#3a3148"); }
-    box(x, gy, 1, 6, "#4d4359"); box(x, gy, 1, 1, "#7d7190"); box(x, gy + 1, 1, 1, "#5f546e"); box(x, gy + 6, 1, 1, "#17131c");
-    if (x % 11 === (gy % 5)) box(x, gy + 1, 1, 5, "#332b40");
-    if (rs(x) < 0.08) { box(x, gy - 1 - Math.round(rs(x + 9) * 2), 1, 3, "#6d9a4c"); box(x - 1, gy, 3, 2, "#4f7a3a"); }
-    if (l > gy) box(x, gy, 1, l - gy, "#17131c"); if (r > gy) box(x, gy, 1, r - gy, "#17131c");
-  }
+  for (const [x, y] of L.lamps) { box(x - 1, y - 30, 3, 30, "#17131c"); box(x, y - 29, 1, 29, "#4a3226"); box(x - 5, y - 40, 11, 11, "#17131c"); box(x - 4, y - 39, 9, 9, "#3a2a22"); box(x - 2, y - 37, 5, 6, "#ffae35"); box(x - 1, y - 36, 3, 3, "#ffe27a"); }
+  L.lamps = L.lamps.map(([x, y]) => [x, y + top0 - 38]);
 }
 
 // ---------- 입력 ----------
@@ -476,7 +587,7 @@ const freeItems = () => ITEMS.filter((it) => !player.items.includes(it));
 const fightNo = () => ROOMS.slice(0, room + 1).filter((r) => typeof r !== "string").length;
 function startRoom() {
   wave = 0; waveT = 0; objs = []; const r = ROOMS[room];
-  L = typeof r === "string" ? FLAT : layoutPool.pop() ?? pick(LAYOUTS); ROOM_R = L.w - 12; buildTerrain();
+  L = buildRoom(typeof r === "string" ? FLAT : layoutPool.pop() ?? pick(LAYOUTS)); ROOM_R = L.w - 20; buildTerrain(); player.safe = [40, FLOOR];
   if (r === "start") { phase = "clear"; banner = { s: "투구를 줍고(↑) 문을 고르자", t: 3 }; spawn({ kind: "pickup", id: pick(freeHelms()).id, x: 240 }); openDoors(); }
   else if (r === "shop") {                                     // 상점: 아이템 3개(80G) + 회복 물약(50G)
     phase = "clear"; banner = { s: "상점 — ↑로 구매", t: 2.5 };
@@ -506,9 +617,9 @@ function grantReward() {
 }
 function openDoors() {
   if (room + 1 >= ROOMS.length) { state = "clear"; return; }
-  if (typeof ROOMS[room + 1] === "string") { spawn({ kind: "door", x: L.w - 40, reward: ROOMS[room + 1] }); return; }
+  if (typeof ROOMS[room + 1] === "string") { spawn({ kind: "door", x: L.w - 56, reward: ROOMS[room + 1] }); return; }
   const a = rollReward(), b = rollReward(a);
-  spawn({ kind: "door", x: L.w - 88, reward: a }); spawn({ kind: "door", x: L.w - 34, reward: b });
+  spawn({ kind: "door", x: L.w - 104, reward: a }); spawn({ kind: "door", x: L.w - 50, reward: b });
 }
 function newEnemy(id, x, i = 0) {
   const ty = ENEMIES[id];
@@ -517,9 +628,9 @@ function newEnemy(id, x, i = 0) {
 function startWave() {
   banner = { s: `전투 방 ${fightNo()} · 웨이브 ${wave + 1} / ${ROOMS[room].length}`, t: 1.6 };
   ROOMS[room][wave].forEach((id, i) => {                       // 프리팹의 스폰 자리에서 나온다. 횃불병은 발판 위에도 선다
-    const far = L.spawns.filter((x) => Math.abs(x - player.x) > 100), e = newEnemy(id, pick(far.length ? far : L.spawns) + rnd(-14, 14), i);
-    e.gy = e.y = groundAt(e.x); [e.minX, e.maxX] = span(e.x);
-    if (id === "torch" && L.plats.length && Math.random() < 0.6) { const [px, py, pw] = pick(L.plats); e.x = px + pw / 2; e.gy = e.y = FLOOR + py; e.minX = px + 6; e.maxX = px + pw - 6; }
+    const far = L.spawns.filter((q) => Math.abs(q.x - player.x) > 100 || Math.abs(q.y - player.y) > 40), pool = far.length ? far : L.spawns;
+    const ledges = pool.filter((q) => q.ledge), q = id === "torch" && ledges.length ? pick(ledges) : pick(pool.filter((q) => !q.ledge).length ? pool.filter((q) => !q.ledge) : pool);
+    const e = newEnemy(id, q.x + rnd(-6, 6), i); e.gy = e.y = q.y; [e.minX, e.maxX] = span(q.x, q.y); e.x = clamp(e.x, e.minX, e.maxX);
     enemies.push(e);
   });
 }
@@ -812,7 +923,7 @@ function updatePlayer(dt) {
     if (p.act === a && a.t >= a.dur) { p.act = null; p.comboT = 0.45; if (a.vx != null) p.vx = 0; }
   } else {
     p.vx = ax * speed; if (ax) p.dir = ax;
-    if (keys.ArrowDown && p.ground && p.y < groundAt(p.x) - 1 && take("KeyC")) { p.dropT = 0.25; p.ground = false; }   // ↓+점프: 발판 아래로
+    if (keys.ArrowDown && p.ground && tileAt(p.x, p.y + 2) === "=" && take("KeyC")) { p.dropT = 0.25; p.ground = false; }   // ↓+점프: 발판 아래로
     else if (take("KeyC") && p.jumps > 0) { p.vy = BASE.jumpV * (p.jumps === BASE.jumps ? 1 : 0.9); if (!p.ground) fxRing(p.x, p.y, 12, RAMP_GHOST); else dust(p.x, p.y, 0, 3); p.jumps--; p.ground = false; }
     if (take("KeyA") && cds[0] <= 0) { cds[0] = skillCd(helm, 0); p.src = "skill"; helm.skills[0].use(p); }
     else if (take("KeyS") && cds[1] <= 0) { cds[1] = skillCd(helm, 1); p.src = "skill"; helm.skills[1].use(p); }
@@ -820,11 +931,14 @@ function updatePlayer(dt) {
     else if (take("ArrowUp")) interact(p);
   }
   if (!p.dashing) p.vy += GRAV * dt;
-  const y0 = p.y, nx = clamp(p.x + p.vx * dt, ROOM_L, ROOM_R); if (groundAt(nx) >= p.y - 3) p.x = nx;   // 솟은 땅의 옆면은 벽
+  const y0 = p.y, nx = clamp(p.x + p.vx * dt, ROOM_L, ROOM_R), body = (x, y) => [-5, 5].some((dx) => [-4, -14, -24].some((dy) => isSolid(x + dx, y + dy)));
+  if (!body(nx, p.y)) p.x = nx;                                  // 벽에 막힌다
   p.y += p.vy * dt; p.dropT = Math.max(0, (p.dropT ?? 0) - dt);
-  let gy = groundAt(p.x);                                        // 단방향 발판: 떨어지는 중에 위에서 닿을 때만 선다
-  if (p.vy >= 0 && p.dropT <= 0) for (const [px, po, pw] of L.plats) { const y = FLOOR + po; if (p.x > px - 4 && p.x < px + pw + 4 && y0 <= y + 0.5 && p.y >= y && y < gy) gy = y; }
-  if (p.y >= gy) { if (!p.ground && p.vy > 250) dust(p.x, gy, 0, 4); p.y = gy; p.vy = 0; p.ground = true; p.jumps = BASE.jumps; } else p.ground = false;
+  if (p.vy < 0 && [-4, 4].some((dx) => isSolid(p.x + dx, p.y - 28))) { p.y = rowTop(Math.floor((p.y - 28 - FLOOR) / TS) + L.rows - 1) + TS + 28; p.vy = 0; }   // 천장에 머리
+  let gy = Infinity;                                             // 발판은 떨어지는 중에 위에서 닿을 때만 선다
+  if (p.vy >= 0) for (const dx of [-4, 4]) gy = Math.min(gy, groundAt(p.x + dx, y0 - 0.5, p.dropT <= 0));
+  if (p.y >= gy) { if (!p.ground && p.vy > 250) dust(p.x, gy, 0, 4); p.y = gy; p.vy = 0; p.ground = true; p.jumps = BASE.jumps; if (isSolid(p.x - 4, gy + 2) && isSolid(p.x + 4, gy + 2)) p.safe = [p.x, gy]; } else p.ground = false;
+  if (p.y > FLOOR + 90) { [p.x, p.y] = p.safe; p.vy = 0; p.invuln = 0; hurtPlayer(10, 0); p.vx = 0; p.vy = 0; }   // 구덩이
   if (p.ground && Math.abs(p.vx) > 10 && !p.act) p.walkT += dt; else p.walkT = 0;
 }
 function basicAttack(p) {
@@ -936,7 +1050,7 @@ function updateObjs(dt) {
           o.hit.add(e); damage(e, o.dmg, { dir: Math.sign(o.vx) || 1, kb: 110, ramp: RAMP_GHOST, y: o.y, sx: o.x - Math.sign(o.vx) * 20 }); o.vx *= -0.3; o.vy = -150;
         }
         if (o.x < ROOM_L || o.x > ROOM_R) { o.x = clamp(o.x, ROOM_L, ROOM_R); o.vx *= -0.4; }
-        if (o.y >= groundAt(o.x) - 6) { o.y = groundAt(o.x) - 6; if (Math.abs(o.vy) > 80) { o.vy *= -0.35; o.vx *= 0.5; dust(o.x, FLOOR, 0, 2); } else { o.rest = true; o.vx = 0; } }
+        if (o.y >= groundAt(o.x, o.y - 12) - 6) { o.y = groundAt(o.x, o.y - 12) - 6; if (Math.abs(o.vy) > 80) { o.vy *= -0.35; o.vx *= 0.5; dust(o.x, FLOOR, 0, 2); } else { o.rest = true; o.vx = 0; } }
       }
       if (o.age > 0.25 && Math.abs(p.x - o.x) < 13 && Math.abs(p.y - 14 - o.y) < 24) {   // 다시 주우면 쿨 초기화
         o.gone = true; p.headless = false; cdsOf("empty")[0] = 0; p.flash = 0.06;
@@ -955,10 +1069,10 @@ function updateObjs(dt) {
       o.life -= dt;
       if (!o.done) {
         o.y += 900 * dt;
-        if (o.y >= FLOOR) {
-          o.y = FLOOR; o.done = true;
+        if (o.y >= o.gy) {
+          o.y = o.gy; o.done = true;
           for (const e of enemies) if (live(e) && Math.abs(e.x - o.x) < 24) damage(e, o.dmg, { dir: Math.sign(e.x - o.x) || o.dir, kb: 170, heavy: true, ramp: RAMP_IRON, above: true });
-          fxRing(o.x, FLOOR, 30, RAMP_IRON); dust(o.x, FLOOR, 1, 5); dust(o.x, FLOOR, -1, 5); shake(4, 0.22); light(o.x, FLOOR - 6, 50, "#ffd27a", 0.6, 0.25);
+          fxRing(o.x, o.gy, 30, RAMP_IRON); dust(o.x, o.gy, 1, 5); dust(o.x, o.gy, -1, 5); shake(4, 0.22); light(o.x, o.gy - 6, 50, "#ffd27a", 0.6, 0.25);
         }
       }
       if (o.life <= 0) o.gone = true;
@@ -971,11 +1085,11 @@ function updateObjs(dt) {
         damage(e, o.dmg, { dir: Math.sign(o.vx) || 1, kb: 70, ramp: o.ramp, y: o.y, burn: o.burn, mult: 1 + o.far * clamp(Math.abs(o.x - o.x0) / 220), sx: o.x - Math.sign(o.vx) * 20, above: o.above });
         if (!o.pierce) { o.gone = true; break; }
       }
-      if (o.y >= groundAt(o.x)) { o.gone = true; dust(o.x, groundAt(o.x), 0, 2); }
+      if (o.y >= groundAt(o.x, o.y - 8) || isSolid(o.x, o.y)) { o.gone = true; dust(o.x, o.y, 0, 2); }
       if (o.life <= 0 || o.x < 0 || o.x > ROOM_R + 12) o.gone = true;
     } else if (o.kind === "trap") {
       o.age += dt;
-      if (o.age > 0.3) for (const e of enemies) if (live(e) && Math.abs(e.x - o.x) < 11 && e.y > FLOOR - 4) {   // 밟으면 1.5초 속박 + 20
+      if (o.age > 0.3) for (const e of enemies) if (live(e) && Math.abs(e.x - o.x) < 11 && Math.abs(e.y - o.gy) < 4) {   // 밟으면 1.5초 속박 + 20
         damage(e, 20, { dir: 0, kb: 0, stun: 1.5, ramp: RAMP_LEAF, y: FLOOR - 6, above: true }); e.vx = 0; o.gone = true; shake(2, 0.1); break;
       }
     } else if (o.kind === "rain") {
@@ -985,7 +1099,7 @@ function updateObjs(dt) {
     } else if (o.kind === "torch") {
       o.age += dt; o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt;
       if (Math.abs(p.x - o.x) < 9 && o.y > p.y - 28 && o.y < p.y) { hurtPlayer(10, Math.sign(o.vx) || 1); o.gone = true; }
-      else if (o.y >= groundAt(o.x)) { o.gone = true; spawn({ kind: "fire", x: clamp(o.x, ROOM_L, ROOM_R), gy: groundAt(o.x), life: 2 }); light(o.x, FLOOR - 6, 40, "#ffae35", 0.6, 0.25); }
+      else if (o.y >= groundAt(o.x, o.y - 8)) { o.gone = true; spawn({ kind: "fire", x: clamp(o.x, ROOM_L, ROOM_R), gy: groundAt(o.x, o.y - 8), life: 2 }); light(o.x, FLOOR - 6, 40, "#ffae35", 0.6, 0.25); }
     } else if (o.kind === "fire") {
       o.life -= dt;
       if (Math.abs(p.x - o.x) < 15 && Math.abs(p.y - o.gy) < 8) hurtPlayer(10, Math.sign(p.x - o.x) || 1);
@@ -1011,7 +1125,7 @@ function drawObjs(back) {
       glow(x, y, 14, C.flame1, o.rest ? 0.25 : 0.4);
     } else if (o.kind === "wall") {
       const k = o.life < 0.2 ? o.life / 0.2 : o.rise;
-      for (let i = 0; i < 3; i++) spearUp(Math.round(o.x + o.dir * i * 11), FLOOR - Math.round((28 + (i === 1 ? 6 : 0)) * k), FLOOR);
+      for (let i = 0; i < 3; i++) spearUp(Math.round(o.x + o.dir * i * 11), o.gy - Math.round((28 + (i === 1 ? 6 : 0)) * k), o.gy);
       glow(o.x + o.dir * 11, FLOOR - 14, 26, "#ffd27a", 0.15);
     } else if (o.kind === "skySpear") {
       const a = o.done ? clamp(o.life / 0.15) : 1; g.globalAlpha = a;
@@ -1030,8 +1144,8 @@ function drawObjs(back) {
         glow(o.x, o.y, fire ? 22 : 16, cols[1], 0.55);
       }
     } else if (o.kind === "trap") {
-      world(o.x, FLOOR, () => { R(-7, -2, 15, 2, C.line); R(-6, -2, 13, 1, C.steel2); for (const tx of [-6, -3, 0, 3, 6]) { R(tx - 1, -5, 3, 3, C.line); R(tx, -5, 1, 3, C.steel); R(tx, -6, 1, 1, C.white); } });
-      if (((time * 2) | 0) % 2) starGlint(g, x + 6, FLOOR - 7, 1, "#fff", C.steel);
+      world(o.x, o.gy, () => { R(-7, -2, 15, 2, C.line); R(-6, -2, 13, 1, C.steel2); for (const tx of [-6, -3, 0, 3, 6]) { R(tx - 1, -5, 3, 3, C.line); R(tx, -5, 1, 3, C.steel); R(tx, -6, 1, 1, C.white); } });
+      if (((time * 2) | 0) % 2) starGlint(g, x + 6, o.gy - 7, 1, "#fff", C.steel);
     } else if (o.kind === "torch") {
       world(o.x, o.y, () => { const a = o.age * 14; R(Math.cos(a) * -4 - 1, Math.sin(a) * -4 - 1, 3, 3, C.wood2); R(-1, -1, 3, 3, C.wood); flame(Math.cos(a) * 4, Math.sin(a) * 4 + 3, 2, 7, time, FIRE); });
       glow(o.x, o.y, 20, "#ffae35", 0.5);
@@ -1106,11 +1220,11 @@ function drawHudText() {                          // 글자는 화면 해상도�
   txt(p.swapCd > 0 ? p.swapCd.toFixed(1) : p.slots[1 - p.active] ? "Space" : "", HUD.sub.x + 7, HUD.sub.y + 23, 10, p.swapCd > 0 ? "#fff" : "#ffe27a", "center");
   txt("Z", HUD.dash.x + 36, HUD.dash.y + 10, 10, "#ffe27a");
   txt("←→ 이동   C 점프(2단)   Z 대시   X 공격   A·S 스킬   Space 투구 교체   ↑ 줍기·문·구매   ↓+C 발판 내려가기   Tab 캐릭터 창   R 다시 시작", W / 2, H - 5, 11, "#d0c8dc", "center");
-  for (const t of texts) txt(t.s, t.x - camX, t.y, t.big ? 18 : 13, t.c, "center");
+  for (const t of texts) txt(t.s, t.x - camX, t.y - camY, t.big ? 18 : 13, t.c, "center");
   for (const o of objs) {
-    if (o.kind === "pickup") { txt(helmById(o.id).name, o.x - camX, FLOOR - 46, 11, "#fff", "center"); if (Math.abs(o.x - p.x) < 16) tip("↑ 지금 투구와 바꾸기", o.x - camX, FLOOR - 58, "#ffe27a"); }
-    if (o.kind === "door") txt((Math.abs(o.x - p.x) < 18 ? "↑ " : "") + REWARDS[o.reward].name, o.x - camX, FLOOR - 61, 11, REWARDS[o.reward].c, "center");
-    if (o.kind === "shop") { txt(o.potion ? "회복 물약" : o.item.name, o.x - camX, FLOOR - 39, 10, o.potion ? "#fff" : GRADES[o.item.grade].c, "center"); txt(`${o.price}G`, o.x - camX, FLOOR - 30, 11, p.gold >= o.price ? "#ffd24a" : "#ff6a5a", "center"); if (Math.abs(o.x - p.x) < 16) tip("↑ " + (o.potion ? "체력 40 회복" : o.item.desc), o.x - camX, FLOOR - 52, "#ffe27a"); }
+    if (o.kind === "pickup") { txt(helmById(o.id).name, o.x - camX, FLOOR - camY - 46, 11, "#fff", "center"); if (Math.abs(o.x - p.x) < 16) tip("↑ 지금 투구와 바꾸기", o.x - camX, FLOOR - camY - 58, "#ffe27a"); }
+    if (o.kind === "door") txt((Math.abs(o.x - p.x) < 18 ? "↑ " : "") + REWARDS[o.reward].name, o.x - camX, FLOOR - camY - 61, 11, REWARDS[o.reward].c, "center");
+    if (o.kind === "shop") { txt(o.potion ? "회복 물약" : o.item.name, o.x - camX, FLOOR - camY - 39, 10, o.potion ? "#fff" : GRADES[o.item.grade].c, "center"); txt(`${o.price}G`, o.x - camX, FLOOR - camY - 30, 11, p.gold >= o.price ? "#ffd24a" : "#ff6a5a", "center"); if (Math.abs(o.x - p.x) < 16) tip("↑ " + (o.potion ? "체력 40 회복" : o.item.desc), o.x - camX, FLOOR - camY - 52, "#ffe27a"); }
   }
   const alive = enemies.filter((e) => !e.dead).length;
   txt(`방 ${room + 1} / ${ROOMS.length}`, W - 8, 15, 12, "#fff", "right");
@@ -1152,30 +1266,20 @@ function update(dt) {
   }
 }
 // 배경 불빛이 일렁이는 자리 (배경 그림의 불 위치)
-const FIRES = [[30, 40, 90], [118, 70, 70], [165, 138, 60], [245, 140, 70], [318, 150, 50], [455, 95, 80], [300, 215, 60]];
 const vignette = mk(W, H); { const v = vignette.getContext("2d"), gr = v.createRadialGradient(W / 2, H * 0.55, 90, W / 2, H * 0.55, 330); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(6,3,14,0.62)"); v.fillStyle = gr; v.fillRect(0, 0, W, H); }
 function shadow(x, w, y = FLOOR) { x = Math.round(x); g.fillStyle = "rgba(8,4,14,0.4)"; g.fillRect(x - w, y, w * 2, 2); g.fillRect(x - w + 2, y + 2, w * 2 - 4, 1); g.fillRect(x - w + 2, y - 1, w * 2 - 4, 1); }
-function drawPlats() {                                           // 나무 발판
-  for (const [x, yo, w] of L.plats) world(x, FLOOR + yo, () => {
-    R(-2, 0, w + 4, 6, C.line); R(-1, 1, w + 2, 4, C.wood); R(-1, 1, w + 2, 1, C.wood2); R(-1, 4, w + 2, 1, C.boot);
-    for (let i = 8; i < w; i += 16) R(i, 2, 1, 2, C.boot);
-    R(4, 6, 3, 9, C.line); R(5, 6, 1, 8, C.wood); R(w - 7, 6, 3, 9, C.line); R(w - 6, 6, 1, 8, C.wood);
-  });
-}
 function render() {
   g.clearRect(0, 0, W, H); lg.clearRect(0, 0, W, H);
-  camX = clamp(Math.round(player.x - W / 2), 0, L.w - W);          // 카메라가 보이드를 따라간다. 배경은 좌우로 뒤집어 가며 이어 붙인다
-  const BW = 528, far = camX * 0.4, tiles = []; for (let i = Math.floor(far / BW); i * BW < far + W; i++) tiles.push(i);   // 먼 배경은 천천히 움직인다
-  if (bg.complete && bg.naturalWidth) for (const i of tiles) { g.save(); g.translate(i * BW - far + (i % 2 ? BW : 0), 0); g.scale(i % 2 ? -1 : 1, 1); g.drawImage(bg, 0, 0, BW, 297); g.restore(); } else { g.fillStyle = "#241c33"; g.fillRect(0, 0, W, H); g.fillStyle = "#3a3346"; g.fillRect(0, FLOOR, W, H - FLOOR); }
-  g.fillStyle = "rgba(14,10,24,0.3)"; g.fillRect(0, 0, W, H);      // 배경을 살짝 눌러 캐릭터가 잘 보이게
-  for (const ti of tiles) FIRES.forEach(([x, y, r], i) => glow(ti * BW - far + (ti % 2 ? BW - x * 1.1 : x * 1.1), y * 1.1, r * (1 + 0.08 * Math.sin(time * 9 + i * 2.3)), "#ff7a2a", 0.16 + 0.05 * Math.sin(time * 13 + i * 1.7) + 0.03 * Math.sin(time * 31 + i)));
+  camX = clamp(Math.round(player.x - W / 2), 0, L.w - W);          // 카메라가 보이드를 따라간다 (좌우 + 위아래)
+  camY = Math.round(Math.min(0, Math.max(rowTop(0) - TS, player.y - 175)));
+  for (const [img, k, ky] of [[backdrop.far, 0.12, 0.08], [backdrop.mid, 0.35, 0.25]]) { const ox = -((camX * k) % 960); for (const dx of [0, 960]) g.drawImage(img, Math.round(ox + dx), Math.round(-camY * ky)); }
   for (const m of embers) if (!m.near) { g.fillStyle = Math.sin(time * 5 + m.ph) > 0 ? "#ffae35" : "#f2561d"; g.fillRect(Math.round(m.x), Math.round(m.y), 1, 1); }
-  g.save(); g.translate(-camX, 0); lg.save(); lg.translate(-camX, 0);   // 여기부터 방 안의 좌표
-  g.drawImage(terr, 0, 0); for (const [x, y] of L.lamps) glow(x, y, 30 + 3 * Math.sin(time * 11 + x), "#ff9a3a", 0.42);
-  drawPlats(); drawFxBack(); drawObjs(true);
+  g.save(); g.translate(-camX, -camY); lg.save(); lg.translate(-camX, -camY);   // 여기부터 방 안의 좌표
+  g.drawImage(terr, 0, rowTop(0)); for (const [x, y] of L.lamps) glow(x, y, 30 + 3 * Math.sin(time * 11 + x), "#ff9a3a", 0.42);
+  drawFxBack(); drawObjs(true);
   for (const e of enemies) {
     if (e.dead > 0.25) continue;
-    if (e.born > 0) { const k = e.born * 2; glow(e.x, FLOOR - 12, 22, "#8a5cc0", 0.5); g.fillStyle = "#b08ae0"; for (let i = 0; i < 6; i++) g.fillRect(Math.round(e.x + Math.cos(time * 9 + i) * 10 * k), Math.round(FLOOR - 12 + Math.sin(time * 9 + i) * 12 * k), 2, 2); continue; }
+    if (e.born > 0) { const k = e.born * 2; glow(e.x, e.y - 12, 22, "#8a5cc0", 0.5); g.fillStyle = "#b08ae0"; for (let i = 0; i < 6; i++) g.fillRect(Math.round(e.x + Math.cos(time * 9 + i) * 10 * k), Math.round(e.y - 12 + Math.sin(time * 9 + i) * 12 * k), 2, 2); continue; }
     shadow(e.x, e.type.low ? 10 : 8, e.gy ?? FLOOR);
     drawEnemySprite(e); blit(spr, e.x, e.y, e.dir);
     if (e.burn > 0) glow(e.x, e.y - 12, 18, "#ff8a2a", 0.35);
@@ -1183,7 +1287,7 @@ function render() {
   }
   drawObjs(false);
   const p = player;
-  shadow(p.x, 10, p.ground ? p.y : FLOOR);
+  shadow(p.x, 10, groundAt(p.x, p.y - 1));
   if (!(p.blink > 0 && ((time * 20) | 0) % 2)) blit(drawPlayerSprite(p), p.x, p.y, p.dir);
   glow(p.x + p.dir * 2, p.y - 30, 18, C.flame1, 0.3); glow(p.x, p.y - 12, 34, C.flame0, 0.12);
   drawFxFront();

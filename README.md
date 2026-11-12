@@ -37,4 +37,4 @@ python3 art/void/void_pixelate.py /tmp/voidr assets
 
 ## 적 · 방 추가
 
-적은 `ENEMIES`에, 방 순서와 웨이브 구성은 `ROOMS`에, 방 모양(너비·솟은 땅·발판·스폰 자리)은 `LAYOUTS`에 항목을 더 넣는다.
+적은 `ENEMIES`에, 방 순서와 웨이브 구성은 `ROOMS`에, 방 모양은 `LAYOUTS`에 문자 지도(# 땅, = 발판, E·T 적 자리)로 항목을 더 넣는다.
