@@ -683,10 +683,10 @@ function updatePlayer(dt) {
   const p = player, helm = p.helm, cds = cdsOf(helm.id);
   for (const id in p.cds) for (let i = 0; i < 2; i++) if (p.cds[id][i] > 0) {
     p.cds[id][i] -= dt;
-    if (p.cds[id][i] <= 0) { p.cds[id][i] = 0; if (id === helm.id) fxGlint(HUD.skill[i].x + 9, HUD.skill[i].y + 9, helm.ramp); if (id === "empty" && i === 0) recallHelm(); }
+    if (p.cds[id][i] <= 0) { p.cds[id][i] = 0; if (id === helm.id) fxGlint(HUD.skill[i].x + 8, HUD.skill[i].y + 8, helm.ramp); if (id === "empty" && i === 0) recallHelm(); }
   }
   if (p.swapCd > 0) { p.swapCd -= dt; if (p.swapCd <= 0) { p.swapCd = 0; fxGlint(HUD.sub.x + 8, HUD.sub.y + 8, helmById(p.slots[1 - p.active])?.ramp ?? RAMP_GHOST); } }
-  if (p.dashes < BASE.dashCharges) { p.dashT += dt; if (p.dashT >= BASE.dashRecharge) { p.dashT = 0; p.dashes++; fxGlint(HUD.dash.x + 2 + (p.dashes - 1) * 9, HUD.dash.y + 2, RAMP_GHOST); } }
+  if (p.dashes < BASE.dashCharges) { p.dashT += dt; if (p.dashT >= BASE.dashRecharge) { p.dashT = 0; p.dashes++; fxGlint(HUD.dash.x + 8 + (p.dashes - 1) * 17, HUD.dash.y + 8, RAMP_GHOST); } }
   p.invuln = Math.max(0, p.invuln - dt); p.blink = Math.max(0, p.blink - dt); p.flash = Math.max(0, p.flash - dt);
   if (p.comboT > 0 && !p.act) { p.comboT -= dt; if (p.comboT <= 0) p.combo = 0; }
 
@@ -959,32 +959,35 @@ function drawObjs(back) {
 // =====================================================================================
 //  HUD
 // =====================================================================================
-const HUD = { hp: { x: 8, y: 8, w: 110, h: 8 }, main: { x: 8, y: 22 }, sub: { x: 34, y: 28 }, skill: [{ x: 56, y: 22 }, { x: 78, y: 22 }], dash: { x: 102, y: 32 } };
+// HUD 틀은 Higgsfield로 뽑은 그림(assets/ui.png)을 화면 해상도로 얹는다. 잘라낸 좌표는 art/ui/ui_cut.py가 뽑아 준 값.
+const uiImg = new Image(); uiImg.src = "assets/ui.png";
+const UI = {"hp":[0,0,352,67,39,23,275,19],"main":[354,0,76,104,13,32,52,44],"sub":[432,0,43,56,7,21,29,28],"skillA":[477,0,69,63,18,23,33,31],"skillS":[548,0,69,64,18,23,33,32],"pipOn":[619,0,31,30],"pipOff":[652,0,31,30],"gold":[685,0,32,33],"scrap":[719,0,47,38],"chest":[768,0,51,38],"helm":[821,0,47,48],"rest":[870,0,45,51],"shop":[917,0,42,45]};
+const ui = (n, x, y) => { const u = UI[n]; sctx.drawImage(uiImg, u[0], u[1], u[2], u[3], Math.round(x), Math.round(y), u[2], u[3]); };
+// 틀 안쪽 창의 위치 (저해상도 좌표). 틀은 drawHudFrames에서 같은 자리에 그린다.
+const HUD = { hp: { x: 24, y: 14, w: 137, h: 9 }, main: { x: 14, y: 51, s: 22 }, sub: { x: 50, y: 59, s: 14 }, skill: [{ x: 79, y: 55, s: 16 }, { x: 115, y: 55, s: 16 }], dash: { x: 144, y: 52 } };
+function drawHudFrames() {
+  ui("hp", 8, 4); ui("main", 10, 70); ui("sub", 92, 96); ui("skillA", 140, 86); ui("skillS", 212, 86);
+  for (let i = 0; i < BASE.dashCharges; i++) ui(i < player.dashes ? "pipOn" : "pipOff", 288 + i * 34, 104);
+  ui("gold", 814, 54); ui("scrap", 876, 52);
+}
 function box(x, y, s, on) { g.fillStyle = C.line; g.fillRect(x - 1, y - 1, s + 2, s + 2); g.fillStyle = on ? "#3a3346" : "#221e2a"; g.fillRect(x, y, s, s); g.fillStyle = on ? "#4c4459" : "#2c2736"; g.fillRect(x, y, s, 1); }
 function icon(x, y, s, fn) { begin(); fn(); outline(); g.save(); g.beginPath(); g.rect(x, y, s, s); g.clip(); g.drawImage(spr, x + (s >> 1) - SX, y + (s >> 1) - SY); g.restore(); }
 function drawHud() {
   const p = player, helm = p.helm, sub = helmById(p.slots[1 - p.active]), cds = cdsOf(helm.id);
-  const b = HUD.hp, k = p.hp / maxHp();
-  g.fillStyle = C.line; g.fillRect(b.x - 1, b.y - 1, b.w + 2, b.h + 2); g.fillStyle = "#3a1418"; g.fillRect(b.x, b.y, b.w, b.h);
+  const b = HUD.hp, k = p.hp / maxHp(), shade = "rgba(10,8,16,0.72)";
+  const panel = (o) => { g.fillStyle = "#1a1622"; g.fillRect(o.x - 3, o.y - 2, o.s + 6, o.s + 4); };
+  g.fillStyle = "#2a1016"; g.fillRect(b.x, b.y, b.w, b.h);
   g.fillStyle = k > 0.3 ? "#c9342c" : "#ff5a3c"; g.fillRect(b.x, b.y, Math.round(b.w * k), b.h); g.fillStyle = "#f07860"; g.fillRect(b.x, b.y, Math.round(b.w * k), 2);
-  box(HUD.main.x, HUD.main.y, 22, true); icon(HUD.main.x, HUD.main.y, 22, () => at(0, 10, () => helm.draw(time)));
-  box(HUD.sub.x, HUD.sub.y, 16, false); if (sub) icon(HUD.sub.x, HUD.sub.y, 16, () => at(0, 9, () => sub.draw(0)));
-  if (p.swapCd > 0) { const h = Math.ceil(16 * p.swapCd / BASE.swapCd); g.fillStyle = "rgba(10,8,16,0.72)"; g.fillRect(HUD.sub.x, HUD.sub.y + 16 - h, 16, h); }
+  panel(HUD.main); icon(HUD.main.x, HUD.main.y, HUD.main.s, () => at(0, 10, () => helm.draw(time)));
+  panel(HUD.sub); if (sub) icon(HUD.sub.x, HUD.sub.y, HUD.sub.s, () => at(0, 9, () => sub.draw(0)));
+  if (p.swapCd > 0) { const h = Math.ceil(HUD.sub.s * p.swapCd / BASE.swapCd); g.fillStyle = shade; g.fillRect(HUD.sub.x, HUD.sub.y + HUD.sub.s - h, HUD.sub.s, h); }
   for (let i = 0; i < 2; i++) {
-    const s = HUD.skill[i], sk = helm.skills[i];
-    box(s.x, s.y, 18, cds[i] <= 0); icon(s.x, s.y, 18, sk.icon);
-    if (cds[i] > 0) { const h = Math.ceil(18 * cds[i] / skillCd(helm, i)); g.fillStyle = "rgba(10,8,16,0.72)"; g.fillRect(s.x, s.y + 18 - h, 18, h); }
-  }
-  for (let i = 0; i < BASE.dashCharges; i++) {
-    const x = HUD.dash.x + i * 9, y = HUD.dash.y;
-    g.fillStyle = C.line; g.fillRect(x - 1, y - 1, 7, 7); g.fillStyle = "#1c2a36"; g.fillRect(x, y, 5, 5);
-    if (i < p.dashes) { g.fillStyle = C.flame1; g.fillRect(x, y, 5, 5); g.fillStyle = C.flame2; g.fillRect(x, y, 5, 2); }
-    else if (i === p.dashes) { const h = Math.round(5 * p.dashT / BASE.dashRecharge); g.fillStyle = C.flame0; g.fillRect(x, y + 5 - h, 5, h); }
+    const s = HUD.skill[i]; panel(s); icon(s.x, s.y, s.s, helm.skills[i].icon);
+    if (cds[i] > 0) { const h = Math.ceil(s.s * cds[i] / skillCd(helm, i)); g.fillStyle = shade; g.fillRect(s.x, s.y + s.s - h, s.s, h); }
   }
   for (const gl of glints) {                      // 쿨타임 반짝임
     const u = gl.t / 0.5, arm = Math.round(7 * Math.sin(Math.min(1, u * 1.6) * Math.PI));
-    if (gl.t < 0.07) { g.fillStyle = "#fff"; g.fillRect(gl.x - 9, gl.y - 9, 18, 18); }
-    else if (gl.t < 0.2) { g.strokeStyle = "#fff"; g.lineWidth = 1; g.strokeRect(gl.x - 9.5, gl.y - 9.5, 19, 19); }
+    if (gl.t < 0.07) { g.fillStyle = "#fff"; g.fillRect(gl.x - 8, gl.y - 8, 16, 16); }
     if (arm > 0) starGlint(g, gl.x + 5, gl.y - 5, arm, gl.ramp[3], gl.ramp[2]);
     glow(gl.x, gl.y, 20, gl.ramp[2], 0.6 * (1 - u));
   }
@@ -992,23 +995,25 @@ function drawHud() {
 function drawHudText() {                          // 글자는 화면 해상도로 또렷하게
   const p = player, helm = p.helm, cds = cdsOf(helm.id), S = SCALE, c = sctx;
   const txt = (s, x, y, size = 11, col = "#fff", align = "left") => { c.font = `bold ${size}px "Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif`; c.textAlign = align; c.lineWidth = 3; c.lineJoin = "round"; c.strokeStyle = "#17131c"; c.strokeText(s, x * S, y * S); c.fillStyle = col; c.fillText(s, x * S, y * S); };
-  txt(`${p.hp} / ${maxHp()}`, HUD.hp.x + HUD.hp.w + 5, HUD.hp.y + 7, 12);
-  txt(`${helm.name} · ${helm.grade} · ${helm.type}`, 8, 63, 12, "#d8f4ff");
-  txt(`${helm.skills[0].name} / ${helm.skills[1].name}`, 8, 71, 10, "#b8b0c4");
-  ["A", "S"].forEach((kname, i) => { const s = HUD.skill[i]; txt(kname, s.x + 1, s.y + 5, 10, "#ffe27a"); if (cds[i] > 0) txt(cds[i].toFixed(1), s.x + 9, s.y + 13, 13, "#fff", "center"); });
-  txt(p.swapCd > 0 ? p.swapCd.toFixed(1) : p.slots[1 - p.active] ? "Space" : "", HUD.sub.x + 8, HUD.sub.y + 23, 10, p.swapCd > 0 ? "#fff" : "#ffe27a", "center");
-  txt("Z", HUD.dash.x + 21, HUD.dash.y + 5, 10, "#ffe27a");
+  drawHudFrames();
+  txt(`${p.hp} / ${maxHp()}`, HUD.hp.x + HUD.hp.w / 2, HUD.hp.y + 8, 12, "#fff", "center");
+  txt(`${helm.name} · ${helm.grade} · ${helm.type}`, 8, 96, 12, "#d8f4ff");
+  txt(`${helm.skills[0].name} / ${helm.skills[1].name}`, 8, 104, 10, "#b8b0c4");
+  ["A", "S"].forEach((kname, i) => { const s = HUD.skill[i]; txt(kname, s.x - 4, s.y, 11, "#ffe27a"); if (cds[i] > 0) txt(cds[i].toFixed(1), s.x + 8, s.y + 12, 13, "#fff", "center"); });
+  txt(p.swapCd > 0 ? p.swapCd.toFixed(1) : p.slots[1 - p.active] ? "Space" : "", HUD.sub.x + 7, HUD.sub.y + 23, 10, p.swapCd > 0 ? "#fff" : "#ffe27a", "center");
+  txt("Z", HUD.dash.x + 36, HUD.dash.y + 10, 10, "#ffe27a");
   txt("←→ 이동   C 점프(2단)   Z 대시   X 공격   A·S 스킬   Space 투구 교체   ↑ 줍기·문·구매   ↓+C 발판 내려가기   R 다시 시작", W / 2, H - 5, 11, "#d0c8dc", "center");
   for (const t of texts) txt(t.s, t.x - camX, t.y, t.big ? 18 : 13, t.c, "center");
   for (const o of objs) {
     if (o.kind === "pickup") { txt(helmById(o.id).name, o.x - camX, FLOOR - 46, 11, "#fff", "center"); if (Math.abs(o.x - p.x) < 16) txt("↑ 지금 투구와 바꾸기", o.x - camX, FLOOR - 55, 11, "#ffe27a", "center"); }
+    if (o.kind === "door") { const u = UI[o.reward]; ui(o.reward, (o.x - camX) * 2 - u[2] / 2, (FLOOR - 58) * 2 - 18 - u[3]); }
     if (o.kind === "door") txt((Math.abs(o.x - p.x) < 18 ? "↑ " : "") + REWARDS[o.reward].name, o.x - camX, FLOOR - 58, 11, REWARDS[o.reward].c, "center");
     if (o.kind === "shop") { txt(o.potion ? "회복 물약" : o.item.name, o.x - camX, FLOOR - 39, 10, "#fff", "center"); txt(`${o.price}G`, o.x - camX, FLOOR - 30, 11, p.gold >= o.price ? "#ffd24a" : "#ff6a5a", "center"); if (Math.abs(o.x - p.x) < 16) txt("↑ " + (o.potion ? "체력 40 회복" : o.item.desc), o.x - camX, FLOOR - 49, 10, "#ffe27a", "center"); }
   }
   const alive = enemies.filter((e) => !e.dead).length;
   txt(`방 ${room + 1} / ${ROOMS.length}`, W - 8, 15, 12, "#fff", "right");
-  txt(`금화 ${p.gold} · 쇳조각 ${p.scrap}`, W - 8, 35, 11, "#ffd24a", "right");
-  p.items.forEach((it, i) => txt(it.name, W - 8, 45 + i * 9, 10, "#b8b0c4", "right"));
+  txt(`${p.gold}`, 425, 39, 12, "#ffd24a"); txt(`${p.scrap}`, 463, 39, 12, "#d0c8dc");
+  p.items.forEach((it, i) => txt(it.name, W - 8, 54 + i * 9, 10, "#b8b0c4", "right"));
   txt(phase === "fight" ? `웨이브 ${wave + 1} / ${ROOMS[room].length} · 적 ${alive}` : ROOMS[room] === "start" ? "시작 방" : ROOMS[room] === "rest" ? "휴식 방" : ROOMS[room] === "shop" ? "상점" : "방 클리어", W - 8, 25, 11, "#d0c8dc", "right");
   if (banner && banner.t > 0 && state === "play") { c.globalAlpha = clamp(banner.t / 0.4); txt(banner.s, W / 2, 70, 20, "#ffe27a", "center"); c.globalAlpha = 1; }
   if (state !== "play") {
