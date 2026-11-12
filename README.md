@@ -1,10 +1,20 @@
 # 갑옷 속의 유령 (ghost-game)
 
-2D 픽셀 횡스크롤 액션 로그라이트. 현재 2단계(투구 4개 · 적 4종 · 웨이브 전투 방 3개 · 투구 보상)까지 구현.
+2D 픽셀 횡스크롤 액션 로그라이트. 현재 3단계까지 구현: 투구 4개 · 적 4종 · 시작 방 → 전투 3 → 휴식 → 전투 2 · 보상 문 선택(금화/상자/투구/쇳조각) · 아이템 10개.
+
+보이드 몸은 Blender로 만든 3D 모델을 도트로 변환한 스프라이트(`assets/void_*.png`)다. 다시 뽑으려면:
+
+```bash
+blender -b -P art/void/void_blender.py -- /tmp/voidr
+```
+
+```bash
+python3 art/void/void_pixelate.py /tmp/voidr assets
+```
 
 ## 실행
 
-`index.html`을 브라우저로 열면 된다 (빌드·설치 없음). `assets/bg_burning_village.png`가 같은 폴더 구조에 있어야 배경이 나온다.
+`index.html`을 브라우저로 열면 된다 (빌드·설치 없음). `assets/` 폴더가 같이 있어야 배경과 보이드가 나온다.
 
 ## 조작
 

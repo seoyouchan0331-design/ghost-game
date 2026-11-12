@@ -1,9 +1,10 @@
 # 보이드 3D 모델 + 포즈 렌더 (Blender 4.5, 화면 없이 실행: blender -b -P void_blender.py -- <출력폴더>)
 # 프레임마다 두 장을 뽑는다: id(재질 구분용 단색) / lit(흰색 조명만). 색 입히기는 void_pixelate.py가 한다.
-import bpy, math, sys
+import bpy, math, sys, json
+from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
 OUT = sys.argv[sys.argv.index("--") + 1]
-RES = 64
+RES = 48
 bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene
 
@@ -129,6 +130,13 @@ def pose(anim, u):
         # (숙임, 앞팔 각도, 팔 뻗는 길이, 가까운 다리, 먼 다리, 몸 앞으로, 들썩임)
         keys = [(-0.2, 0.8, 0.0, 0.1, -0.1, -0.05, 0.0), (0.36, -1.5, 0.22, -0.45, 0.5, 0.3, -0.05), (0.32, -1.45, 0.17, -0.4, 0.45, 0.26, -0.05), (0.1, -0.5, 0.0, -0.15, 0.2, 0.04, 0.0)]
         lean, a0, ext, l0, l1, bx, bob = keys[min(3, int(u * 4))]; aa = [a0, 0.6 if a0 < 0 else -0.4]; la = [l0, l1]; blow = 0.35 if a0 < -1 else 0.1
+    elif anim == "jump":                                       # 0: 오르는 중, 1: 내려오는 중
+        up = u < 0.5; la = [0.55, -0.2] if up else [-0.15, 0.35]; aa = [-0.5, 0.6] if up else [-1.9, -1.6]; lean = 0.1; blow = 0.25 if up else 0.75
+    elif anim == "dash":
+        lean = 0.6; la = [0.75, -0.75]; aa = [1.0, 0.8]; blow = 1.0; bob = -0.04
+    elif anim == "slam":                                       # 0: 두 팔을 들어 올림, 1: 내려찍고 웅크림
+        if u < 0.5: lean = -0.12; aa = [-2.5, -2.3]; bob = 0.04; blow = 0.3
+        else: lean = 0.4; aa = [-0.8, -0.7]; bob = -0.13; la = [0.3, -0.3]; blow = 0.6
     body.location.z = 0.62 + bob; body.location.x = bx; body.rotation_euler = (0, lean, 0)
     for i, sy in enumerate((-1, 1)):
         legs[sy].rotation_euler = (0, -la[i], 0); arms[sy].rotation_euler = (0, aa[i], 0)
@@ -140,9 +148,18 @@ def pose(anim, u):
     head.rotation_euler = (0, -lean * 0.6, 0)
     set_cape(u, blow)
 
-ANIMS = [("idle", 4), ("run", 6), ("punch", 4)]
+ANIMS = [("idle", 4), ("run", 6), ("punch", 4), ("jump", 2), ("dash", 1), ("slam", 2)]
+def px(v):
+    c = world_to_camera_view(sc, cam, v); return [round(c.x * RES, 1), round((1 - c.y) * RES, 1)]
+bpy.context.view_layer.update()
+anchors = {"size": RES, "feet": px(Vector((0, 0, 0))), "frames": {}}
 for name, n in ANIMS:
+    anchors["frames"][name] = []
     for f in range(n):
-        pose(name, f / n)
-        render(f"{OUT}/{name}_{f}_id.png", False); render(f"{OUT}/{name}_{f}_lit.png", True)
+        pose(name, f / n); bpy.context.view_layer.update()
+        anchors["frames"][name].append(px(head.matrix_world.translation) + px(parts[-1][1].matrix_world.translation))   # 목깃, 앞주먹
+        for var, hide in (("full", False), ("body", True)):      # full: 유령불 머리 / body: 머리 없음(투구를 얹는 용)
+            for o in head.children: o.hide_render = hide
+            render(f"{OUT}/{name}_{f}_{var}_id.png", False); render(f"{OUT}/{name}_{f}_{var}_lit.png", True)
+json.dump(anchors, open(f"{OUT}/anchors.json", "w"))
 print("DONE")

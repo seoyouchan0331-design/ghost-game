@@ -15,8 +15,8 @@
 <script>
 "use strict";
 /* =====================================================================================
-   갑옷 속의 유령 — 2단계 (투구 4개 / 적 4종 / 웨이브 전투 방 3개)
-   배경만 png, 캐릭터·적·이펙트는 전부 코드로 픽셀을 그린다.
+   갑옷 속의 유령 — 3단계 (보상 문 선택 / 금화·아이템 / 시작 방·휴식 방)
+   보이드 몸은 Blender로 뽑은 스프라이트 시트(art/void), 투구·무기·적·이펙트는 코드로 그린다.
    이펙트는 pixelfx(MIT, Sprite Fusion의 Hugo Duprez 기법 기반)의 방식을 옮겨 썼다:
    색 레이어 + 가산 빛 레이어, 속도만큼 늘어나는 불꽃, 1~2프레임 흰 섬광, 타격 정지.
    ===================================================================================== */
@@ -37,6 +37,12 @@ const lightC = mk(W, H), lg = lightC.getContext("2d");   // 빛 레이어 (가�
 const SP = 128, SX = 64, SY = 100;                       // 캐릭터 한 명을 그리는 임시 판과 발 위치
 const spr = mk(SP, SP), sg = spr.getContext("2d", { willReadFrequently: true });
 const bg = new Image(); bg.src = "assets/bg_burning_village.png";
+// 보이드 스프라이트 시트: body = 머리 없는 몸(투구를 얹는다), full = 유령불 머리. 한 칸 48px.
+const voidImg = { body: new Image(), full: new Image() }; voidImg.body.src = "assets/void_body.png"; voidImg.full.src = "assets/void_full.png";
+const VOID = { S: 48, feet: [22, 39], rows: { idle: 0, run: 1, punch: 2, jump: 3, dash: 4, slam: 5 } };
+// 프레임마다 [목깃 x, y, 앞주먹 x, y] (발 기준). art/void/void_blender.py가 뽑아 준 값.
+const VOID_ANCHORS = {"idle":[[0,-22,-5,-8],[0,-23,-5,-9],[0,-22,-5,-8],[0,-22,-4,-8]],"run":[[4,-21,-3,-8],[4,-22,3,-9],[4,-22,3,-9],[4,-21,-3,-8],[4,-22,-8,-13],[4,-22,-8,-13]],"punch":[[-3,-22,-10,-10],[8,-20,12,-9],[7,-20,10,-10],[2,-22,0,-9]],"jump":[[1,-22,0,-9],[1,-22,3,-18]],"dash":[[7,-19,-7,-13]],"slam":[[-1,-23,-3,-24],[5,-19,2,-6]]};
+const pc = document.createElement("canvas"); pc.width = pc.height = 128; const pcg = pc.getContext("2d");
 
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -213,7 +219,7 @@ const HELMETS = [
     } },
   },
   {
-    id: "mage", name: "견습 마법사 고깔", grade: "녹슨", type: "밸런스", ramp: RAMP_MAGE, cdMult: 0.85,   // 패시브: 스킬 쿨 -15%
+    id: "mage", name: "견습 마법사 고깔", grade: "녹슨", type: "밸런스", ramp: RAMP_MAGE, magic: true, cdMult: 0.85,   // 패시브: 스킬 쿨 -15%
     draw(t) {
       hood();
       const rows = [[-7, 13], [-7, 12], [-7, 11], [-7, 10], [-7, 9], [-8, 9], [-8, 8], [-9, 8], [-9, 7], [-10, 6], [-11, 6], [-12, 5], [-13, 5], [-14, 4]];
@@ -327,12 +333,31 @@ const ENEMIES = {
       if (wind) exclaim(4, -24);
     } },
 };
-// 전투 방 3개: 방마다 웨이브 목록. 뒤로 갈수록 방패병·횃불병이 늘어난다.
+// 스테이지 1 앞부분: 시작 방 → 전투 3 → 휴식 → 전투 2. 전투 방은 웨이브 목록.
 const ROOMS = [
+  "start",
   [["militia", "militia", "militia"], ["militia", "militia", "hound", "hound"]],
   [["militia", "torch", "hound", "hound"], ["shield", "militia", "torch"], ["hound", "hound", "hound", "torch"]],
   [["shield", "torch", "militia", "militia"], ["shield", "shield", "hound", "hound"], ["shield", "torch", "torch", "militia", "hound"]],
+  "rest",
+  [["shield", "torch", "hound", "hound"], ["militia", "militia", "torch", "torch"], ["shield", "shield", "torch", "hound", "hound"]],
+  [["hound", "hound", "hound", "hound"], ["shield", "torch", "torch", "militia"], ["shield", "shield", "torch", "torch", "militia"]],
 ];
+// 아이템 목록 (녹슨 10개). mod의 값은 stat()으로 모두 더해져 적용된다.
+const ITEMS = [
+  { name: "그을린 부싯돌", desc: "물리 공격력 +10%", mod: { phys: 0.1 } },
+  { name: "서리 낀 장갑", desc: "마법 공격력 +10%", mod: { magic: 0.1 } },
+  { name: "녹슨 단검", desc: "치명타 확률 +5%", mod: { crit: 0.05 } },
+  { name: "낡은 망토", desc: "최대 체력 +15", mod: { hp: 15 } },
+  { name: "동전 주머니", desc: "획득 골드 +10%", mod: { gold: 0.1 } },
+  { name: "화약 가루", desc: "스킬 피해 +10%", mod: { skill: 0.1 } },
+  { name: "가벼운 장화", desc: "이동 속도 +10%", mod: { speed: 0.1 } },
+  { name: "송곳니 목걸이", desc: "기본 공격 피해 +10%", mod: { basic: 0.1 } },
+  { name: "얼음 조각", desc: "공격 속도 +8%", mod: { aspd: 0.08 } },
+  { name: "빈 유골함", desc: "투구 교체 시 체력 3 회복", mod: { swapHeal: 3 } },
+];
+// 보상 문 4종과 등장 비중 (휴식은 고정 방 표시용)
+const REWARDS = { gold: { name: "금화", w: 35, c: "#ffd24a" }, chest: { name: "상자", w: 30, c: "#e08a3c" }, helm: { name: "투구", w: 20, c: "#63c8ea" }, scrap: { name: "쇳조각", w: 15, c: "#b0a8ba" }, rest: { name: "휴식", w: 0, c: "#8fc05a" } };
 
 // ---------- 입력 ----------
 const keys = {}, pressed = {};
@@ -347,29 +372,61 @@ const take = (code) => { if (pressed[code] > 0) { pressed[code] = 0; return true
 // ---------- 게임 상태 ----------
 let player, enemies, objs, sparks, puffs, lights, flashes, ghosts, texts, glints, embers;
 let time = 0, hitstop = 0, shakeT = 0, shakeAmp = 0, shakeDur = 1, whiteT = 0, state = "play";
-let room = 0, wave = 0, waveT = 0, phase = "fight", banner = null;
+let pendingReward = null, room = 0, wave = 0, waveT = 0, phase = "fight", banner = null;
 
 function reset() {
   player = {
     x: 70, y: FLOOR, vx: 0, vy: 0, dir: 1, ground: true, hp: BASE.maxHp,
     jumps: BASE.jumps, dashes: BASE.dashCharges, dashT: 0, dashing: 0, invuln: 0, blink: 0,
-    slots: ["empty", "soldier"], active: 0, swapCd: 0, cds: {}, counts: {},
+    slots: ["empty", null], active: 0, swapCd: 0, cds: {}, counts: {}, gold: 0, scrap: 0, items: [], src: "basic",
     act: null, combo: 0, comboT: 0, headless: false, flash: 0, walkT: 0,
     get helm() { return helmById(this.slots[this.active]); },
   };
   enemies = []; objs = []; sparks = []; puffs = []; lights = []; flashes = []; ghosts = []; texts = []; glints = [];
   embers = Array.from({ length: 46 }, () => ({ x: rnd(0, W), y: rnd(0, H), v: rnd(8, 26), ph: rnd(0, 6), near: Math.random() < 0.3 }));
-  hitstop = 0; shakeT = 0; whiteT = 0; state = "play"; room = 0; startRoom();
+  hitstop = 0; shakeT = 0; whiteT = 0; state = "play"; room = 0; pendingReward = null; startRoom();
 }
 const cdsOf = (id) => (player.cds[id] ??= [0, 0]);
 const skillCd = (helm, i) => helm.skills[i].cd * (helm.cdMult ?? 1);
-function startRoom() { wave = 0; waveT = 0; phase = "fight"; objs = []; startWave(); }
+const stat = (k) => player.items.reduce((s, it) => s + (it.mod[k] ?? 0), 0);   // 가진 아이템의 효과 합
+const maxHp = () => BASE.maxHp + stat("hp");
+const freeHelms = () => HELMETS.filter((h) => h.id !== "empty" && !player.slots.includes(h.id));
+const freeItems = () => ITEMS.filter((it) => !player.items.includes(it));
+const fightNo = () => ROOMS.slice(0, room + 1).filter((r) => typeof r !== "string").length;
+function startRoom() {
+  wave = 0; waveT = 0; objs = []; const r = ROOMS[room];
+  if (r === "start") { phase = "clear"; banner = { s: "투구를 줍고(↑) 문을 고르자", t: 3 }; spawn({ kind: "pickup", id: pick(freeHelms()).id, x: 240 }); openDoors(); }
+  else if (r === "rest") { phase = "clear"; const n = Math.round(maxHp() * 0.3); player.hp = Math.min(maxHp(), player.hp + n); banner = { s: `휴식 — 체력 +${n}`, t: 2.5 }; openDoors(); }
+  else { phase = "fight"; startWave(); }
+}
+function rollReward(not) {
+  const ok = Object.keys(REWARDS).filter((k) => REWARDS[k].w && k !== not && !(k === "helm" && !freeHelms().length) && !(k === "chest" && (!freeItems().length || player.items.length >= 9)));
+  let r = rnd(0, ok.reduce((sum, k) => sum + REWARDS[k].w, 0));
+  for (const k of ok) { r -= REWARDS[k].w; if (r <= 0) return k; }
+  return ok[0];
+}
+// 방을 깨면: 들어올 때 고른 문의 보상을 주고, 다음 방의 문을 연다
+function grantReward() {
+  const r = pendingReward, p = player; pendingReward = null;
+  if (r === "gold") { const n = Math.round(rnd(60, 90) * (1 + stat("gold"))); p.gold += n; banner = { s: `금화 +${n}`, t: 2 }; }
+  else if (r === "scrap") { const n = Math.round(rnd(15, 25)); p.scrap += n; banner = { s: `쇳조각 +${n}`, t: 2 }; }
+  else if (r === "chest") { const it = pick(freeItems()); p.items.push(it); if (it.mod.hp) p.hp += it.mod.hp; banner = { s: `${it.name} — ${it.desc}`, t: 3 }; }
+  else if (r === "helm") { spawn({ kind: "pickup", id: pick(freeHelms()).id, x: 240 }); banner = { s: "투구가 떨어졌다!", t: 2 }; }
+  else banner = { s: "방 클리어!", t: 1.8 };
+  light(240, FLOOR - 16, 60, "#fff", 0.7, 0.4);
+}
+function openDoors() {
+  if (room + 1 >= ROOMS.length) { state = "clear"; return; }
+  if (ROOMS[room + 1] === "rest") { spawn({ kind: "door", x: 440, reward: "rest" }); return; }
+  const a = rollReward(), b = rollReward(a);
+  spawn({ kind: "door", x: 392, reward: a }); spawn({ kind: "door", x: 446, reward: b });
+}
 function newEnemy(id, x, i = 0) {
   const ty = ENEMIES[id];
   return { id, type: ty, x, y: FLOOR, vx: 0, vy: 0, dir: Math.sign(player.x - x) || -1, hp: ty.hp, maxHp: ty.hp, st: "walk", t: rnd(0.3, 1), stun: 0, flash: 0, walkT: i, dead: 0, burn: 0, burnT: 0, born: 0.45 + i * 0.12, speed: ty.speed * rnd(0.9, 1.1) };
 }
 function startWave() {
-  banner = { s: `전투 방 ${room + 1} · 웨이브 ${wave + 1} / ${ROOMS[room].length}`, t: 1.6 };
+  banner = { s: `전투 방 ${fightNo()} · 웨이브 ${wave + 1} / ${ROOMS[room].length}`, t: 1.6 };
   ROOMS[room][wave].forEach((id, i) => { let x; do x = rnd(ROOM_L + 20, ROOM_R - 20); while (Math.abs(x - player.x) < 110); enemies.push(newEnemy(id, x, i)); });
 }
 const spawn = (o) => { objs.push(o); return o; };
@@ -412,7 +469,7 @@ function blast(x, y, r, dmg, ramp) {
 // 기획서 피해 공식: 기본 피해 × (1 + 공격력 증가 합) × 치명타 배율
 function damage(e, base, o = {}) {
   if (e.dead) return;
-  const atkBonus = 0, crit = !o.quiet && Math.random() < BASE.critChance, dir = o.dir ?? 1;
+  const atkBonus = o.quiet ? 0 : stat(player.helm.magic ? "magic" : "phys") + stat(player.src), crit = !o.quiet && Math.random() < BASE.critChance + stat("crit"), dir = o.dir ?? 1;
   const blocked = !!e.type.shield && e.stun <= 0 && !o.above && !o.quiet && o.sx != null && (o.sx - e.x) * e.dir > 0;   // 방패 정면
   const dmg = Math.max(1, Math.round(base * (o.mult ?? 1) * (1 + atkBonus) * (crit ? BASE.critMult : 1) * (blocked ? 0.2 : 1)));
   e.hp -= dmg; e.flash = 0.1;
@@ -476,9 +533,8 @@ const fxRing = (x, y, r, ramp) => flashes.push({ kind: "ring", x, y, r, t: 0, ra
 const fxSwoosh = (x, y, dir, len, ramp, thrust) => flashes.push({ kind: "swoosh", x, y, dir, len, t: 0, ramp, thrust });
 // 대시 잔상: 지금 실루엣을 투구 색으로 찍어 남긴다
 function fxGhost(p) {
-  drawPlayerSprite(p);
   const c = mk(SP, SP), cg = c.getContext("2d");
-  cg.drawImage(spr, 0, 0); cg.globalCompositeOperation = "source-atop"; cg.fillStyle = p.helm.ramp[2]; cg.fillRect(0, 0, SP, SP);
+  cg.drawImage(drawPlayerSprite(p), 0, 0); cg.globalCompositeOperation = "source-atop"; cg.fillStyle = p.helm.ramp[2]; cg.fillRect(0, 0, SP, SP);
   ghosts.push({ c, x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, t: 0, life: 0.26 });
 }
 // 쿨타임 반짝임: HUD 아이콘 위의 별 모양 반짝이 + 아이콘 흰 테두리
@@ -607,20 +663,20 @@ function updatePlayer(dt) {
     p.cds[id][i] -= dt;
     if (p.cds[id][i] <= 0) { p.cds[id][i] = 0; if (id === helm.id) fxGlint(HUD.skill[i].x + 9, HUD.skill[i].y + 9, helm.ramp); if (id === "empty" && i === 0) recallHelm(); }
   }
-  if (p.swapCd > 0) { p.swapCd -= dt; if (p.swapCd <= 0) { p.swapCd = 0; fxGlint(HUD.sub.x + 8, HUD.sub.y + 8, helmById(p.slots[1 - p.active]).ramp); } }
+  if (p.swapCd > 0) { p.swapCd -= dt; if (p.swapCd <= 0) { p.swapCd = 0; fxGlint(HUD.sub.x + 8, HUD.sub.y + 8, helmById(p.slots[1 - p.active])?.ramp ?? RAMP_GHOST); } }
   if (p.dashes < BASE.dashCharges) { p.dashT += dt; if (p.dashT >= BASE.dashRecharge) { p.dashT = 0; p.dashes++; fxGlint(HUD.dash.x + 2 + (p.dashes - 1) * 9, HUD.dash.y + 2, RAMP_GHOST); } }
   p.invuln = Math.max(0, p.invuln - dt); p.blink = Math.max(0, p.blink - dt); p.flash = Math.max(0, p.flash - dt);
   if (p.comboT > 0 && !p.act) { p.comboT -= dt; if (p.comboT <= 0) p.combo = 0; }
 
   const ax = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
-  const speed = BASE.speed * (p.headless ? 1.2 : 1);
+  const speed = BASE.speed * (p.headless ? 1.2 : 1) * (1 + stat("speed"));
 
   // 투구 교체
-  if (take("Space") && p.swapCd <= 0 && !p.dashing) {
+  if (take("Space") && p.swapCd <= 0 && !p.dashing && p.slots[1 - p.active]) {
     recallHelm(); p.active = 1 - p.active; p.swapCd = BASE.swapCd; p.combo = 0;
     const nh = p.helm; p.cds[nh.id] = [0, 0];       // 들어온 투구는 스킬 쿨 초기화
     if (ax) p.dir = ax;
-    fxSwap(p); nh.swap.use(p);
+    p.src = "swap"; p.hp = Math.min(maxHp(), p.hp + stat("swapHeal")); fxSwap(p); nh.swap.use(p);
   }
   // 대시 (행동을 끊고 나간다)
   if (take("KeyZ") && p.dashes > 0 && !p.dashing) {
@@ -641,8 +697,8 @@ function updatePlayer(dt) {
   } else {
     p.vx = ax * speed; if (ax) p.dir = ax;
     if (take("KeyC") && p.jumps > 0) { p.vy = BASE.jumpV * (p.jumps === BASE.jumps ? 1 : 0.9); if (!p.ground) fxRing(p.x, p.y, 12, RAMP_GHOST); else dust(p.x, p.y, 0, 3); p.jumps--; p.ground = false; }
-    if (take("KeyA") && cds[0] <= 0) { cds[0] = skillCd(helm, 0); helm.skills[0].use(p); }
-    else if (take("KeyS") && cds[1] <= 0) { cds[1] = skillCd(helm, 1); helm.skills[1].use(p); }
+    if (take("KeyA") && cds[0] <= 0) { cds[0] = skillCd(helm, 0); p.src = "skill"; helm.skills[0].use(p); }
+    else if (take("KeyS") && cds[1] <= 0) { cds[1] = skillCd(helm, 1); p.src = "skill"; helm.skills[1].use(p); }
     else if (take("KeyX")) basicAttack(p);
     else if (take("ArrowUp")) interact(p);
   }
@@ -656,7 +712,8 @@ function basicAttack(p) {
   const n = (p.counts[helm.id] = (p.counts[helm.id] ?? 0) + 1);
   const empowered = !!b.nth && n % b.nth.every === 0;
   p.combo = (p.combo + 1) % b.steps.length;
-  startAct(p, { ...step, empowered, events: [{ t: step.hitT, fn() {
+  const k = 1 + stat("aspd"); p.src = "basic";              // 공격 속도만큼 동작이 짧아진다
+  startAct(p, { ...step, dur: step.dur / k, hitT: step.hitT / k, empowered, events: [{ t: step.hitT / k, fn() {
     if (step.fire) return step.fire(p);
     const thrust = step.pose === "thrust";
     melee(p, { x0: 0, x1: step.reach + 8, y0: -26, y1: 0, dmg: step.dmg, heavy: step.heavy || empowered, mult: empowered ? b.nth.mult : 1, kb: step.heavy ? 150 : 80 });
@@ -669,64 +726,37 @@ function recallHelm() { player.headless = false; objs = objs.filter((o) => o.kin
 function interact(p) {
   const it = objs.find((o) => o.kind === "pickup" && Math.abs(o.x - p.x) < 16);
   if (it) {
-    recallHelm(); const old = p.slots[p.active]; p.slots[p.active] = it.id; it.id = old; p.cds[p.helm.id] = [0, 0]; p.combo = 0;
-    fxSwap(p); banner = { s: `${p.helm.name} 획득!`, t: 1.4 }; return;
+    recallHelm();
+    if (!p.slots[1]) { p.slots[1] = it.id; p.active = 1; it.gone = true; }          // 빈 칸이 있으면 그냥 챙긴다
+    else { const old = p.slots[p.active]; p.slots[p.active] = it.id; it.id = old; }
+    p.cds[p.helm.id] = [0, 0]; p.combo = 0; fxSwap(p); banner = { s: `${p.helm.name} 획득!`, t: 1.4 }; return;
   }
-  if (objs.some((o) => o.kind === "door" && Math.abs(o.x - p.x) < 18)) { recallHelm(); room++; p.x = 40; p.dir = 1; whiteT = 0.1; startRoom(); }
+  const door = objs.find((o) => o.kind === "door" && Math.abs(o.x - p.x) < 18);
+  if (door) { recallHelm(); pendingReward = door.reward === "rest" ? null : door.reward; room++; p.x = 40; p.dir = 1; whiteT = 0.1; startRoom(); }
 }
 
 function drawPlayerSprite(p) {
-  begin();
-  const a = p.act, helm = p.helm, t = time;
-  let ext = 0, lean = 0, squash = 0;
+  const a = p.act, helm = p.helm, t = time, S = VOID.S;
+  let row = "idle", f = ((t * 6) | 0) % 4;                      // 지금 상태에 맞는 시트 칸을 고른다
   if (a) {
-    const u = a.t / a.dur, hitU = (a.hitT ?? a.dur * 0.3) / a.dur, reach = a.reach || 10;
-    ext = u < hitU ? -4 * (u / hitU) : reach * (u < hitU + 0.25 ? 1 : 1 - (u - hitU - 0.25) / (1 - hitU - 0.25) * 0.8);
-    if (a.pose === "thrust") { ext = Math.min(ext, 14); lean = u < hitU ? -1 : 3; }
-    if (a.pose === "ram") { lean = 5; ext = -2; }
-    if (a.pose === "slam") { squash = 2; ext = 2; }
-    if (a.pose === "punch") { ext = Math.min(ext, 15); lean = u < hitU ? -2 : 2; }
-    if (a.pose === "shoot" || a.pose === "cast") { ext = Math.min(ext, 6); lean = u < hitU ? 0 : -1; }
-  } else if (p.dashing) lean = 5;
-  const moving = p.dashing > 0 || Math.abs(p.vx) > 10, walk = p.ground && moving && !a, air = !p.ground, fly = moving || air;
-  const ph = p.walkT * 13, bob = walk ? (Math.abs(Math.sin(ph)) > 0.6 ? 1 : 0) : !a && p.ground ? ((t * 2) | 0) % 2 : 0;
-  const bx = lean, by = -bob + squash;
-  // 망토: 기둥마다 길이가 물결친다. 달리면 뒤로 길게 날린다
-  for (let c = 0, n = fly ? 13 : 8; c < n; c++) {
-    const x = -4 - c + Math.round(bx / 2), top = -23 + by + Math.round(c * (fly ? 0.25 : 0.8));
-    let len = (fly ? 10 : 15) - Math.round(c * (fly ? 0.35 : 0.6)) + Math.round(Math.sin(t * (fly ? 15 : 4) + c * 0.9) * (fly ? 1.6 : 0.8));
-    if (c % 3 === 1) len -= 2;
-    R(x, top, 1, len, c % 4 === 3 ? C.cape2 : C.cape); R(x, top, 1, 1, C.cape3); R(x, top + len - 2, 1, 2, C.cape2);
-  }
-  // 다리
-  const leg = (x, y, front) => { R(x - 2, y - 8, 5, 5, front ? C.iron1 : C.iron0); R(x - 3, y - 4, 7, 4, front ? C.iron2 : C.iron1); R(x - 3, y - 1, 7, 1, C.rust); if (front) { R(x, y - 4, 3, 1, C.iron3); R(x + 2, y - 2, 2, 1, C.rust2); } };
-  const s1 = Math.sin(ph), c1 = Math.cos(ph);
-  leg(-5 + (walk ? Math.round(s1 * 3) : air ? -2 : 0), walk ? Math.min(0, -Math.round(c1 * 2)) : air ? -3 : 0, false);
-  leg(5 + (walk ? -Math.round(s1 * 3) : air ? 2 : 0), walk ? Math.min(0, Math.round(c1 * 2)) : air ? -1 : 0, true);
-  // 뒷팔
-  E(-11 + bx, -12 + by, 3, 3, C.iron0); R(-12 + bx, -11 + by, 3, 1, C.iron1);
-  // 몸통: 둥근 통 갑옷, 왼쪽 위에서 빛
-  E(bx, -15 + by, 10, 8, C.iron0); E(bx - 1, -16 + by, 9, 7, C.iron1); E(bx - 2, -17 + by, 6, 5, C.iron2); E(bx - 4, -19 + by, 3, 2, C.iron3);
-  R(bx + 1, -19 + by, 1, 3, C.dark); R(bx + 2, -17 + by, 1, 3, C.dark); R(bx + 1, -15 + by, 1, 2, C.dark);          // 가슴의 금
-  R(bx + 5, -14 + by, 3, 2, C.rust); R(bx + 6, -16 + by, 2, 1, C.rust2); R(bx - 7, -12 + by, 2, 2, C.rust); R(bx - 3, -22 + by, 2, 1, C.rust2);
-  R(bx - 9, -9 + by, 19, 2, C.iron0); R(bx - 9, -9 + by, 19, 1, C.iron2); R(bx - 1, -10 + by, 3, 3, C.gold); R(bx, -9 + by, 1, 1, C.dark);
-  for (const [x, w] of [[-9, 5], [-3, 6], [4, 5]]) { R(bx + x, -7 + by, w, 3, C.iron1); R(bx + x, -7 + by, w, 1, C.iron2); R(bx + x, -5 + by, w, 1, C.rust); }
-  // 어깨 갑옷
-  for (const sx of [-9, 9]) { E(bx + sx, -20 + by, 4, 3, C.iron1); E(bx + sx - 1, -21 + by, 3, 2, C.iron2); R(bx + sx - 2, -23 + by, 3, 1, C.iron3); R(bx + sx, -20 + by, 1, 1, C.gold); R(bx + sx + 1, -18 + by, 2, 1, C.rust); }
-  // 목깃과 머리
-  at(bx, by - 23, () => {
-    E(0, 0, 5, 2, C.rust); R(-4, -1, 9, 1, C.rust2); E(0, 0, 3, 1, C.dark);
-    if (p.headless) { flame(0, 1, 4, 13, t, GHOST); R(0, -6, 2, 3, C.white); R(3, -6, 2, 3, C.white); }
-    else helm.draw(t);
-  });
-  // 앞팔 + 무기
-  const hx = 10 + bx + ext, hy = -11 + by;
-  if (ext > 3) { R(10 + bx, hy - 2, ext, 4, C.iron1); R(10 + bx, hy - 2, ext, 1, C.iron2); }
-  helm.weapon(hx, hy, !!a && a.pose !== "slam", t);
-  E(hx, hy, 4, 4, C.iron1); E(hx - 1, hy - 1, 3, 3, C.iron2); R(hx - 2, hy - 3, 3, 1, C.iron3); R(hx + 2, hy - 1, 1, 4, C.iron0); R(hx, hy + 2, 3, 1, C.rust); R(hx - 3, hy + 1, 1, 1, C.rust2);
+    const u = a.t / a.dur, hitU = (a.hitT ?? a.dur * 0.3) / a.dur;
+    if (a.pose === "ram") { row = "dash"; f = 0; }
+    else if (a.pose === "slam") { row = "slam"; f = u < 0.35 ? 0 : 1; }
+    else { row = "punch"; f = u < hitU ? 0 : u < hitU + 0.3 ? 1 : u < 0.85 ? 2 : 3; }
+  } else if (p.dashing > 0) { row = "dash"; f = 0; }
+  else if (!p.ground) { row = "jump"; f = p.vy < 0 ? 0 : 1; }
+  else if (Math.abs(p.vx) > 10) { row = "run"; f = ((p.walkT * 12) | 0) % 6; }
+  const [hx, hy, ax, ay] = VOID_ANCHORS[row][f];
+  begin();                                                     // 투구와 무기는 코드로 그려 몸 위에 얹는다
+  helm.weapon(ax, ay, !!a && a.pose !== "slam", t);
+  if (!p.headless) at(hx, hy, () => helm.draw(t));
   outline();
-  if (a && a.empowered) { R(hx + 26, hy - 4, 4, 1, C.white); R(hx + 26, hy + 5, 4, 1, C.white); }
-  if (p.flash > 0) whiten();
+  if (a && a.empowered) { R(ax + 26, ay - 4, 4, 1, C.white); R(ax + 26, ay + 5, 4, 1, C.white); }
+  pcg.globalCompositeOperation = "source-over"; pcg.clearRect(0, 0, SP, SP);
+  pcg.drawImage(p.headless ? voidImg.full : voidImg.body, f * S, VOID.rows[row] * S, S, S, SX - VOID.feet[0], SY - VOID.feet[1], S, S);
+  pcg.drawImage(spr, 0, 0);
+  if (p.flash > 0) { pcg.globalCompositeOperation = "source-atop"; pcg.fillStyle = "#fff"; pcg.fillRect(0, 0, SP, SP); }
+  return pc;
 }
 
 // =====================================================================================
@@ -881,7 +911,7 @@ function drawObjs(back) {
     } else if (o.kind === "door") {
       world(o.x, FLOOR, () => { R(-14, -46, 28, 46, C.line); R(-13, -45, 26, 45, C.wood); R(-11, -42, 22, 42, "#1a1426"); R(-9, -40, 18, 40, "#2a1e40");
         for (let i = 0; i < 5; i++) R(-7 + i * 3 + Math.round(Math.sin(time * 2 + i)), -8 - ((time * 14 + i * 9) % 30), 1, 3, C.flame1);
-        R(-13, -45, 2, 45, C.wood2); R(11, -45, 2, 45, C.wood2); R(-13, -45, 26, 2, C.wood2); R(-3, -53, 6, 6, C.line); R(-2, -52, 4, 4, C.gold); R(-1, -51, 2, 2, "#ffe9a0"); });
+        R(-13, -45, 2, 45, C.wood2); R(11, -45, 2, 45, C.wood2); R(-13, -45, 26, 2, C.wood2); R(-3, -53, 6, 6, C.line); R(-2, -52, 4, 4, o.reward ? REWARDS[o.reward].c : C.gold); });
       glow(o.x, FLOOR - 20, 34, C.flame1, 0.3);
     }
   }
@@ -895,11 +925,11 @@ function box(x, y, s, on) { g.fillStyle = C.line; g.fillRect(x - 1, y - 1, s + 2
 function icon(x, y, s, fn) { begin(); fn(); outline(); g.save(); g.beginPath(); g.rect(x, y, s, s); g.clip(); g.drawImage(spr, x + (s >> 1) - SX, y + (s >> 1) - SY); g.restore(); }
 function drawHud() {
   const p = player, helm = p.helm, sub = helmById(p.slots[1 - p.active]), cds = cdsOf(helm.id);
-  const b = HUD.hp, k = p.hp / BASE.maxHp;
+  const b = HUD.hp, k = p.hp / maxHp();
   g.fillStyle = C.line; g.fillRect(b.x - 1, b.y - 1, b.w + 2, b.h + 2); g.fillStyle = "#3a1418"; g.fillRect(b.x, b.y, b.w, b.h);
   g.fillStyle = k > 0.3 ? "#c9342c" : "#ff5a3c"; g.fillRect(b.x, b.y, Math.round(b.w * k), b.h); g.fillStyle = "#f07860"; g.fillRect(b.x, b.y, Math.round(b.w * k), 2);
   box(HUD.main.x, HUD.main.y, 22, true); icon(HUD.main.x, HUD.main.y, 22, () => at(0, 10, () => helm.draw(time)));
-  box(HUD.sub.x, HUD.sub.y, 16, false); icon(HUD.sub.x, HUD.sub.y, 16, () => at(0, 9, () => sub.draw(0)));
+  box(HUD.sub.x, HUD.sub.y, 16, false); if (sub) icon(HUD.sub.x, HUD.sub.y, 16, () => at(0, 9, () => sub.draw(0)));
   if (p.swapCd > 0) { const h = Math.ceil(16 * p.swapCd / BASE.swapCd); g.fillStyle = "rgba(10,8,16,0.72)"; g.fillRect(HUD.sub.x, HUD.sub.y + 16 - h, 16, h); }
   for (let i = 0; i < 2; i++) {
     const s = HUD.skill[i], sk = helm.skills[i];
@@ -923,25 +953,27 @@ function drawHud() {
 function drawHudText() {                          // 글자는 화면 해상도로 또렷하게
   const p = player, helm = p.helm, cds = cdsOf(helm.id), S = SCALE, c = sctx;
   const txt = (s, x, y, size = 11, col = "#fff", align = "left") => { c.font = `bold ${size}px "Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif`; c.textAlign = align; c.lineWidth = 3; c.lineJoin = "round"; c.strokeStyle = "#17131c"; c.strokeText(s, x * S, y * S); c.fillStyle = col; c.fillText(s, x * S, y * S); };
-  txt(`${p.hp} / ${BASE.maxHp}`, HUD.hp.x + HUD.hp.w + 5, HUD.hp.y + 7, 12);
+  txt(`${p.hp} / ${maxHp()}`, HUD.hp.x + HUD.hp.w + 5, HUD.hp.y + 7, 12);
   txt(`${helm.name} · ${helm.grade} · ${helm.type}`, 8, 63, 12, "#d8f4ff");
   txt(`${helm.skills[0].name} / ${helm.skills[1].name}`, 8, 71, 10, "#b8b0c4");
   ["A", "S"].forEach((kname, i) => { const s = HUD.skill[i]; txt(kname, s.x + 1, s.y + 5, 10, "#ffe27a"); if (cds[i] > 0) txt(cds[i].toFixed(1), s.x + 9, s.y + 13, 13, "#fff", "center"); });
-  txt(p.swapCd > 0 ? p.swapCd.toFixed(1) : "Space", HUD.sub.x + 8, HUD.sub.y + 23, 10, p.swapCd > 0 ? "#fff" : "#ffe27a", "center");
+  txt(p.swapCd > 0 ? p.swapCd.toFixed(1) : p.slots[1 - p.active] ? "Space" : "", HUD.sub.x + 8, HUD.sub.y + 23, 10, p.swapCd > 0 ? "#fff" : "#ffe27a", "center");
   txt("Z", HUD.dash.x + 21, HUD.dash.y + 5, 10, "#ffe27a");
   txt("←→ 이동   C 점프(2단)   Z 대시   X 공격   A·S 스킬   Space 투구 교체   ↑ 줍기·문   R 다시 시작", W / 2, H - 5, 11, "#d0c8dc", "center");
   for (const t of texts) txt(t.s, t.x, t.y, t.big ? 18 : 13, t.c, "center");
   for (const o of objs) {
     if (o.kind === "pickup") { txt(helmById(o.id).name, o.x, FLOOR - 46, 11, "#fff", "center"); if (Math.abs(o.x - p.x) < 16) txt("↑ 지금 투구와 바꾸기", o.x, FLOOR - 55, 11, "#ffe27a", "center"); }
-    if (o.kind === "door") txt(Math.abs(o.x - p.x) < 18 ? "↑ 다음 방으로" : "다음 방", o.x, FLOOR - 58, 11, "#ffe27a", "center");
+    if (o.kind === "door") txt((Math.abs(o.x - p.x) < 18 ? "↑ " : "") + REWARDS[o.reward].name, o.x, FLOOR - 58, 11, REWARDS[o.reward].c, "center");
   }
   const alive = enemies.filter((e) => !e.dead).length;
-  txt(`전투 방 ${room + 1} / ${ROOMS.length}`, W - 8, 15, 12, "#fff", "right");
-  txt(phase === "fight" ? `웨이브 ${wave + 1} / ${ROOMS[room].length} · 적 ${alive}` : "방 클리어", W - 8, 25, 11, "#d0c8dc", "right");
+  txt(`방 ${room + 1} / ${ROOMS.length}`, W - 8, 15, 12, "#fff", "right");
+  txt(`금화 ${p.gold} · 쇳조각 ${p.scrap}`, W - 8, 35, 11, "#ffd24a", "right");
+  p.items.forEach((it, i) => txt(it.name, W - 8, 45 + i * 9, 10, "#b8b0c4", "right"));
+  txt(phase === "fight" ? `웨이브 ${wave + 1} / ${ROOMS[room].length} · 적 ${alive}` : ROOMS[room] === "start" ? "시작 방" : ROOMS[room] === "rest" ? "휴식 방" : "방 클리어", W - 8, 25, 11, "#d0c8dc", "right");
   if (banner && banner.t > 0 && state === "play") { c.globalAlpha = clamp(banner.t / 0.4); txt(banner.s, W / 2, 70, 20, "#ffe27a", "center"); c.globalAlpha = 1; }
   if (state !== "play") {
     c.fillStyle = "rgba(8,6,14,0.55)"; c.fillRect(0, 0, W * S, H * S);
-    txt(state === "clear" ? "전투 방 3개 돌파!" : "보이드가 쓰러졌다…", W / 2, H / 2 - 6, 34, state === "clear" ? "#ffe27a" : "#ff6a5a", "center");
+    txt(state === "clear" ? "스테이지 1 앞부분 돌파!" : "보이드가 쓰러졌다…", W / 2, H / 2 - 6, 34, state === "clear" ? "#ffe27a" : "#ff6a5a", "center");
     txt("R 키로 다시 시작", W / 2, H / 2 + 16, 16, "#fff", "center");
   }
 }
@@ -966,13 +998,7 @@ function update(dt) {
     if (waveT > 0.7) {
       waveT = 0;
       if (wave + 1 < ROOMS[room].length) { wave++; startWave(); }
-      else if (room + 1 >= ROOMS.length) state = "clear";
-      else {
-        phase = "clear"; banner = { s: "방 클리어!", t: 1.8 };
-        const rest = HELMETS.filter((h) => !player.slots.includes(h.id));
-        if (rest.length) { spawn({ kind: "pickup", id: pick(rest).id, x: 240 }); light(240, FLOOR - 16, 60, "#fff", 0.7, 0.4); }
-        spawn({ kind: "door", x: 440 });
-      }
+      else { phase = "clear"; grantReward(); openDoors(); }
     }
   }
 }
@@ -998,7 +1024,7 @@ function render() {
   drawObjs(false);
   const p = player;
   shadow(p.x, 10);
-  if (!(p.blink > 0 && ((time * 20) | 0) % 2)) { drawPlayerSprite(p); blit(spr, p.x, p.y, p.dir); }
+  if (!(p.blink > 0 && ((time * 20) | 0) % 2)) blit(drawPlayerSprite(p), p.x, p.y, p.dir);
   glow(p.x + p.dir * 2, p.y - 30, 18, C.flame1, 0.3); glow(p.x, p.y - 12, 34, C.flame0, 0.12);
   drawFxFront();
   for (const m of embers) if (m.near) { g.fillStyle = "#ffd27a"; g.fillRect(Math.round(m.x), Math.round(m.y), 2, 2); glow(m.x, m.y, 6, "#ff8a2a", 0.4); }
