@@ -335,10 +335,26 @@ function drawGolem(e) {
   if (ph2) glow(e.x, e.y - 60, 70, "#ff5a2a", 0.18 + 0.05 * Math.sin(tt * 9));
   if (st === "slamWind" || st === "throwWind" || st === "stompWind" || st === "chargeWind") glow(e.x, e.y - 60, 60, "#ff3a2a", 0.15 + 0.12 * Math.sin(tt * 30));   // 예고 동작: 붉게 깜빡임
 }
+// 모험가 그림 (Higgsfield, 대기 자세 한 장씩 → art/adv/adv_cut.py). 걷기·공격은 코드로 기울이고 들썩여서 표현한다
+const ADV_SPR = {"adv_sword":{"r":[0,0,27,38],"face":-1},"adv_archer":{"r":[29,0,27,36],"face":-1},"adv_cleric":{"r":[58,0,26,38],"face":1},"adv_mage":{"r":[86,0,31,38],"face":1},"adv_thief":{"r":[119,0,31,34],"face":-1},"adv_warrior":{"r":[152,0,43,42],"face":-1}};
+const advImg = new Image(); advImg.src = "assets/adv.png";
+const advC = mk(SP, SP), advG = advC.getContext("2d");
+function drawAdvSprite(e) {
+  const q = ADV_SPR[e.id]; if (!q || !ready(advImg)) return false;
+  const wind = /Wind$/.test(e.st) || e.st === "aim" || e.st === "cast", atk = e.st === "combo" || e.st === "dash" || e.st === "shoot";
+  const ang = wind ? -0.13 : atk ? 0.15 : e.st === "flip" ? -0.45 : 0, bob = e.st === "walk" && Math.abs(Math.sin(e.walkT * 9)) > 0.5 ? -1 : 0;
+  const sq = e.st === "walk" ? 1 + Math.sin(e.walkT * 18) * 0.03 : wind ? 0.96 : 1;
+  const c = advG; c.clearRect(0, 0, SP, SP); c.imageSmoothingEnabled = false;   // 그림은 따로 캔버스에 (로컬 파일로 열면 그림 그린 캔버스는 픽셀을 못 읽는다)
+  c.save(); c.translate(SX + (atk ? 2 : 0), SY + bob); c.rotate(ang); c.scale(q.face, sq);   // 그림이 보는 방향을 오른쪽으로 맞춘다
+  c.drawImage(advImg, q.r[0], q.r[1], q.r[2], q.r[3], -Math.round(q.r[2] / 2), -q.r[3], q.r[2], q.r[3]); c.restore();
+  const t0 = T; T = c; if (wind) exclaim(0, -46); if (e.stun > 0) for (let i = 0; i < 3; i++) { const a = time * 7 + i * 2.1; R(Math.cos(a) * 7, -44 + Math.sin(a) * 2, 2, 2, "#ffe27a"); } T = t0;
+  if (e.flash > 0 || e.dead) { c.globalCompositeOperation = "source-atop"; c.fillStyle = "#fff"; c.fillRect(0, 0, SP, SP); c.globalCompositeOperation = "source-over"; }
+  return true;
+}
 // 견습 용사 파티 (기획서: 검사 220 돌진·3연타 / 궁수 150 거리 유지 3연사·뒤로 점프 / 사제 130 4초마다 아군 30 회복)
 const advFace = (e, dx) => { e.dir = Math.sign(dx) || e.dir; };
 const ADV = {
-  adv_sword: { name: "견습 검사", hp: 220, speed: 62, mid: true,
+  adv_sword: { name: "견습 검사", hp: 220, speed: 62, mid: true, spr: true,
     ai(e, p, dx, ad) {
       if (e.st === "walk") { advFace(e, dx); if (e.t <= 0 && ad > 110 && Math.random() < 0.02) setSt(e, "dashWind", 0.5); else if (ad > 34) walkTo(e, dx); else if (e.t <= 0) setSt(e, "comboWind", 0.35); }
       else if (e.st === "comboWind") { if (e.t <= 0) { setSt(e, "combo", 0); e.n = 0; } }
@@ -353,7 +369,7 @@ const ADV = {
       if (up) { R(hx, hy - 16, 2, 16, C.steel); R(hx, hy - 16, 1, 16, C.white); } else { R(hx, hy, 18, 2, C.steel); R(hx, hy, 18, 1, C.white); } R(hx - 2, hy - 1, 2, 4, C.gold);
       hand(hx, hy); if (wind) exclaim(lean, -40);
     } },
-  adv_archer: { name: "견습 궁수", hp: 150, speed: 70, mid: true,
+  adv_archer: { name: "견습 궁수", hp: 150, speed: 70, mid: true, spr: true,
     ai(e, p, dx, ad) {
       if (e.st === "walk") {
         if (ad < 70 && e.t <= 0) { setSt(e, "flip", 0.45); e.vy = -280; e.fdir = -(Math.sign(dx) || 1); }
@@ -369,7 +385,7 @@ const ADV = {
       for (let i = -8; i <= 8; i++) R(hx + 2 + Math.round(3 * (1 - (i / 8) ** 2)), hy + i, 1, 1, C.wood2);
       R(hx + 2 - (aim ? 3 : 0), hy - 8, 1, 17, C.cream); hand(hx, hy); if (e.st === "aim") exclaim(lean, -40);
     } },
-  adv_cleric: { name: "견습 사제", hp: 130, speed: 52, mid: true,
+  adv_cleric: { name: "견습 사제", hp: 130, speed: 52, mid: true, spr: true,
     ai(e, p, dx, ad) {
       if (e.st === "walk") {
         if (ad < 140) walkTo(e, -dx, 0.9, Math.sign(dx)); else advFace(e, dx);
@@ -1318,10 +1334,12 @@ function updateEnemy(e, dt) {
   e.type.ai(e, player, dx, Math.abs(dx));
 }
 function drawEnemySprite(e) {
+  if (e.type.spr && drawAdvSprite(e)) return advC;
   begin(); e.type.draw(e); outline();
   if (e.stun > 0) for (let i = 0; i < 3; i++) { const a = time * 7 + i * 2.1; R(Math.cos(a) * 7, (e.type.low ? -22 : -38) + Math.sin(a) * 2, 2, 2, "#ffe27a"); }
   if (e.frozen > 0) { sg.globalCompositeOperation = "source-atop"; sg.fillStyle = "rgba(150,215,255,0.55)"; sg.fillRect(0, 0, SP, SP); sg.globalCompositeOperation = "source-over"; }
   if (e.flash > 0 || e.dead) whiten();
+  return spr;
 }
 
 // =====================================================================================
@@ -1622,7 +1640,7 @@ function render() {
     if (e.born > 0) { const k = e.born * 2; glow(e.x, e.y - 12, 22, "#8a5cc0", 0.5); g.fillStyle = "#b08ae0"; for (let i = 0; i < 6; i++) g.fillRect(Math.round(e.x + Math.cos(time * 9 + i) * 10 * k), Math.round(e.y - 12 + Math.sin(time * 9 + i) * 12 * k), 2, 2); continue; }
     shadow(e.x, e.type.boss ? 40 : e.type.low ? 10 : 8, e.gy ?? FLOOR);
     if (e.type.drawWorld) { e.type.drawWorld(e); continue; }
-    drawEnemySprite(e); blit(spr, e.x, e.y, e.dir);
+    blit(drawEnemySprite(e), e.x, e.y, e.dir);
     if (e.burn > 0) glow(e.x, e.y - 12, 18, "#ff8a2a", 0.35);
     if (e.type.mid && e.st === "cast") glow(e.x, e.y - 30, 26, "#ffe27a", 0.5);
     if (!e.dead && e.hp < e.maxHp) { const yy = Math.round(e.y) - (e.type.low ? 26 : 44), xx = Math.round(e.x); g.fillStyle = C.line; g.fillRect(xx - 10, yy, 20, 4); g.fillStyle = "#c9342c"; g.fillRect(xx - 9, yy + 1, Math.round(18 * e.hp / e.maxHp), 2); }
