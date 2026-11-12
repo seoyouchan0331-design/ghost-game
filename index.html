@@ -15,7 +15,7 @@
 <script>
 "use strict";
 /* =====================================================================================
-   갑옷 속의 유령 — 8단계 (타일 지도 방: 다층 지형·떠 있는 땅·구덩이·세로 카메라)
+   갑옷 속의 유령 — 9단계 (챕터 1 맵 그림: 원근 배경 3겹·지형 질감·소품)
    보이드 몸은 Blender로 뽑은 스프라이트 시트(art/void), 투구·무기·적·이펙트는 코드로 그린다.
    이펙트는 pixelfx(MIT, Sprite Fusion의 Hugo Duprez 기법 기반)의 방식을 옮겨 썼다:
    색 레이어 + 가산 빛 레이어, 속도만큼 늘어나는 불꽃, 1~2프레임 흰 섬광, 타격 정지.
@@ -500,7 +500,11 @@ function groundAt(x, y = -1e4, plats = true) {
   return FLOOR + 400;
 }
 function span(x, gy) { let a = x, b = x; const ok = (v) => groundAt(v, gy - 1) === gy && !isSolid(v, gy - 10) && v > ROOM_L && v < ROOM_R; while (ok(a - 4)) a -= 4; while (ok(b + 4)) b += 4; return [a + 6, b - 6]; }
-// 배경(그림이 오기 전 임시): 밤하늘 → 먼 산과 성 → 불타는 집 실루엣. 겹마다 다른 속도로 움직인다
+// 챕터 1 그림 (Higgsfield → art/ch1/ch1_cut.py). 좌표는 그 스크립트가 뽑아 준 값
+const CH1 = {"far":[536,300],"mid":[960,372],"front":[630,270],"terrain":{"fill":[0,0,64,64],"back":[66,0,64,64],"top":[132,0,120,22],"under":[254,0,102,18],"plank":[358,0,76,9],"side":[436,0,10,79]},"props":{"barrel":[0,0,15,20],"crates":[17,0,29,22],"cart":[48,0,37,24],"lamp":[87,0,27,46],"banner":[116,0,33,40],"debris":[151,0,24,18],"fence":[177,0,32,18],"well":[211,0,34,34],"lantern":[247,0,10,22],"rubble":[259,0,24,13],"bush":[285,0,20,20],"sign":[307,0,24,30]}};
+const ch1Img = {}; for (const k of ["far", "mid", "front", "terrain", "props"]) { ch1Img[k] = new Image(); ch1Img[k].onload = () => { if (L) buildTerrain(); }; ch1Img[k].src = `assets/ch1_${k}.png`; }
+const ready = (im) => im.complete && im.naturalWidth > 0;
+// 배경(그림이 안 불러와졌을 때 쓰는 대체): 밤하늘 → 먼 산과 성 → 불타는 집 실루엣. 겹마다 다른 속도로 움직인다
 const backdrop = (() => {
   const rs = (n) => { const v = Math.sin(n * 91.7) * 43758.5; return v - Math.floor(v); };
   const far = mk(960, H), f = far.getContext("2d"), mid = mk(960, H), m = mid.getContext("2d");
@@ -518,32 +522,58 @@ const backdrop = (() => {
   }
   return { far, mid };
 })();
-// 방에 들어갈 때 지형을 한 번 그려 둔다 (타일 그림이 오기 전 임시: 돌벽돌, 이끼 덮인 윗면, 나무 발판)
+// 방에 들어갈 때 지형을 한 번 그려 둔다: 질감으로 땅을 채우고, 드러난 윗면·아랫면·옆면에 띠를 두르고, 소품을 놓는다
 let terr = null;
 function buildTerrain() {
-  const top0 = rowTop(0), Hh = L.rows * TS + 80; terr = mk(L.w, Hh); const c = terr.getContext("2d");
-  const rs = (n) => { const v = Math.sin(n * 127.1 + L.w * 3.3) * 43758.5; return v - Math.floor(v); };
-  const box = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+  const OY = 24, top0 = rowTop(0); terr = mk(L.w, L.rows * TS + 80 + OY); terr.oy = OY; const c = terr.getContext("2d");
+  let seed = L.w * 7 + L.rows * 13; const rnd2 = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   const at = (r, cc) => (r < 0 ? "#" : r >= L.rows ? L.grid[L.rows - 1][cc] : cc < 0 || cc >= L.cols ? "#" : L.grid[r][cc]);
-  L.lamps = [];
-  for (let r = 0; r < L.rows + 5; r++) for (let cc = 0; cc < L.cols; cc++) {
-    const ch = at(r, cc), x = cc * TS, y = r * TS;
-    if (ch === "#") {
-      const up = at(r - 1, cc) !== "#", lf = at(r, cc - 1) !== "#", rt = at(r, cc + 1) !== "#", dn = at(r + 1, cc) !== "#", deep = !up && r > 0 && at(r - 2, cc) === "#";
-      box(x, y, TS, TS, deep ? "#1d1826" : "#2b2437");
-      for (let k = 0; k < 2; k++) { const yy = y + k * 8, off = (r * 2 + k) % 2 ? 8 : 0; box(x, yy + 7, TS, 1, "#1a1522"); box(x + off, yy, 1, 7, "#1a1522"); if (!deep && rs(r * 31 + cc * 7 + k) > 0.6) box(x + off + 2, yy + 2, 3, 2, "#3a3148"); }
-      if (up) { box(x, y, TS, 5, "#4d4359"); box(x, y, TS, 1, "#8a7e9c"); box(x, y + 1, TS, 1, "#62576f"); box(x, y + 5, TS, 1, "#17131c");
-        for (let k = 0; k < 4; k++) if (rs(x * 3 + k) < 0.5) box(x + k * 4 + 1, y - 1 - Math.round(rs(x + k) * 2), 2, 2 + Math.round(rs(x + k) * 2), rs(k + x) > 0.5 ? "#5f8a42" : "#3f6630");
-        if (rs(x + 77) < 0.12 && !lf && !rt && r > 1) L.lamps.push([x + 8, y]); }
-      if (lf) { box(x, y, 2, TS, "#17131c"); box(x + 2, y, 1, TS, "#3a3148"); } if (rt) { box(x + TS - 2, y, 2, TS, "#17131c"); }
-      if (dn && r < L.rows) { box(x, y + TS - 3, TS, 3, "#17131c"); if (rs(x + y) < 0.3) box(x + 6, y + TS, 2, 4 + Math.round(rs(x) * 6), "#3f6630"); }
-    } else if (ch === "=") {
-      box(x - 1, y, TS + 2, 6, "#17131c"); box(x, y + 1, TS, 4, "#6a3f24"); box(x, y + 1, TS, 1, "#9c6a3c"); box(x, y + 4, TS, 1, "#3a2a22"); box(x + 7, y + 2, 1, 2, "#3a2a22");
-      if (at(r, cc - 1) !== "=" || at(r, cc + 1) !== "=") { const sx = at(r, cc - 1) !== "=" ? x + 2 : x + TS - 5; box(sx, y + 6, 3, 10, "#17131c"); box(sx + 1, y + 6, 1, 9, "#6a3f24"); }
+  const T = CH1.terrain, P = CH1.props, img = ch1Img.terrain, pim = ch1Img.props, ok = ready(img) && ready(pim);
+  const piece = (k) => { const q = T[k], cv = mk(q[2], q[3]); cv.getContext("2d").drawImage(img, q[0], q[1], q[2], q[3], 0, 0, q[2], q[3]); return cv; };
+  const pat = ok ? { fill: c.createPattern(piece("fill"), "repeat"), back: c.createPattern(piece("back"), "repeat") } : null;
+  const seg = (k, i, dx, dy, w, h) => { const q = T[k], span = q[2] - 16, sx = q[0] + ((i * 16) % span); c.drawImage(img, sx, q[1], 16, q[3], dx, dy, w ?? 16, h ?? q[3]); };
+  const R2 = L.rows + 5, open = (r, cc) => at(r, cc) !== "#";
+  // 1) 땅 채우기: 방 테두리는 어두운 뒷벽, 안쪽은 바위. 표면에서 깊을수록 어둡게
+  for (let r = 0; r < R2; r++) for (let cc = 0; cc < L.cols; cc++) {
+    if (at(r, cc) !== "#") continue; const x = cc * TS, y = r * TS + OY, edge = r === 0 || cc === 0 || cc === L.cols - 1;
+    c.fillStyle = pat ? (edge ? pat.back : pat.fill) : "#2b2437"; c.fillRect(x, y, TS, TS);
+    let d = 0; while (d < 4 && !open(r - d - 1, cc) && !open(r, cc - d - 1) && !open(r, cc + d + 1) && !open(r + d + 1, cc)) d++;
+    c.fillStyle = `rgba(10,6,18,${edge ? 0.45 : Math.min(0.6, d * 0.16)})`; c.fillRect(x, y, TS, TS);
+  }
+  if (ok) {
+    // 2) 옆면 → 아랫면 → 윗면 순서로 띠를 두른다
+    for (let r = 1; r < R2; r++) for (let cc = 1; cc < L.cols - 1; cc++) {
+      if (at(r, cc) !== "#") continue; const x = cc * TS, y = r * TS + OY, q = T.side;
+      if (open(r, cc - 1)) c.drawImage(img, q[0], q[1] + ((r * 16) % (q[3] - 16)), q[2], 16, x - 3, y, q[2], 16);
+      if (open(r, cc + 1)) { c.save(); c.translate(x + TS + 3, y); c.scale(-1, 1); c.drawImage(img, q[0], q[1] + ((r * 16) % (q[3] - 16)), q[2], 16, 0, 0, q[2], 16); c.restore(); }
+    }
+    for (let r = 1; r < L.rows - 1; r++) for (let cc = 1; cc < L.cols - 1; cc++) if (at(r, cc) === "#" && open(r + 1, cc)) seg("under", cc, cc * TS, r * TS + OY + TS - 6);
+    for (let r = 1; r < R2; r++) for (let cc = 1; cc < L.cols - 1; cc++) if (at(r, cc) === "#" && open(r - 1, cc)) seg("top", cc, cc * TS, r * TS + OY - 7);
+    for (let r = 1; r < L.rows; r++) for (let cc = 1; cc < L.cols - 1; cc++) if (at(r, cc) === "=") {
+      const x = cc * TS, y = r * TS + OY; seg("plank", cc, x, y);
+      if (at(r, cc - 1) !== "=" || at(r, cc + 1) !== "=") { const sx = at(r, cc - 1) !== "=" ? x + 2 : x + TS - 5; c.fillStyle = "#17131c"; c.fillRect(sx, y + 8, 3, 9); c.fillStyle = "#6a3f24"; c.fillRect(sx + 1, y + 8, 1, 8); }
     }
   }
-  for (const [x, y] of L.lamps) { box(x - 1, y - 30, 3, 30, "#17131c"); box(x, y - 29, 1, 29, "#4a3226"); box(x - 5, y - 40, 11, 11, "#17131c"); box(x - 4, y - 39, 9, 9, "#3a2a22"); box(x - 2, y - 37, 5, 6, "#ffae35"); box(x - 1, y - 36, 3, 3, "#ffe27a"); }
-  L.lamps = L.lamps.map(([x, y]) => [x, y + top0 - 38]);
+  // 3) 소품: 땅 위 빈 자리에 1~2개씩. 시작 지점·문 자리·보상 자리·적 자리는 피한다. 천장 밑에는 등불
+  L.lamps = [];
+  const busy = (x, r) => x < 72 || L.spawns.some((q) => Math.abs(q.x - x) < 14 && Math.abs(q.y - rowTop(r)) < 4) || (r === L.rows - 1 && (x > L.w - 136 || Math.abs(x - L.w / 2) < 30));
+  const prop = (nm, x, yb) => { const q = P[nm]; c.drawImage(pim, q[0], q[1], q[2], q[3], Math.round(x - q[2] / 2), yb - q[3] + 1, q[2], q[3]);
+    if (nm === "lamp") L.lamps.push([x + 6, top0 - TS + yb - OY - q[3] + 12, "#ff9a3a", 30]); if (nm === "debris" || nm === "bush") L.lamps.push([x, top0 - TS + yb - OY - 8, "#ff7a2a", 26]); if (nm === "lantern") L.lamps.push([x, top0 - TS + yb - OY - 6, "#ffae35", 22]); };
+  if (ready(pim)) for (let r = 1; r < L.rows; r++) {
+    for (let cc = 1; cc < L.cols - 1; ) {
+      if (!(at(r, cc) === "#" && open(r - 1, cc))) { cc++; continue; }
+      let e = cc; while (e < L.cols - 1 && at(r, e) === "#" && open(r - 1, e)) e++;
+      const len = e - cc; if (len >= 3) for (let k = 0; k < (len > 8 ? 2 : 1); k++) {
+        if (rnd2() < 0.25) continue; const nm = ["barrel", "crates", "cart", "lamp", "banner", "debris", "fence", "well", "rubble", "bush", "sign", "lamp", "barrel", "rubble"][Math.floor(rnd2() * 14)];
+        const x = (cc + 1 + rnd2() * (len - 2)) * TS, hr = Math.ceil(P[nm][3] / TS); let free = !busy(x, r); for (let k2 = 1; k2 <= hr; k2++) free = free && open(r - k2, Math.floor((x - 8) / TS)) && open(r - k2, Math.floor((x + 8) / TS));
+        if (free) prop(nm, x, r * TS + OY);
+      }
+      cc = e;
+    }
+    for (let cc = 2; cc < L.cols - 2; cc++) if (r < L.rows - 2 && at(r, cc) === "#" && open(r + 1, cc) && open(r + 2, cc) && rnd2() < 0.07) {   // 등불은 쇠사슬에 매단다
+      const x = cc * TS + 8, y = (r + 1) * TS + OY; c.fillStyle = "#2a2531"; c.fillRect(x, y, 1, 6); prop("lantern", x, y + 6 + P.lantern[3]);
+    }
+  }
 }
 
 // ---------- 입력 ----------
@@ -1272,10 +1302,16 @@ function render() {
   g.clearRect(0, 0, W, H); lg.clearRect(0, 0, W, H);
   camX = clamp(Math.round(player.x - W / 2), 0, L.w - W);          // 카메라가 보이드를 따라간다 (좌우 + 위아래)
   camY = Math.round(Math.min(0, Math.max(rowTop(0) - TS, player.y - 175)));
-  for (const [img, k, ky] of [[backdrop.far, 0.12, 0.08], [backdrop.mid, 0.35, 0.25]]) { const ox = -((camX * k) % 960); for (const dx of [0, 960]) g.drawImage(img, Math.round(ox + dx), Math.round(-camY * ky)); }
+  const layer = (img, w, h, k, y) => { const off = camX * k; for (let i = Math.floor(off / w); i * w < off + W; i++) { g.save(); g.translate(Math.round(i * w - off + (i % 2 ? w : 0)), Math.round(y)); g.scale(i % 2 ? -1 : 1, 1); g.drawImage(img, 0, 0, w, h); g.restore(); } };   // 좌우로 뒤집어 이어 붙인다
+  if (ready(ch1Img.far) && ready(ch1Img.mid)) {
+    layer(ch1Img.far, CH1.far[0], CH1.far[1], 0.08, -18 - camY * 0.06);
+    g.fillStyle = "rgba(24,14,40,0.25)"; g.fillRect(0, 0, W, H);                           // 먼 배경은 흐릿하게
+    const mw = CH1.mid[0] * 0.5, mh = CH1.mid[1] * 0.5; layer(ch1Img.mid, mw, mh, 0.25, 214 - mh - camY * 0.2);   // 집들은 반 크기로 멀리
+    g.fillStyle = "rgba(16,10,28,0.42)"; g.fillRect(0, 0, W, H);                           // 놀이 공간과 떨어져 보이게
+  } else for (const [img, k, ky] of [[backdrop.far, 0.12, 0.08], [backdrop.mid, 0.35, 0.25]]) { const ox = -((camX * k) % 960); for (const dx of [0, 960]) g.drawImage(img, Math.round(ox + dx), Math.round(-camY * ky)); }
   for (const m of embers) if (!m.near) { g.fillStyle = Math.sin(time * 5 + m.ph) > 0 ? "#ffae35" : "#f2561d"; g.fillRect(Math.round(m.x), Math.round(m.y), 1, 1); }
   g.save(); g.translate(-camX, -camY); lg.save(); lg.translate(-camX, -camY);   // 여기부터 방 안의 좌표
-  g.drawImage(terr, 0, rowTop(0)); for (const [x, y] of L.lamps) glow(x, y, 30 + 3 * Math.sin(time * 11 + x), "#ff9a3a", 0.42);
+  g.drawImage(terr, 0, rowTop(0) - terr.oy); for (const [x, y, col, r] of L.lamps) glow(x, y, r + 3 * Math.sin(time * 11 + x), col, 0.45);
   drawFxBack(); drawObjs(true);
   for (const e of enemies) {
     if (e.dead > 0.25) continue;
@@ -1292,6 +1328,7 @@ function render() {
   glow(p.x + p.dir * 2, p.y - 30, 18, C.flame1, 0.3); glow(p.x, p.y - 12, 34, C.flame0, 0.12);
   drawFxFront();
   g.restore(); lg.restore();
+  if (ready(ch1Img.front)) { g.globalAlpha = 0.75; layer(ch1Img.front, CH1.front[0], CH1.front[1], 1.25, 26); g.globalAlpha = 1; }   // 앞 전경: 가장 빨리 움직인다
   for (const m of embers) if (m.near) { g.fillStyle = "#ffd27a"; g.fillRect(Math.round(m.x), Math.round(m.y), 2, 2); glow(m.x, m.y, 6, "#ff8a2a", 0.4); }
   g.drawImage(vignette, 0, 0);
   if (whiteT > 0) { lg.fillStyle = "rgba(190,230,255,0.35)"; lg.fillRect(0, 0, W, H); }
