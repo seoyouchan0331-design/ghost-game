@@ -341,7 +341,7 @@ const advImg = new Image(); advImg.src = "assets/adv.png";
 const advC = mk(SP, SP), advG = advC.getContext("2d");
 function drawAdvSprite(e) {
   const q = ADV_SPR[e.id]; if (!q || !ready(advImg)) return false;
-  const wind = /Wind$/.test(e.st) || e.st === "aim" || e.st === "cast" || e.st === "charge", atk = e.st === "combo" || e.st === "dash" || e.st === "shoot";
+  const wind = /Wind$/.test(e.st) || e.st === "aim" || e.st === "cast" || e.st === "charge", atk = /^(combo|dash|shoot|thrust|waves|u_dash|jumpAtk|vacuum)$/.test(e.st);
   const ang = wind ? -0.13 : atk ? 0.15 : e.st === "flip" ? -0.45 : 0, bob = e.st === "walk" && Math.abs(Math.sin(e.walkT * 9)) > 0.5 ? -1 : 0;
   const sq = e.st === "walk" ? 1 + Math.sin(e.walkT * 18) * 0.03 : wind ? 0.96 : 1;
   const c = advG; c.clearRect(0, 0, SP, SP); c.imageSmoothingEnabled = false;   // 그림은 따로 캔버스에 (로컬 파일로 열면 그림 그린 캔버스는 픽셀을 못 읽는다)
@@ -360,7 +360,21 @@ const advFace = (e, dx) => { e.dir = Math.sign(dx) || e.dir; };
 let chapter = 1;
 const ADV_COUNT = [0, 1, 2, 3, 3, 0];
 const ULT_CANCEL = 0.12, GROGGY = 3, GROGGY_CANCEL = 4;
-function strike(x, delay, dmg, r, c) { spawn({ kind: "strike", x, gy: groundAt(x, FLOOR - 2), t: delay, max: delay, dmg, r, c }); }
+function strike(x, delay, dmg, r, c, opt) { spawn({ kind: "strike", x, gy: groundAt(x, FLOOR - 2), t: delay, max: delay, dmg, r, c, ...opt }); }
+const BLUE = ["#0c1430", "#2a6ab0", "#63c8ea", "#d8f4ff", "#ffffff"];
+function orb(e, ang, sp) { spawn({ kind: "orb", x: e.x + e.dir * 10, y: e.y - 20, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, sp, age: 0, home: 2.2, dmg: 10 }); }
+function swave(e, big, dmg, c) { spawn({ kind: "swave", x: e.x + e.dir * 14, y: e.y, vx: e.dir * (big ? 240 : 360), w: big ? 12 : 7, h: big ? 44 : 22, dmg, hits: big ? 4 : 1, hitT: 0, age: 0, c: c || "#9bdcff" }); fxSwoosh(e.x + e.dir * 20, e.y - 16, e.dir, big ? 18 : 12, BLUE, big); }
+function burst(e, r, dmg) { fxRing(e.x, e.y - 14, r, BLUE); flashes.push({ kind: "burst", x: e.x, y: e.y - 14, r: r * 0.6, t: 0, ramp: BLUE }); light(e.x, e.y - 14, r + 20, "#63c8ea", 0.7, 0.3); shake(3, 0.2);
+  if (Math.hypot(player.x - e.x, player.y - 12 - (e.y - 14)) < r) hurtPlayer(dmg, Math.sign(player.x - e.x) || 1); }
+// 검사 패턴. 기본: 3연베기·추적 에너지볼·기폭발·연속 폭발(플레이어 자리 3번)·검 꽂기 폭발·거리 좁히는 대시. 각성: 빠른 연베기+검기, 에너지볼 3개, 도트 기폭발, 돌진 찌르기→베기, 검기 2연발, 점프 내려찍기, 검기+진공파
+function swordPick(e, ad) {
+  const n = ad < 70, P = e.awake
+    ? [["acombo", n ? 3 : 0.4], ["orb", 1.4], ["aburst", n ? 2 : 0.4], ["thrust", ad > 80 ? 2.5 : 0.4], ["waves", ad > 60 ? 2 : 0.6], ["jump", 1.5], ["bigwave", 1]]
+    : [["combo", n ? 3 : 0.2], ["orb", ad > 60 ? 2 : 0.8], ["burst", n ? 2 : 0.2], ["mirror", 0.9], ["plant", 0.9], ["dash", ad > 110 ? 2 : 0]];
+  const Q = P.filter((q) => q[0] !== e.pat && q[1] > 0); let r = Math.random() * Q.reduce((a, q) => a + q[1], 0);
+  for (const q of Q) { r -= q[1]; if (r <= 0) return q[0]; } return Q[0][0];
+}
+const SWORD_WIND = { combo: 0.45, acombo: 0.25, orb: 0.5, burst: 0.9, aburst: 1.1, mirror: 0.5, plant: 0.4, dash: 0.5, thrust: 0.4, waves: 0.35, jump: 0.3, bigwave: 0.7 };
 function advCommon(e, dx) {                         // true를 돌려주면 이번 프레임은 직업 AI를 건너뛴다
   if (e.st === "charge") {
     if (Math.random() < 0.5) spark(e.x + rnd(-20, 20), e.y - rnd(0, 40), -rnd(-1, 1) * 30, -rnd(20, 60), 0.4, RAMP_GHOST, true);
@@ -388,14 +402,48 @@ function slam(x, r, dmg) {
   if (Math.abs(player.x - x) < r && player.y > FLOOR - 40) hurtPlayer(dmg, Math.sign(player.x - x) || 1);
 }
 const ADV = {
-  adv_sword: { name: "견습 검사", hp: 220, speed: 62, mid: true, spr: true, ultName: "용사의 낙하참",
-    ult(e) { e.st = "leap"; e.tx = clamp(player.x, e.minX, e.maxX); e.vy = -420; },
+  adv_sword: { name: "견습 검사", hp: 220, speed: 62, mid: true, spr: true, ultName: "용사의 검기",
+    ult(e) { e.n = 0; e.dashing = false; if (e.awake) setSt(e, "u_dash", 0.3); else setSt(e, "u_wave", 0.5); },
     ai(e, p, dx, ad) {
-      if (e.st === "walk") { advFace(e, dx); if (e.t <= 0 && ad > 110 && Math.random() < 0.02) setSt(e, "dashWind", 0.5); else if (ad > 34) walkTo(e, dx); else if (e.t <= 0) setSt(e, "comboWind", 0.35); }
-      else if (e.st === "comboWind") { if (e.t <= 0) { setSt(e, "combo", 0); e.n = 0; } }
-      else if (e.st === "combo") { if (e.t <= 0) { if (hitsPlayer(e, 0, 36)) hurtPlayer(12, e.dir); fxSwoosh(e.x + e.dir * 24, e.y - 14, e.dir, 12, RAMP_IRON, false); e.x = clamp(e.x + e.dir * 6, e.minX, e.maxX); e.n++; e.t = 0.16; if (e.n >= 3) setSt(e, "walk", 1.1); } }
-      else if (e.st === "dashWind") { if (e.t <= 0) { setSt(e, "dash", 0.35); e.did = false; } }
-      else if (e.st === "dash") { e.x = clamp(e.x + e.dir * 320 * STEP, e.minX, e.maxX); if (!e.did && hitsPlayer(e, -6, 18)) { e.did = true; hurtPlayer(15, e.dir); } if (Math.random() < 0.3) spark(e.x - e.dir * 8, e.y - 14, -e.dir * 80, rnd(-20, 20), 0.2, RAMP_GHOST, true); if (e.t <= 0) setSt(e, "walk", 1.2); }
+      const A = e.awake, S = e.st;
+      if (S === "walk") { advFace(e, dx); if (ad > 36) walkTo(e, dx, 0.8); if (e.t <= 0) { e.pat = swordPick(e, ad); e.n = 0; setSt(e, e.pat + "Wind", A && e.pat === "orb" ? 0.8 : SWORD_WIND[e.pat]); } return; }
+      if (S.endsWith("Wind")) {
+        if (e.pat === "burst" || e.pat === "aburst") { if (Math.random() < 0.6) spark(e.x + rnd(-24, 24), e.y - rnd(0, 6), 0, -rnd(30, 80), 0.4, BLUE, true);
+          if (e.pat === "aburst" && (e.dotT = (e.dotT ?? 0) - STEP) <= 0) { e.dotT = 0.35; fxRing(e.x, e.y, 40, BLUE); if (Math.abs(p.x - e.x) < 44 && Math.abs(p.y - e.y) < 40) hurtPlayer(3, Math.sign(dx) || 1); } }
+        if (e.t > 0) return;
+        const k = e.pat; advFace(e, dx);
+        if (k === "combo" || k === "acombo") setSt(e, "combo", 0);
+        else if (k === "orb") { if (A) for (const a of [-0.5, 0, 0.5]) orb(e, Math.atan2(p.y - 14 - (e.y - 20), dx) + a, 120); else orb(e, Math.atan2(p.y - 14 - (e.y - 20), dx), 105); setSt(e, "walk", 1.2); }
+        else if (k === "burst") { burst(e, 46, 14); setSt(e, "walk", 1.1); }
+        else if (k === "aburst") { burst(e, 70, 20); setSt(e, "walk", 1.0); }
+        else if (k === "mirror") setSt(e, "mirror", 0);
+        else if (k === "plant") { strike(clamp(p.x, ROOM_L, ROOM_R), 1.0, 14, 34, "#63c8ea", { sword: true }); setSt(e, "walk", 1.0); }
+        else if (k === "dash") { setSt(e, "dash", 0.35); e.did = false; }
+        else if (k === "thrust") { setSt(e, "thrust", 0.28); e.did = false; }
+        else if (k === "waves") setSt(e, "waves", 0);
+        else if (k === "jump") { if (e.hp < e.maxHp * 0.5) { fxSwoosh(e.x + e.dir * 16, e.y - 20, e.dir, 14, BLUE, true); if (hitsPlayer(e, -4, 36)) hurtPlayer(10, e.dir); }
+          e.vy = -400; e.tx = clamp(p.x, e.minX, e.maxX); e.airT = 0; setSt(e, "jumpAtk", 0); }
+        else if (k === "bigwave") { swave(e, true, 7); setSt(e, "vacuum", 0.45); }
+        return;
+      }
+      if (S === "combo") { if (e.t <= 0) { if (hitsPlayer(e, -8, 46)) hurtPlayer(11, e.dir); fxSwoosh(e.x + e.dir * 26, e.y - 14, e.dir, 16, RAMP_IRON, e.n === 2); e.x = clamp(e.x + e.dir * 5, e.minX, e.maxX); e.n++; e.t = A ? 0.13 : 0.3;
+          if (e.n >= 3) { if (A) swave(e, false, 9); setSt(e, "walk", A ? 0.7 : 1.1); } } }
+      else if (S === "mirror") { if (e.t <= 0) { strike(clamp(p.x, ROOM_L, ROOM_R), 0.6, 12, 22, "#63c8ea"); e.n++; e.t = 0.5; if (e.n >= 3) setSt(e, "walk", 1.0); } }
+      else if (S === "dash") { e.x = clamp(e.x + e.dir * 320 * STEP, e.minX, e.maxX); if (!e.did && hitsPlayer(e, -6, 18)) { e.did = true; hurtPlayer(15, e.dir); } if (Math.random() < 0.3) spark(e.x - e.dir * 8, e.y - 14, -e.dir * 80, rnd(-20, 20), 0.2, RAMP_GHOST, true); if (e.t <= 0) setSt(e, "walk", 1.2); }
+      else if (S === "thrust") { e.x = clamp(e.x + e.dir * 400 * STEP, e.minX, e.maxX); if (!e.did && hitsPlayer(e, -6, 22)) { e.did = true; hurtPlayer(12, e.dir); } spark(e.x - e.dir * 8, e.y - 14, -e.dir * 80, rnd(-20, 20), 0.2, BLUE, true);
+        if (e.t <= 0) { fxSwoosh(e.x + e.dir * 26, e.y - 16, e.dir, 22, BLUE, true); if (hitsPlayer(e, -10, 54)) hurtPlayer(16, e.dir); shake(3, 0.15); setSt(e, "walk", 1.1); } }
+      else if (S === "waves") { if (e.t <= 0) { advFace(e, dx); swave(e, false, 10); e.n++; e.t = 0.22; if (e.n >= 2) setSt(e, "walk", 1.0); } }
+      else if (S === "jumpAtk") { e.airT += STEP; e.x = clamp(e.x + (e.tx - e.x) * Math.min(1, STEP * 4), e.minX, e.maxX);
+        if (e.airT > 0.1 && e.vy >= 0 && e.y >= (e.gy ?? FLOOR) - 0.5) { slam(e.x, 40, 16); [-60, -30, 30, 60].forEach((o, i) => strike(clamp(e.x + o, ROOM_L, ROOM_R), 0.3 + (Math.abs(o) > 30 ? 0.25 : 0), 10, 14, "#63c8ea")); setSt(e, "walk", 1.2); } }
+      else if (S === "vacuum") { if (e.t <= 0) { swave(e, true, 6, "#d8f4ff"); setSt(e, "walk", 1.3); } }
+      else if (S === "u_wave") { if (e.t <= 0) { advFace(e, dx); swave(e, true, 9); hitstop = 0.06; advGroggy(e, GROGGY); } }
+      else if (S === "u_dash") {                                  // 각성 필살기: 양 끝에서 번갈아 돌진 베기 4번 → 푸른 광선
+        if (!e.dashing) { if (e.t <= 0) { const L2 = e.n % 2 === 0; e.x = L2 ? e.minX : e.maxX; e.dir = L2 ? 1 : -1; e.dashing = true; e.did = false; fxRing(e.x, e.y - 14, 16, BLUE); } }
+        else { e.x = clamp(e.x + e.dir * 560 * STEP, e.minX, e.maxX); spark(e.x - e.dir * 10, e.y - rnd(4, 26), -e.dir * 120, 0, 0.25, BLUE, true);
+          if (!e.did && hitsPlayer(e, -10, 20)) { e.did = true; hurtPlayer(14, e.dir); }
+          if (e.dir > 0 ? e.x >= e.maxX - 1 : e.x <= e.minX + 1) { e.dashing = false; e.n++; e.t = 0.3; if (e.n >= 4) setSt(e, "u_beam", 0.4); } } }
+      else if (S === "u_beam") { if (e.t <= 0) { slam(e.x, 30, 10); strike(clamp(p.x, ROOM_L, ROOM_R), 0.9, 30, 40, "#63c8ea", { big: true }); advGroggy(e, GROGGY); } }
+      else setSt(e, "walk", 0.5);
     },
     draw(e) {
       const wind = e.st === "comboWind" || e.st === "dashWind", swing = e.st === "combo" || e.st === "dash";
@@ -1013,9 +1061,10 @@ function damage(e, base, o = {}) {
     for (let i = 0; i < 9; i++) puff(e.x + rnd(-7, 7), e.y - rnd(2, 22), rnd(-30, 30), rnd(-50, -10), rnd(0.3, 0.6), "#cfc6d8", rnd(2, 4)); }
 }
 
-function hurtPlayer(dmg, dir) {
+function hurtPlayer(dmg, dir, by) {
   const p = player;
-  if (p.invuln > 0 || state !== "play") return;
+  if ((p.invuln > 0 && !(by && p.invulnBy === by)) || state !== "play") return;
+  p.invulnBy = by;
   if (p.guardT > 0) dmg = Math.max(1, Math.round(dmg * 0.3));   // 돌거북 영혼
   p.hp = Math.max(0, p.hp - dmg); p.invuln = BASE.hurtInvuln + stat("hurtInv"); p.blink = BASE.hurtInvuln; p.flash = 0.1;
   p.vx = dir * 150; p.vy = -140; p.act = null; p.dashing = 0;
@@ -1453,7 +1502,19 @@ function updateObjs(dt) {
       else if (o.y >= groundAt(o.x, o.y - 8)) { o.gone = true; spawn({ kind: "fire", x: clamp(o.x, ROOM_L, ROOM_R), gy: groundAt(o.x, o.y - 8), life: 2 }); light(o.x, FLOOR - 6, 40, "#ffae35", 0.6, 0.25); }
     } else if (o.kind === "strike") {                            // 표시 후 떨어지는 공격 (화살비·빛기둥)
       o.t -= dt; if (o.t <= 0) { o.gone = true; fxRing(o.x, o.gy, o.r, ["#2a2010", "#8a7a4a", o.c, "#fff6c8", "#ffffff"]); light(o.x, o.gy - 10, 30, o.c, 0.6, 0.2); dust(o.x, o.gy, 0, 3);
-        if (Math.abs(p.x - o.x) < o.r && p.y > o.gy - 40 && p.y < o.gy + 4) hurtPlayer(o.dmg, Math.sign(p.x - o.x) || 1); }
+        if (o.big) { shake(6, 0.4); flashes.push({ kind: "burst", x: o.x, y: o.gy - 20, r: 30, t: 0, ramp: BLUE }); }
+        if (Math.abs(p.x - o.x) < o.r && (o.big || (p.y > o.gy - 40 && p.y < o.gy + 4))) hurtPlayer(o.dmg, Math.sign(p.x - o.x) || 1); }
+    } else if (o.kind === "orb") {                               // 추적 에너지볼
+      o.age += dt;
+      if (o.age < o.home) { const c = Math.atan2(o.vy, o.vx); let d = Math.atan2(p.y - 14 - o.y, p.x - o.x) - c; d = Math.atan2(Math.sin(d), Math.cos(d)); const a = c + clamp(d, -3 * dt, 3 * dt); o.vx = Math.cos(a) * o.sp; o.vy = Math.sin(a) * o.sp; }
+      o.x += o.vx * dt; o.y += o.vy * dt; if (Math.random() < 0.6) spark(o.x, o.y, -o.vx * 0.2, -o.vy * 0.2, 0.25, BLUE, true);
+      if (Math.hypot(p.x - o.x, p.y - 14 - o.y) < 9) { hurtPlayer(o.dmg, Math.sign(o.vx) || 1); o.gone = true; }
+      if (o.age > 4 || isSolid(o.x, o.y)) o.gone = true;
+      if (o.gone) fxRing(o.x, o.y, 10, BLUE);
+    } else if (o.kind === "swave") {                             // 검기 (큰 것은 여러 번 맞는다)
+      o.x += o.vx * dt; o.age += dt; o.hitT -= dt;
+      if (o.hitT <= 0 && Math.abs(p.x - o.x) < o.w && p.y > o.y - o.h && p.y - 26 < o.y) { hurtPlayer(o.dmg, Math.sign(o.vx), o); o.hits--; o.hitT = 0.12; if (o.hits <= 0) o.gone = true; }
+      if (o.age > 1.8 || o.x < 0 || o.x > L.w || isSolid(o.x, o.y - 4)) o.gone = true;
     } else if (o.kind === "eshot") {                             // 적 화살
       o.x += o.vx * dt; o.age = (o.age ?? 0) + dt;
       if (Math.abs(p.x - o.x) < 8 && o.y > p.y - 28 && o.y < p.y + 2) { hurtPlayer(o.dmg, Math.sign(o.vx)); o.gone = true; }
@@ -1518,7 +1579,14 @@ function drawObjs(back) {
       glow(o.x, o.y, 20, "#ffae35", 0.5);
     } else if (o.kind === "strike") {
       const k = 1 - o.t / o.max, x = Math.round(o.x), w = Math.round(o.r * 2 * k); g.fillStyle = "#d8423a"; g.fillRect(x - Math.round(w / 2), Math.round(o.gy) - 1, w, 2);
-      if (o.t < 0.25) { g.fillStyle = o.c; g.fillRect(x - 1, Math.round(o.gy) - 60 + Math.round(60 * (1 - o.t / 0.25)), 2, 14); glow(o.x, o.gy - 10, 20, o.c, 0.5); }
+      if (o.sword) { const y0 = Math.round(o.gy) - Math.max(0, Math.round((o.t - o.max + 0.15) / 0.15 * 80)); g.fillStyle = "#17131c"; g.fillRect(x - 2, y0 - 22, 5, 22); g.fillStyle = "#c8ccd6"; g.fillRect(x - 1, y0 - 20, 3, 20); g.fillStyle = "#fff"; g.fillRect(x - 1, y0 - 20, 1, 20); g.fillStyle = "#c9a24a"; g.fillRect(x - 4, y0 - 23, 9, 2); g.fillRect(x, y0 - 28, 1, 5); glow(o.x, o.gy - 10, 14 + k * 10, o.c, 0.4); }
+      else if (o.big) { const bw = Math.round(o.r * 2 * k * 0.5); g.fillStyle = "rgba(20,40,110,0.35)"; g.fillRect(x - bw, -400, bw * 2, Math.round(o.gy) + 400); g.fillStyle = ((time * 12) | 0) % 2 ? "#ffffff" : "#63c8ea"; g.fillRect(x - bw, -400, 1, Math.round(o.gy) + 400); g.fillRect(x + bw - 1, -400, 1, Math.round(o.gy) + 400); if (o.t < 0.3) { g.fillStyle = "#d8f4ff"; g.fillRect(x - Math.round(o.r * (0.3 - o.t) / 0.3), -400, Math.round(o.r * 2 * (0.3 - o.t) / 0.3), Math.round(o.gy) + 400); glow(o.x, o.gy - 30, 60, o.c, 0.8); } }
+      else if (o.t < 0.25) { g.fillStyle = o.c; g.fillRect(x - 1, Math.round(o.gy) - 60 + Math.round(60 * (1 - o.t / 0.25)), 2, 14); glow(o.x, o.gy - 10, 20, o.c, 0.5); }
+    } else if (o.kind === "orb") {
+      glow(o.x, o.y, 14, "#63c8ea", 0.7); g.fillStyle = "#2a6ab0"; g.fillRect(Math.round(o.x) - 3, Math.round(o.y) - 3, 6, 6); g.fillStyle = "#9bdcff"; g.fillRect(Math.round(o.x) - 2, Math.round(o.y) - 2, 4, 4); g.fillStyle = "#fff"; g.fillRect(Math.round(o.x) - 1, Math.round(o.y) - 1, 2, 2);
+    } else if (o.kind === "swave") {
+      const d = Math.sign(o.vx); glow(o.x, o.y - o.h / 2, o.h * 0.7, o.c, 0.5);
+      for (let i = 0; i < o.h; i += 2) { const q = i / o.h - 0.5, off = Math.round((1 - 4 * q * q) * o.w * 0.8) * d; g.fillStyle = i % 4 ? o.c : "#ffffff"; g.fillRect(Math.round(o.x) + off - 1, Math.round(o.y) - i - 2, 3, 2); g.fillStyle = "rgba(99,200,234,0.5)"; g.fillRect(Math.round(o.x) + off - 1 - d * 4, Math.round(o.y) - i - 2, 3, 2); }
     } else if (o.kind === "eshot") {
       const d = Math.sign(o.vx); g.fillStyle = "#e8dcc0"; g.fillRect(Math.round(o.x - d * 10), Math.round(o.y), 10, 1); g.fillStyle = "#c8ccd6"; g.fillRect(Math.round(o.x - (d < 0 ? 0 : 1)), Math.round(o.y) - 1, 2, 3); g.fillStyle = "#d8423a"; g.fillRect(Math.round(o.x - d * 11), Math.round(o.y) - 1, 2, 3);
     } else if (o.kind === "rock") {
