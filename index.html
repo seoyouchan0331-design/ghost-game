@@ -502,7 +502,7 @@ function groundAt(x, y = -1e4, plats = true) {
 function span(x, gy) { let a = x, b = x; const ok = (v) => groundAt(v, gy - 1) === gy && !isSolid(v, gy - 10) && v > ROOM_L && v < ROOM_R; while (ok(a - 4)) a -= 4; while (ok(b + 4)) b += 4; return [a + 6, b - 6]; }
 // 챕터 1 그림 (Higgsfield → art/ch1/ch1_cut.py). 좌표는 그 스크립트가 뽑아 준 값
 const CH1 = {"far":[536,300],"mid":[960,372],"front":[630,270],"terrain":{"fill":[0,0,64,64],"back":[66,0,64,64],"top":[132,0,120,22],"under":[254,0,102,18],"plank":[358,0,76,9],"side":[436,0,10,79]},"props":{"barrel":[0,0,15,20],"crates":[17,0,29,22],"cart":[48,0,37,24],"lamp":[87,0,27,46],"banner":[116,0,33,40],"debris":[151,0,24,18],"fence":[177,0,32,18],"well":[211,0,34,34],"lantern":[247,0,10,22],"rubble":[259,0,24,13],"bush":[285,0,20,20],"sign":[307,0,24,30]}};
-const ch1Img = {}; for (const k of ["far", "mid", "front", "terrain", "props"]) { ch1Img[k] = new Image(); ch1Img[k].onload = () => { if (L) buildTerrain(); }; ch1Img[k].src = `assets/ch1_${k}.png`; }
+const ch1Img = {}; for (const k of ["far", "terrain", "props"]) { ch1Img[k] = new Image(); ch1Img[k].onload = () => { if (L) buildTerrain(); }; ch1Img[k].src = `assets/ch1_${k}.png`; }
 const ready = (im) => im.complete && im.naturalWidth > 0;
 // 배경(그림이 안 불러와졌을 때 쓰는 대체): 밤하늘 → 먼 산과 성 → 불타는 집 실루엣. 겹마다 다른 속도로 움직인다
 const backdrop = (() => {
@@ -1303,11 +1303,11 @@ function render() {
   camX = clamp(Math.round(player.x - W / 2), 0, L.w - W);          // 카메라가 보이드를 따라간다 (좌우 + 위아래)
   camY = Math.round(Math.min(0, Math.max(rowTop(0) - TS, player.y - 175)));
   const layer = (img, w, h, k, y) => { const off = camX * k; for (let i = Math.floor(off / w); i * w < off + W; i++) { g.save(); g.translate(Math.round(i * w - off + (i % 2 ? w : 0)), Math.round(y)); g.scale(i % 2 ? -1 : 1, 1); g.drawImage(img, 0, 0, w, h); g.restore(); } };   // 좌우로 뒤집어 이어 붙인다
-  if (ready(ch1Img.far) && ready(ch1Img.mid)) {
-    layer(ch1Img.far, CH1.far[0], CH1.far[1], 0.08, -18 - camY * 0.06);
-    g.fillStyle = "rgba(24,14,40,0.25)"; g.fillRect(0, 0, W, H);                           // 먼 배경은 흐릿하게
-    const mw = CH1.mid[0] * 0.5, mh = CH1.mid[1] * 0.5; layer(ch1Img.mid, mw, mh, 0.25, 214 - mh - camY * 0.2);   // 집들은 반 크기로 멀리
-    g.fillStyle = "rgba(16,10,28,0.42)"; g.fillRect(0, 0, W, H);                           // 놀이 공간과 떨어져 보이게
+  const bgi = ch1Img.far;                                        // 배경은 한 장을 통째로: 방이 넓어도 화면보다 조금만 움직이게
+  if (ready(bgi)) {
+    const k = 0.25, tx = Math.max(0, L.w - W) * k, sc = Math.max((W + tx) / bgi.naturalWidth, (H + 24) / bgi.naturalHeight);
+    g.drawImage(bgi, Math.round(-camX * k), Math.round(Math.min(0, -24 - camY * 0.1)), Math.ceil(bgi.naturalWidth * sc), Math.ceil(bgi.naturalHeight * sc));
+    g.fillStyle = "rgba(16,10,28,0.22)"; g.fillRect(0, 0, W, H);
   } else for (const [img, k, ky] of [[backdrop.far, 0.12, 0.08], [backdrop.mid, 0.35, 0.25]]) { const ox = -((camX * k) % 960); for (const dx of [0, 960]) g.drawImage(img, Math.round(ox + dx), Math.round(-camY * ky)); }
   for (const m of embers) if (!m.near) { g.fillStyle = Math.sin(time * 5 + m.ph) > 0 ? "#ffae35" : "#f2561d"; g.fillRect(Math.round(m.x), Math.round(m.y), 1, 1); }
   g.save(); g.translate(-camX, -camY); lg.save(); lg.translate(-camX, -camY);   // 여기부터 방 안의 좌표
@@ -1328,7 +1328,6 @@ function render() {
   glow(p.x + p.dir * 2, p.y - 30, 18, C.flame1, 0.3); glow(p.x, p.y - 12, 34, C.flame0, 0.12);
   drawFxFront();
   g.restore(); lg.restore();
-  if (ready(ch1Img.front)) { g.globalAlpha = 0.75; layer(ch1Img.front, CH1.front[0], CH1.front[1], 1.25, 26); g.globalAlpha = 1; }   // 앞 전경: 가장 빨리 움직인다
   for (const m of embers) if (m.near) { g.fillStyle = "#ffd27a"; g.fillRect(Math.round(m.x), Math.round(m.y), 2, 2); glow(m.x, m.y, 6, "#ff8a2a", 0.4); }
   g.drawImage(vignette, 0, 0);
   if (whiteT > 0) { lg.fillStyle = "rgba(190,230,255,0.35)"; lg.fillRect(0, 0, W, H); }

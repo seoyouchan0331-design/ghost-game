@@ -7,7 +7,7 @@ def hard(p):
     px = np.asarray(p).copy(); px[..., 3] = np.where(px[..., 3] > 110, 255, 0); return Image.fromarray(px, "RGBA")
 meta = {}
 # 먼 배경: 높이 300으로
-far = Image.open("far_source.png").convert("RGB"); far = far.resize((round(far.width * 300 / far.height), 300), Image.BOX); far.save("../../assets/ch1_far.png"); meta["far"] = far.size
+far = Image.open("far_source.png").convert("RGB"); far = far.resize((round(far.width * 340 / far.height), 340), Image.BOX); far.save("../../assets/ch1_far.png"); meta["far"] = far.size
 # 중간 배경: 검은 바탕을 부드럽게 빼고 너비 960으로
 a = np.asarray(Image.open("mid_source.png").convert("RGB")).astype(int); d = a.max(axis=2)
 alpha = np.clip((d - 14) * 8, 0, 255); mid = rgba(a, alpha); mid = mid.resize((960, round(mid.height * 960 / mid.width)), Image.BOX)
