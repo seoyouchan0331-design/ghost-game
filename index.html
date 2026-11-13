@@ -142,7 +142,7 @@ const HELMETS = [
       { name: "갑옷 박치기", cd: 8, icon() { E(-2, 0, 4, 4, C.iron2); R(3, -2, 2, 4, C.white); R(6, -4, 1, 2, C.white); R(6, 2, 1, 2, C.white); R(7, -1, 2, 2, C.white); },
         use(p) {
           const hit = new Set();
-          startAct(p, { dur: 0.3, pose: "ram", vx: 330, ghost: true, tick() { melee(p, { x0: 0, x1: 20, y0: -30, y1: 0, dmg: 30, kb: 190, stun: 0.5, heavy: true, once: hit }); } });
+          startAct(p, { dur: 0.3, pose: "ram", vx: 330, ghost: true, tick() { melee(p, { x0: 0, x1: 20, y0: -30, y1: 0, dmg: 30, kb: 190, stun: 1.5, heavy: true, once: hit }); } });
           dust(p.x, FLOOR, -p.dir, 6);
         } },
     ],
@@ -612,8 +612,8 @@ const GRADES = [{ name: "녹슨", c: "#c9783a", price: 80, w: 70 }, { name: "단
 // 각인 6개: 가진 아이템의 각인 개수가 2개 / 4개면 효과가 켜진다
 const CRESTS = {
   powder: { name: "화약", c: "#f2701f", t2: "적중 10% 작은 폭발 15", t4: "폭발 20%, 폭발에 화상" },
-  frost: { name: "서리", c: "#8ec5ff", t2: "적중 8% 빙결 1.5초", t4: "빙결 적 피해 +40%, 파편 20" },
-  blood: { name: "피", c: "#d8423a", t2: "적중 10% 출혈", t4: "출혈 2배, 처치 시 체력 3" },
+  frost: { name: "서리", c: "#8ec5ff", t2: "적중 8% 빙결 3초 (맞으면 풀림)", t4: "빙결 적 피해 +40%, 파편 20" },
+  blood: { name: "피", c: "#d8423a", t2: "적중 15% 상처, 상처에 또 걸리면 출혈 25", t4: "출혈 2배, 출혈로 처치 시 체력 3" },
   ghost: { name: "유령", c: "#63c8ea", t2: "투구 교체 쿨타임 -25%", t4: "교체 공격 2배, 2초 무적" },
   gale: { name: "질풍", c: "#b5efff", t2: "이동 +10%, 대시 충전 -20%", t4: "대시 경로 20 피해, 대시 +1" },
   gold: { name: "황금", c: "#ffd24a", t2: "획득 골드 +20%", t4: "골드 100당 공격 +3%" },
@@ -1043,16 +1043,19 @@ function damage(e, base, o = {}) {
   const dmg = Math.max(1, Math.round(base * mult * (1 + atkBonus) * (crit ? BASE.critMult : 1) * (blocked ? 0.2 : 1) * (e.st === "potion" ? 1.5 : 1)));
   if (e.st === "charge") { e.chargeDmg += dmg; if (e.chargeDmg >= e.maxHp * ULT_CANCEL) { advGroggy(e, GROGGY_CANCEL); fxRing(e.x, e.y - 20, 30, RAMP_GHOST); hitstop = 0.12; shake(4, 0.25); texts.push({ x: e.x, y: e.y - 70, vy: -30, t: 1, s: "캔슬!", c: "#63c8ea" }); } }
   const armor = e.st === "charge" || e.st === "potion" || e.st === "leap";
-  const bleeding = e.bleedT > 0, wasFrozen = shard > 0;
+  const wasFrozen = shard > 0; let bled = false;
   e.hp -= dmg + shard; e.flash = 0.1;
-  if (o.burn) { e.burn = o.burn; e.burnT = 1; }
+  if (o.burn && !(e.burn > 0)) { e.burn = 6; e.burnT = 2; }
   if (!o.quiet && !o.noProc && !blocked && e.hp > 0) {         // 각인: 적중 시 확률 효과
     if (cr("powder", 2) && Math.random() < (cr("powder", 4) ? 0.2 : 0.1)) {
       const x = e.x, y = e.y - 12; fxRing(x, e.y, 26, RAMP_FIRE); flashes.push({ kind: "burst", x, y, r: 18, t: 0, ramp: RAMP_FIRE }); light(x, y, 40, "#ffae35", 0.6, 0.2);
       for (const t of enemies) if (live(t) && Math.hypot(t.x - x, t.y - 12 - y) < 30) damage(t, 15, { dir: Math.sign(t.x - x) || 1, kb: 120, ramp: RAMP_FIRE, noProc: true, above: true, burn: cr("powder", 4) ? 3 : 0 });
     }
-    if (cr("frost", 2) && e.hp > 0 && !e.type.boss && Math.random() < 0.08) { e.frozen = 1.5 + stat("freezeDur"); e.st = "walk"; texts.push({ x: e.x, y: e.y - 46, vy: -30, t: 0.6, s: "빙결", c: "#9bdcff" }); }
-    if (cr("blood", 2) && e.hp > 0 && Math.random() < 0.1) { e.bleedN = Math.min(3, (e.bleedN ?? 0) + 1); e.bleedT = 4; e.bleedTick = e.bleedTick > 0 ? e.bleedTick : 1; }
+    if (cr("frost", 2) && e.hp > 0 && !e.type.boss && Math.random() < 0.08) { e.frozen = 3 + stat("freezeDur"); e.st = "walk"; texts.push({ x: e.x, y: e.y - 46, vy: -30, t: 0.6, s: "빙결", c: "#9bdcff" }); }
+    if (cr("blood", 2) && e.hp > 0 && Math.random() < 0.15) {
+      if (e.wound > 0) { e.wound = 0; bled = true; const d = 25 * (cr("blood", 4) ? 2 : 1); e.hp -= d; texts.push({ x: e.x, y: e.y - 52, vy: -40, t: 0.8, s: "출혈 " + d, c: "#ff5a4a" }); hitstop = Math.max(hitstop, 0.07);
+        for (let i = 0; i < 12; i++) spark(e.x + rnd(-4, 4), e.y - rnd(8, 22), rnd(-90, 90), rnd(-120, -20), 0.45, ["#2a0808", "#8e2a2a", "#d8423a", "#ff7a6a", "#ffd0c8"]); }
+      else { e.wound = 5; texts.push({ x: e.x, y: e.y - 46, vy: -30, t: 0.6, s: "상처", c: "#d8423a" }); } }
   }
   if (!o.quiet) {
     if (blocked) {
@@ -1069,8 +1072,8 @@ function damage(e, base, o = {}) {
   }
   texts.push({ x: e.x + rnd(-5, 5), y: e.y - 34, vy: -40, t: 0.7, s: String(dmg), c: o.quiet ? "#ffae35" : crit ? "#ffe27a" : "#ffffff", big: crit });
   if (e.hp <= 0 && !e.dead) {                                  // 처치 시 회복·연쇄 빙결
-    p.hp = Math.min(maxHp(), p.hp + stat("killHeal") + (bleeding && cr("blood", 4) ? 3 : 0));
-    if ((wasFrozen || e.frozen > 0) && stat("frozenChain")) for (const t of enemies) if (t !== e && live(t) && Math.abs(t.x - e.x) < 70) t.frozen = 1.5 + stat("freezeDur");
+    p.hp = Math.min(maxHp(), p.hp + stat("killHeal") + (bled && cr("blood", 4) ? 3 : 0));
+    if ((wasFrozen || e.frozen > 0) && stat("frozenChain")) for (const t of enemies) if (t !== e && live(t) && Math.abs(t.x - e.x) < 70) t.frozen = 3 + stat("freezeDur");
   }
   if (e.hp <= 0) { e.dead = 0.001; if (phase === "fight" && wave + 1 >= ROOMS[room].length && !enemies.some((x) => x !== e && !x.dead)) slowT = 0.5;   // 마지막 적: 슬로우 모션
     for (let i = 0; i < 9; i++) puff(e.x + rnd(-7, 7), e.y - rnd(2, 22), rnd(-30, 30), rnd(-50, -10), rnd(0.3, 0.6), "#cfc6d8", rnd(2, 4)); }
@@ -1423,17 +1426,14 @@ function updateEnemy(e, dt) {
   e.flash = Math.max(0, e.flash - dt);
   e.vy += GRAV * dt; e.y += e.vy * dt; if (e.y >= (e.gy ?? FLOOR)) { e.y = e.gy ?? FLOOR; e.vy = 0; }
   e.x = clamp(e.x + e.vx * dt, e.minX ?? ROOM_L, e.maxX ?? ROOM_R); if (!(e.id === "hound" && e.st === "attack")) e.vx *= Math.max(0, 1 - 7 * dt);
-  if (e.burn > 0) {                               // 화상: 3초간 매초 5
+  if (e.burn > 0) {                               // 화상: 6초간 2초마다 8, 주변 적에게 번진다
     e.burn -= dt; e.burnT -= dt;
     if (Math.random() < dt * 14) spark(e.x + rnd(-5, 5), e.y - rnd(4, 22), rnd(-10, 10), rnd(-70, -30), 0.3, RAMP_FIRE, true);
-    if (e.burnT <= 0) { e.burnT += 1; damage(e, Math.round(5 * (1 + stat("burnMult"))), { quiet: true }); if (e.dead) return; }
+    if (e.burnT <= 0) { e.burnT += 2;
+      for (const t of enemies) if (t !== e && live(t) && !(t.burn > 0) && Math.hypot(t.x - e.x, t.y - e.y) < 40) { t.burn = 6; t.burnT = 2; spark(t.x, t.y - 14, 0, -40, 0.4, RAMP_FIRE, true); }   // 옆 적에게 옮겨붙는다
+      damage(e, Math.round(8 * (1 + stat("burnMult"))), { quiet: true }); if (e.dead) return; }
   }
-  if (e.bleedT > 0) {                                            // 출혈: 4초간 매초 4, 3번까지 겹친다
-    e.bleedT -= dt; e.bleedTick -= dt;
-    if (Math.random() < dt * 8) spark(e.x + rnd(-4, 4), e.y - rnd(6, 20), rnd(-20, 20), rnd(-10, 30), 0.3, ["#2a0808", "#8e2a2a", "#d8423a", "#ff7a6a", "#ffd0c8"]);
-    if (e.bleedTick <= 0) { e.bleedTick += 1; damage(e, 4 * e.bleedN * (cr("blood", 4) ? 2 : 1), { quiet: true }); if (e.dead) return; }
-    if (e.bleedT <= 0) e.bleedN = 0;
-  }
+  if (e.wound > 0) { e.wound -= dt; if (Math.random() < dt * 4) spark(e.x + rnd(-4, 4), e.y - rnd(6, 20), 0, 20, 0.3, ["#2a0808", "#8e2a2a", "#d8423a", "#ff7a6a", "#ffd0c8"]); }   // 상처: 5초 안에 또 걸리면 출혈
   if (e.frozen > 0) { e.frozen -= dt; return; }                  // 빙결: 행동 정지, 다음 피격 시 해제
   if (e.stun > 0) { e.stun -= dt; return; }
   e.t -= dt * (e.awake ? 1.4 : 1);
@@ -1892,7 +1892,7 @@ goCastle(); requestAnimationFrame(frame);
 // 시험용 손잡이
 window.__gameL = () => L; window.__items = ITEMS;
 window.__meta = () => meta; window.__startRun = () => startRun();
-window.__game = { set chapter(v) { chapter = v; }, goto(n) { room = n; enemies = []; player.x = 60; player.y = FLOOR; startRoom(); }, get player() { return player; }, get enemies() { return enemies; }, get state() { return state; }, get room() { return room; }, get wave() { return wave; }, get objs() { return objs; },
+window.__game = { set chapter(v) { chapter = v; }, hit(e, n, o) { damage(e, n, o || {}); }, goto(n) { room = n; enemies = []; player.x = 60; player.y = FLOOR; startRoom(); }, get player() { return player; }, get enemies() { return enemies; }, get state() { return state; }, get room() { return room; }, get wave() { return wave; }, get objs() { return objs; },
   lineup() { enemies = ["militia", "torch", "shield", "hound"].map((id, i) => Object.assign(newEnemy(id, 200 + i * 60), { born: 0, speed: 0, t: 99, dir: -1 })); } };
 </script>
 </body>
