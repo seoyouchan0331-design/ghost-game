@@ -848,24 +848,6 @@ function span(x, gy) { let a = x, b = x; const ok = (v) => groundAt(v, gy - 1) =
 const CH1 = {"bg_a":[601,340],"bg_b":[601,340],"front":[480,270],"terrain":{"fill":[0,0,64,64],"back":[66,0,64,64],"top":[132,0,98,22],"under":[232,0,66,18],"plank":[300,0,44,12],"side":[346,0,12,46]},"props":{"mushroom":[0,0,20,16],"fern":[22,0,26,20],"flowers":[50,0,22,16],"stump":[74,0,29,18],"log":[105,0,18,16],"column":[125,0,38,32],"arch":[165,0,44,34],"fence":[211,0,27,18],"lamp":[240,0,32,40],"sign":[274,0,20,26],"rock":[296,0,23,16],"vine":[321,0,33,30]}};
 const ch1Img = {}; for (const k of ["bg_a", "bg_b", "front", "terrain", "props"]) { ch1Img[k] = new Image(); ch1Img[k].onload = () => { if (L) buildTerrain(); }; ch1Img[k].src = `assets/ch1_${k}.png`; }
 const ready = (im) => im.complete && im.naturalWidth > 0;
-// 배경(그림이 안 불러와졌을 때 쓰는 대체): 밤하늘 → 먼 산과 성 → 불타는 집 실루엣. 겹마다 다른 속도로 움직인다
-const backdrop = (() => {
-  const rs = (n) => { const v = Math.sin(n * 91.7) * 43758.5; return v - Math.floor(v); };
-  const far = mk(960, H), f = far.getContext("2d"), mid = mk(960, H), m = mid.getContext("2d");
-  const sky = f.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#0d0a1c"); sky.addColorStop(0.55, "#2a1636"); sky.addColorStop(0.85, "#5a2232"); sky.addColorStop(1, "#7a3022");
-  f.fillStyle = sky; f.fillRect(0, 0, 960, H);
-  for (let i = 0; i < 60; i++) { f.fillStyle = rs(i) > 0.7 ? "#cfc6e8" : "#6d6488"; f.fillRect(Math.floor(rs(i + 3) * 960), Math.floor(rs(i + 7) * 120), 1, 1); }
-  f.fillStyle = "#e8e0d0"; f.beginPath(); f.arc(760, 46, 16, 0, 7); f.fill(); f.fillStyle = "#2a1636"; f.beginPath(); f.arc(752, 42, 15, 0, 7); f.fill();
-  for (const [col, base, amp, k] of [["#231735", 150, 34, 0.011], ["#1a1128", 175, 26, 0.019]]) { f.fillStyle = col; f.beginPath(); f.moveTo(0, H); for (let x = 0; x <= 960; x += 4) f.lineTo(x, base - amp * (0.5 + 0.5 * Math.sin(x * k * 6.283 / 960 * 50 / 3)) - 10 * Math.sin(x * 0.05)); f.lineTo(960, H); f.fill(); }
-  f.fillStyle = "#120c1c"; for (const [x, w, h] of [[600, 14, 52], [618, 30, 34], [652, 12, 60], [668, 26, 30], [698, 10, 44]]) { f.fillRect(x, 150 - h, w, h + 30); f.beginPath(); f.moveTo(x - 2, 150 - h); f.lineTo(x + w / 2, 150 - h - 14); f.lineTo(x + w + 2, 150 - h); f.fill(); }
-  for (let x = -20; x < 980; x += 60 + Math.floor(rs(x) * 40)) {   // 불타는 집들
-    const w = 40 + rs(x + 1) * 30, h = 34 + rs(x + 2) * 26, y = 205 - h;
-    const glw = m.createRadialGradient(x + w / 2, y, 4, x + w / 2, y, 70); glw.addColorStop(0, "rgba(255,120,40,0.55)"); glw.addColorStop(1, "rgba(255,80,30,0)"); m.fillStyle = glw; m.fillRect(x - 60, y - 70, w + 120, 140);
-    m.fillStyle = "#140d1c"; m.fillRect(x, y, w, h + 70); m.beginPath(); m.moveTo(x - 4, y); m.lineTo(x + w / 2, y - 22); m.lineTo(x + w + 4, y); m.fill();
-    for (let k = 0; k < 3; k++) { m.fillStyle = rs(x + k) > 0.4 ? "#ff9a3a" : "#7a2a1a"; m.fillRect(x + 6 + k * (w / 3), y + 10, 5, 7); }
-  }
-  return { far, mid };
-})();
 // 방에 들어갈 때 지형을 한 번 그려 둔다: 질감으로 땅을 채우고, 드러난 윗면·아랫면·옆면에 띠를 두르고, 소품을 놓는다
 let terr = null;
 function buildTerrain() {
@@ -2008,7 +1990,7 @@ function render() {
     const by = Math.round(242 - frac * bh - camY * 0.5); if (by > 0) { g.fillStyle = sky; g.fillRect(0, 0, W, by); }
     g.drawImage(bgi, Math.round(-camX * k), by, bw, bh);
     g.fillStyle = "rgba(10,20,40,0.12)"; g.fillRect(0, 0, W, H);
-  } else for (const [img, k, ky] of [[backdrop.far, 0.12, 0.08], [backdrop.mid, 0.35, 0.25]]) { const ox = -((camX * k) % 960); for (const dx of [0, 960]) g.drawImage(img, Math.round(ox + dx), Math.round(-camY * ky)); }
+  } else { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "#55afc0"); gr.addColorStop(1, "#1d4a48"); g.fillStyle = gr; g.fillRect(0, 0, W, H); }   // 숲 그림을 불러오는 동안은 숲 색만 (옛 불타는 마을 배경은 뺐다)
   for (const m of embers) if (!m.near) { g.fillStyle = Math.sin(time * 5 + m.ph) > 0 ? "#e8ffb0" : "#8fd88a"; g.fillRect(Math.round(m.x), Math.round(m.y), 1, 1); }
   g.save(); g.translate(-camX, -camY); lg.save(); lg.translate(-camX, -camY);   // 여기부터 방 안의 좌표
   g.drawImage(terr, 0, rowTop(0) - terr.oy); for (const [x, y, col, r] of L.lamps) glow(x, y, r + 3 * Math.sin(time * 11 + x), col, 0.45);
