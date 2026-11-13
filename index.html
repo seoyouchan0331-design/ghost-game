@@ -273,7 +273,7 @@ function exclaim(x, y) { R(x, y - 6, 2, 5, C.red); R(x, y, 2, 2, C.red); R(x, y 
 // 상태: walk(다음 패턴 고르기) → slamWind/slam/fistRest, throwWind/throw, stompWind/stomp, (2페이즈) chargeWind/charge/stunned, roar
 // ===================== 거대 골렘 (boss1_body·body2·hands·rubble → art/boss1/giant_cut.py) =====================
 // 몸통은 방 가운데 뒤에 버티고(지형보다 뒤), 떨어진 양손이 공격한다. 약점은 가슴 핵: 손을 내려찍은 뒤 몸을 숙이고, 박수·연타 뒤에는 그로기로 핵이 바닥 가까이 내려온다(피해 2배)
-const GIANT = {"body":[0,0,246,212],"body2":[248,0,246,212],"R_open":[496,0,120,104],"R_fist":[618,0,85,82],"R_side":[705,0,94,70],"L_open":[801,0,121,104],"L_fist":[924,0,104,82],"L_side":[1030,0,93,70],"rubble":[1125,0,230,112],"core":[123,101]};
+const GIANT = {"body":[0,0,246,212],"body2":[248,0,246,212],"R_open":[496,0,122,104],"R_fist":[620,0,73,82],"R_side":[695,0,95,70],"L_open":[792,0,126,104],"L_fist":[920,0,74,82],"L_side":[996,0,95,70],"rubble":[1093,0,230,112],"core":[123,101]};
 const giantImg = new Image(); giantImg.src = "assets/giant.png";
 const GPART = (k, x, y, sc = 1, ax = 0.5, ay = 1, rot = 0) => { const q = GIANT[k]; g.save(); g.translate(Math.round(x), Math.round(y)); if (rot) g.rotate(rot); g.drawImage(giantImg, q[0], q[1], q[2], q[3], -Math.round(q[2] * ax * sc), -Math.round(q[3] * ay * sc), Math.round(q[2] * sc), Math.round(q[3] * sc)); g.restore(); };
 const giantBase = (e) => FLOOR + 16 + e.sink;                      // 몸통 그림의 아래 끝 (땅속에 묻힌다)
