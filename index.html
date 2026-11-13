@@ -726,7 +726,9 @@ const doorImg = new Image(); doorImg.src = "assets/ch1_doors.png";       // 숲 
 const SHOPNPC = {"cook":[0,0,50,46],"merchant":[52,0,41,46],"spirit":[95,0,41,46],"smith":[138,0,38,46]};
 const npcImg = new Image(); npcImg.src = "assets/shop_npcs.png"; const soulImg = new Image(); soulImg.src = "assets/souls.png"; const treeImg = new Image(); treeImg.src = "assets/tree_icons.png";
 const SOUL_IDX = { salamander: 0, turtle: 1 };
-const marketImg = new Image(); marketImg.src = "assets/market_bg.png";   // 암시장 밤 배경 (그림 market_bg가 오면)
+const marketImg = new Image(); marketImg.src = "assets/market_bg.png";   // 암시장 밤 배경 (art/market/market_cut.py)
+const BOOTHS = {"cook":[0,0,69,78],"merchant":[71,0,69,78],"spirit":[142,0,69,78],"smith":[213,0,58,78]};   // 노점 건물 4채 (높이 78)
+const boothImg = new Image(); boothImg.src = "assets/market_booths.png";
 const soulIcon = (c2, k, x, y, sc = 1) => { if (ready(soulImg) && SOUL_IDX[k] != null) c2.drawImage(soulImg, SOUL_IDX[k] * 24, 0, 24, 28, Math.round(x - 12 * sc), Math.round(y - 14 * sc), Math.round(24 * sc), Math.round(28 * sc)); };
 const DOOR_IDX = { gold: 0, chest: 1, helm: 2, scrap: 3, shop: 5, rest: 6, midboss: 7, boss: 9, elite: 8, event: 4 };
 const DOOR_GLOW = { gold: "#ffd24a", chest: "#ff9a3a", helm: "#63c8ea", scrap: "#b0a8ba", shop: "#ffae35", rest: "#5fe0a0", midboss: "#d8423a", boss: "#ff7a2a", elite: "#ff5a4a", event: "#b08ae0" };
@@ -1051,7 +1053,7 @@ function startRoom() {
   } else if (r === "start") { phase = "clear"; banner = { s: "투구를 줍고(↑) 문을 고르자", t: 3 }; { const hs = freeHelms().sort(() => Math.random() - 0.5); spawn({ kind: "pickup", id: hs[0].id, x: 240, grade: 0 }); if (stat("vault") && hs[1]) spawn({ kind: "pickup", id: hs[1].id, x: 300, grade: 0 }); } openDoors(); }
   else if (r === "shop") {                                     // 암시장 거리: 요리사 · 해골 상인(아이템·저주·물건 바꾸기) · 베일의 정령(영혼) · 대장장이(각성)
     phase = "clear"; banner = { s: "암시장 — 상인 앞에서 ↑ 대화 · 물건 앞에서 ↑ 구매", t: 2.8 }; const d = 1 - stat("shopDisc");
-    for (const [nm, x] of [["cook", 120], ["merchant", 310], ["spirit", 540], ["smith", 700]]) spawn({ kind: "npc", nm, x });
+    for (const [nm, x] of [["cook", 120], ["merchant", 310], ["spirit", 540], ["smith", 700]]) { spawn({ kind: "booth", nm, x }); spawn({ kind: "npc", nm, x }); }
     spawn({ kind: "shop", x: 96, food: "soup", price: Math.round(50 * d) }); spawn({ kind: "shop", x: 146, food: "meat", price: Math.round(90 * d) });
     normalItems().sort(() => Math.random() - 0.5).slice(0, 3).forEach((it, i) => spawn({ kind: "shop", x: 268 + i * 40, item: it, price: priceOf(it) }));
     spawn({ kind: "reroll", x: 400, price: 30 });   // 물건 바꾸기 팻말: 일반 아이템 3칸을 새로 (금화 30, 할 때마다 +20)
@@ -1861,7 +1863,7 @@ function spearUp(x, tipY, baseY) {
 // back=true: 캐릭터 뒤에 놓이는 것(문, 보상) / false: 나머지
 function drawObjs(back) {
   for (const o of objs) {
-    if ((o.kind === "door" || o.kind === "pickup" || o.kind === "shop" || o.kind === "smith" || o.kind === "deco" || o.kind === "gate" || o.kind === "npc") !== back) continue;
+    if ((o.kind === "door" || o.kind === "pickup" || o.kind === "shop" || o.kind === "smith" || o.kind === "deco" || o.kind === "gate" || o.kind === "npc" || o.kind === "booth") !== back) continue;
     const x = Math.round(o.x), y = Math.round(o.y);
     if (o.kind === "helm") {
       begin(); E(0, -6, 7, 6, C.iron1); E(-1, -8, 5, 4, C.iron2); E(-2, -10, 3, 1, C.iron3); R(-7, -4, 15, 2, C.iron0); R(-1, -8, 9, 5, C.dark); R(-2, -9, 10, 1, C.iron3); outline();
@@ -2009,6 +2011,9 @@ function drawObjs(back) {
       begin(); at(0, -6 + bobY - (o.ped ? 7 : 0), () => h.draw(time)); outline(); g.drawImage(spr, x - SX, FLOOR - SY);
       glow(x, FLOOR - 16, 26, h.ramp[2], 0.35 + 0.1 * Math.sin(time * 5));
       if (((time * 2.5) | 0) % 3 === 0) starGlint(g, x + 11, FLOOR - 28 + bobY, 2, h.ramp[3], h.ramp[2]);
+    } else if (o.kind === "booth") {                            // 노점 건물 (market_booths): 상인 뒤에 선다
+      const q = BOOTHS[o.nm]; if (ready(boothImg)) { g.drawImage(boothImg, q[0], q[1], q[2], q[3], x - Math.round(q[2] / 2), FLOOR - q[3] + 2, q[2], q[3]);
+        for (const lx of [-q[2] / 2 + 4, q[2] / 2 - 4]) glow(o.x + lx, FLOOR - 50, 14, { cook: "#ffae35", merchant: "#c890ff", spirit: "#63e8d0", smith: "#ffae35" }[o.nm], 0.5 + 0.08 * Math.sin(time * 4 + lx)); }
     } else if (o.kind === "npc") {                              // 암시장 상인 (shop_npcs): 노점까지 한 그림
       const q = SHOPNPC[o.nm]; if (ready(npcImg)) g.drawImage(npcImg, q[0], q[1], q[2], q[3], x - Math.round(q[2] / 2), FLOOR - q[3] + 1, q[2], q[3]);
       if (o.nm === "smith") glow(o.x + 8, FLOOR - 8, 18, "#ff8a2a", 0.35 + 0.1 * Math.sin(time * 8)); if (o.nm === "spirit") glow(o.x - 6, FLOOR - 26, 20, "#9bdcff", 0.35);
@@ -2189,7 +2194,7 @@ function render() {
   const layer = (img, w, h, k, y) => { const off = camX * k; for (let i = Math.floor(off / w); i * w < off + W; i++) { g.save(); g.translate(Math.round(i * w - off + (i % 2 ? w : 0)), Math.round(y)); g.scale(i % 2 ? -1 : 1, 1); g.drawImage(img, 0, 0, w, h); g.restore(); } };   // 좌우로 뒤집어 이어 붙인다
   const bk = room % 2 ? "bg_b" : "bg_a", bgi = ch1Img[bk], BGFIT = { bg_a: [0.75, "#55afc0"], bg_b: [0.676, "#106260"] };   // [풍경이 끝나는 높이 비율, 하늘 색]
   if (!inLobby && ROOMS[room] === "shop" && ready(marketImg)) {   // 암시장 밤 배경 한 장 (바닥 띠가 바닥 바로 위에 오게)
-    const bh = 380, bw = Math.ceil(marketImg.naturalWidth * bh / marketImg.naturalHeight), by = Math.round(242 - 0.8 * bh - camY * 0.5);
+    const bh = 380, bw = Math.ceil(marketImg.naturalWidth * bh / marketImg.naturalHeight), by = Math.round(242 - 0.89 * bh - camY * 0.5);
     if (by > 0) { g.fillStyle = "#141a3a"; g.fillRect(0, 0, W, by); } g.drawImage(marketImg, Math.round(-camX * 0.3), by, bw, bh);
   } else if (inLobby && ready(castleImg.bg)) {                          // 성채 홀 그림 한 장 (숲과 같은 방식: 바닥 띠가 바닥 바로 위에 오게)
     const bh = 380, bw = Math.ceil(castleImg.bg.naturalWidth * bh / castleImg.bg.naturalHeight), by = Math.round(242 - 0.8 * bh - camY * 0.5);
