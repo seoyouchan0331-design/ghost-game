@@ -981,6 +981,10 @@ function rollChestItem(r) {                                   // 상자: 녹슨 
   const k = rnd(0, 100), gr = r === "elite" ? (k < 60 ? 1 : 2) : k < 68 ? 0 : k < 93 ? 1 : k < 98 ? 2 : 3;
   let pool = freeItems().filter((x) => x.grade === gr); if (!pool.length) pool = normalItems(); return pool.length ? pick(pool) : null;
 }
+const itemScrapGold = (it) => Math.round(GRADES[it.grade].price * 0.3 * goldMult());   // 분해하면 값의 30%를 금화로
+function breakItem(o) { o.gone = true; const n = itemScrapGold(o.item), c0 = GRADES[o.item.grade].c; dropCoins(o.x, FLOOR - 40, n, 8); shake(2, 0.12);
+  fxRing(o.x, FLOOR - 40, 14, ["#1a1206", "#8a6a2a", c0, "#fff6c8", "#ffffff"]); for (let i = 0; i < 10; i++) spark(o.x, FLOOR - 40, rnd(-110, 110), rnd(-120, 40), rnd(0.25, 0.5), ["#1a1206", "#8a6a2a", c0, "#fff6c8", "#ffffff"], true);
+  banner = { s: `${o.item.name} 분해 — 금화 ${n}`, t: 1.6 }; }
 function giveItem(it) { const p = player; p.items.push(it); if (it.mod.hp) p.hp = clamp(p.hp + it.mod.hp, 1, maxHp()); banner = { s: `${it.name} — ${it.desc}`, t: 3 }; }
 function grantReward() {                                      // 방 클리어: 보상을 문 앞에 떨어뜨린다
   const r = pendingReward; pendingReward = null; let x = L.w - 150;
@@ -1331,7 +1335,8 @@ function updatePlayer(dt) {
     else if (!sLocked(helm.id) && take("KeyS") && cds[1] <= 0) { cds[1] = skillCd(helm, 1); p.src = "skill"; helm.skills[1].use(p); }
     else if (take("KeyX")) basicAttack(p);
     else if (take("ArrowUp")) interact(p);
-    else if (take("ArrowDown")) { const it = objs.find((o) => o.kind === "pickup" && Math.abs(o.x - p.x) < 16);   // ↓: 발밑 투구 분해
+    else if (take("ArrowDown")) { const rv = objs.find((o) => o.kind === "reveal" && o.taken == null && o.t > 0.4 && Math.abs(o.x - p.x) < 18); if (rv) breakItem(rv);
+      const it = rv ? null : objs.find((o) => o.kind === "pickup" && Math.abs(o.x - p.x) < 16);   // ↓: 발밑 투구 분해
       if (it) { const n = SCRAP_OF[it.grade ?? 0]; p.scrap += n; it.gone = true; dust(it.x, FLOOR, 0, 6); banner = { s: `분해: 쇳조각 +${n}`, t: 1.2 }; } }
   }
   if (!p.dashing) p.vy += GRAV * dt;
@@ -1366,6 +1371,8 @@ function recallHelm() { player.headless = false; objs = objs.filter((o) => o.kin
 function interact(p) {
   const ch = objs.find((o) => o.kind === "chest" && o.open < 0 && Math.abs(o.x - p.x) < 18);
   if (ch) { ch.open = 0; return; }
+  const rv = objs.find((o) => o.kind === "reveal" && o.taken == null && o.t > 0.4 && Math.abs(o.x - p.x) < 18);
+  if (rv) { if (p.items.length >= 9) { banner = { s: "아이템 칸이 가득 찼어 — ↓로 분해", t: 1.4 }; return; } rv.taken = 0; return; }
   const it = objs.find((o) => o.kind === "pickup" && Math.abs(o.x - p.x) < 16);
   if (it) {                                                      // 투구 줍기: 등급도 같이 바뀐다
     recallHelm(); const g0 = it.grade ?? 0;
@@ -1395,6 +1402,7 @@ function interact(p) {
   }
   const door = objs.find((o) => o.kind === "door" && Math.abs(o.x - p.x) < 18);
   if (door) { for (const o of objs) if (o.kind === "pickup") p.scrap += SCRAP_OF[o.grade ?? 0];
+    for (const o of objs) if (o.kind === "reveal" && o.taken == null) p.gold += itemScrapGold(o.item);   // 두고 간 아이템은 자동 분해
     for (const o of objs) if (o.kind === "coin" || o.kind === "loot") { if (o.scrap || o.look === "scrap") p.scrap += o.val; else p.gold += o.val; }   // 두고 가는 투구는 자동 분해
     recallHelm(); pendingReward = REWARDS[door.reward].w || door.reward === "elite" ? door.reward : null; eliteRoom = door.reward === "elite"; p.gold = Math.max(0, p.gold - stat("roomTax")); room++; p.x = 40; p.dir = 1; whiteT = 0.1; startRoom(); }
 }
@@ -1560,8 +1568,9 @@ function updateObjs(dt) {
           for (let i = 0; i < 10; i++) spark(o.x + rnd(-6, 6), FLOOR - 10, rnd(-80, 80), rnd(-200, -80), rnd(0.3, 0.6), COIN, true);
           if (o.gold) dropCoins(o.x, FLOOR - 10, o.gold, 10);
           if (o.item) spawn({ kind: "reveal", item: o.item, x: o.x, t: 0 }); } }
-    } else if (o.kind === "reveal") {                            // 상자에서 떠오른 아이템: 등급 색 빛기둥 → 플레이어에게 들어간다
-      o.t += dt; if (o.t >= 1.1) { o.gone = true; giveItem(o.item); collectPop(p.x, p.y - 14, ["#1a1206", "#8a6a2a", GRADES[o.item.grade].c, "#fff6c8", "#ffffff"]); light(p.x, p.y - 14, 30, GRADES[o.item.grade].c, 0.8, 0.3); }
+    } else if (o.kind === "reveal") {                            // 상자에서 떠오른 아이템: 빛기둥 위에 떠서 기다린다. ↑ 획득(날아와 들어감), ↓ 분해(금화)
+      o.t += dt;
+      if (o.taken != null) { o.taken += dt; if (o.taken >= 0.3) { o.gone = true; giveItem(o.item); collectPop(p.x, p.y - 14, ["#1a1206", "#8a6a2a", GRADES[o.item.grade].c, "#fff6c8", "#ffffff"]); light(p.x, p.y - 14, 30, GRADES[o.item.grade].c, 0.8, 0.3); } }
     } else if (o.kind === "strike") {                            // 표시 후 떨어지는 공격 (화살비·빛기둥)
       o.t -= dt; if (o.t <= 0) { o.gone = true; fxRing(o.x, o.gy, o.r, ["#2a2010", "#8a7a4a", o.c, "#fff6c8", "#ffffff"]); light(o.x, o.gy - 10, 30, o.c, 0.6, 0.2); dust(o.x, o.gy, 0, 3);
         if (o.big) { shake(6, 0.4); flashes.push({ kind: "burst", x: o.x, y: o.gy - 20, r: 30, t: 0, ramp: BLUE }); }
@@ -1668,7 +1677,7 @@ function drawObjs(back) {
         if (o.open >= 0) { g.fillStyle = COIN[4]; g.fillRect(cx - 10, yy - 12, 20, 1); glow(cx, yy - 12, 16, "#ffe27a", 0.5 + o.open); }
         else glow(cx, yy - 10, 18, o.red ? "#ff5a4a" : "#ffd24a", 0.2 + 0.1 * Math.sin(time * 4)); }
     } else if (o.kind === "reveal") {
-      const k = Math.min(1, o.t / 0.5), up = Math.round(30 * (1 - (1 - k) * (1 - k))), c0 = GRADES[o.item.grade].c, fly = Math.max(0, (o.t - 0.8) / 0.3);
+      const k = Math.min(1, o.t / 0.5), up = Math.round(30 * (1 - (1 - k) * (1 - k)) + Math.sin(o.t * 3) * 1.5 * k), c0 = GRADES[o.item.grade].c, fly = o.taken != null ? Math.min(1, o.taken / 0.3) : 0;
       const iy0 = FLOOR - 26 - up, ix = Math.round(o.x + (player.x - o.x) * fly * fly), iy = Math.round(iy0 + (player.y - 20 - iy0) * fly * fly);
       if (!fly) { g.globalAlpha = 0.35; g.fillStyle = c0; g.fillRect(x - 4, FLOOR - 120, 8, 108); g.globalAlpha = 0.7; g.fillRect(x - 1, FLOOR - 120, 2, 108); g.globalAlpha = 1; glow(o.x, iy, 26, c0, 0.8); }
       g.drawImage(itemImg.small, o.item.icon * 16, 0, 16, 16, ix - 8, iy - 8, 16, 16);
@@ -1770,6 +1779,9 @@ function drawHudText() {                          // 글자는 화면 해상도�
   txt("←→ 이동   C 점프(2단)   Z 대시   X 공격   A·S 스킬   Space 투구 교체   ↑ 줍기·문·구매   ↓+C 발판 내려가기   ↓ 투구 분해   D 영혼   Tab 캐릭터 창   R 성채로", W / 2, H - 5, 11, "#d0c8dc", "center");
   for (const t of texts) txt(t.s, t.x - camX, t.y - camY, t.big ? 18 : 13, t.c, "center");
   for (const o of objs) {
+    if (o.kind === "reveal" && o.taken == null && o.t > 0.4) { const it = o.item, gd = GRADES[it.grade]; txt(`${gd.name} ${it.name}`, o.x - camX, FLOOR - camY - 78, 11, gd.c, "center"); txt(it.desc, o.x - camX, FLOOR - camY - 68, 10, "#d0c8dc", "center");
+      txt(it.crests.map((k) => CRESTS[k].name).join(" · "), o.x - camX, FLOOR - camY - 59, 10, CRESTS[it.crests[0]].c, "center");
+      if (Math.abs(o.x - p.x) < 18) tip(`↑ 획득 · ↓ 분해(금화 ${itemScrapGold(it)})`, o.x - camX, FLOOR - camY - 92, "#ffe27a"); }
     if (o.kind === "chest" && o.open < 0) { txt(o.red ? "정예 상자" : "상자", o.x - camX, FLOOR - camY - 26, 11, o.red ? "#ff7a6a" : "#ffd24a", "center"); if (Math.abs(o.x - p.x) < 18) tip("↑ 열기", o.x - camX, FLOOR - camY - 38, "#ffe27a"); }
     if (o.kind === "pickup") { txt(`${HGRADE[o.grade ?? 0].name} ${helmById(o.id).name}`, o.x - camX, FLOOR - camY - 46, 11, HGRADE[o.grade ?? 0].c, "center"); if (Math.abs(o.x - p.x) < 16) tip(`↑ 바꾸기 · ↓ 분해(쇳조각 ${SCRAP_OF[o.grade ?? 0]})`, o.x - camX, FLOOR - camY - 58, "#ffe27a"); }
     if (o.kind === "smith") { txt("대장장이", o.x - camX, FLOOR - camY - 30, 11, "#ffae35", "center"); if (Math.abs(o.x - p.x) < 18) { const g0 = hgOf(p.helm.id); tip(g0 < 0 ? "빈 투구는 각성 불가" : g0 >= 3 ? "이미 전설" : `↑ ${p.helm.name} 각성 → ${HGRADE[g0 + 1].name} (쇳조각 ${AWAKE_COST[g0]})`, o.x - camX, FLOOR - camY - 44, "#ffe27a"); } }
