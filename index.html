@@ -371,7 +371,13 @@ function drawGiantBody(e, sinkExtra = 0, img2) {                  // 지형보�
   const c = giantCore(e); glow(c.x, c.y + sinkExtra, 34 + br * 4, "#ffae35", e.groggy ? 0.9 : 0.5); if (ph2) glow(e.cx, giantBase(e) - 120, 120, "#ff5a2a", 0.15 + 0.05 * Math.sin(time * 9));
   if (e.groggy) for (let i = 0; i < 4; i++) { const a = time * 5 + i * 1.57; g.fillStyle = "#ffe27a"; g.fillRect(Math.round(c.x + Math.cos(a) * 26), Math.round(c.y - 60 + Math.sin(a) * 6), 3, 3); }   // 그로기 별
 }
+// 무너짐 영상 프레임 (art/boss1/collapse_cut.py). ax, ay = 첫 프레임 골렘의 아래 가운데 = 몸통 그림의 아래 가운데
+const COLLAPSE = {"w": 364, "h": 215, "cols": 5, "n": 52, "fps": 10, "ax": 184, "ay": 213}, COLLAPSE_T0 = 0.9;
+const collapseImg = new Image(); collapseImg.src = "assets/giant_collapse.png";
 function drawGiantDeath(o) {                                       // 무너지는 몸통 (지형 뒤)
+  if (ready(collapseImg)) { const C = COLLAPSE, f = clamp(Math.floor((o.t - COLLAPSE_T0) * C.fps), 0, C.n - 1), shk = o.t > 1.2 && o.t < 4.4 ? Math.round(Math.sin(o.t * 60) * 1.5) : 0;
+    g.save(); g.beginPath(); g.rect(-1000, -1000, 4000, FLOOR + 1000 + 2); g.clip();
+    g.drawImage(collapseImg, (f % C.cols) * C.w, Math.floor(f / C.cols) * C.h, C.w, C.h, Math.round(o.cx - C.ax) + shk, FLOOR + 16 + o.sink - C.ay, C.w, C.h); g.restore(); return; }
   if (!ready(giantImg) || o.t > 4.2) return; const shk = o.t > 1.2 && o.t < 4 ? Math.round(Math.sin(o.t * 60) * 2) : 0;
   g.save(); g.beginPath(); g.rect(-1000, -1000, 4000, FLOOR + 1000 + 2); g.clip(); if (o.t > 3.6) g.globalAlpha = Math.max(0, 1 - (o.t - 3.6) / 0.6);
   GPART(o.phase2 ? "body2" : "body", o.cx + shk, FLOOR + 16 + o.sink, 1); g.restore(); g.globalAlpha = 1;
@@ -1941,12 +1947,14 @@ function updateObjs(dt) {
       o.t += dt; const base = FLOOR + 16 + o.sink, core = { x: o.cx - GIANT.body[2] / 2 + GIANT.core[0], y: base - GIANT.body[3] + GIANT.core[1] };
       o.hands.forEach((h, i) => { if (h.gone || o.t < 0.4 + i * 0.25) return; h.vy += 900 * dt; h.y += h.vy * dt;
         if (h.y >= FLOOR) { h.gone = true; shake(5, 0.3); fxShock(h.x, FLOOR, 80, RAMP_FIRE); for (let k = 0; k < 24; k++) { spark(h.x + rnd(-44, 44), FLOOR - rnd(4, 30), rnd(-140, 140), -rnd(60, 220), rnd(0.4, 0.9), ["#2a1e14", "#5a4a3a", "#8a7a68", "#b9a995", "#e8dcc0"], false); puff(h.x + rnd(-26, 26), FLOOR - rnd(0, 16), rnd(-40, 40), -rnd(10, 50), rnd(0.5, 1), "#8a7a68", rnd(3, 6)); } } });
-      if (o.t > 1.2 && o.t < 4) { o.sink += dt * 46; if (Math.random() < 0.5) puff(o.cx + rnd(-110, 110), FLOOR - rnd(0, 8), rnd(-30, 30), -rnd(20, 60), rnd(0.6, 1.1), "#7a6a58", rnd(4, 7)); if (Math.random() < 0.15) shake(3, 0.15); }
-      if (o.stage === 0 && o.t > 3) { o.stage = 1; o.core = { x: core.x, y: core.y }; }
-      if (o.core && o.stage === 1) { o.core.y -= dt * 18; if (o.t > 3.7) { o.stage = 2; flashes.push({ kind: "burst", x: o.core.x, y: o.core.y, r: 26, t: 0, ramp: RAMP_FIRE }); fxRing(o.core.x, o.core.y, 40, RAMP_FIRE); light(o.core.x, o.core.y, 120, "#ffae35", 1, 0.5); shake(6, 0.4);
+      const vid = ready(collapseImg);
+      if (o.t > 1.2 && o.t < 4) { if (!vid) o.sink += dt * 46; if (Math.random() < 0.5) puff(o.cx + rnd(-110, 110), FLOOR - rnd(0, 8), rnd(-30, 30), -rnd(20, 60), rnd(0.6, 1.1), "#7a6a58", rnd(4, 7)); if (Math.random() < 0.15) shake(3, 0.15); }
+      if (vid && o.t > 4.2 && o.t < 4.9 && Math.random() < 0.6) { puff(o.cx + rnd(-150, 150), FLOOR - rnd(0, 6), rnd(-60, 60), -rnd(5, 30), rnd(0.7, 1.3), "#8a7a68", rnd(5, 9)); if (Math.random() < 0.2) shake(4, 0.2); }   // 무너져 내릴 때 흙먼지
+      if (o.stage === 0 && o.t > (vid ? 2.4 : 3)) { o.stage = 1; o.core = { x: core.x, y: core.y }; }
+      if (o.core && o.stage === 1) { o.core.y -= dt * 18; if (o.t > (vid ? 3.1 : 3.7)) { o.stage = 2; flashes.push({ kind: "burst", x: o.core.x, y: o.core.y, r: 26, t: 0, ramp: RAMP_FIRE }); fxRing(o.core.x, o.core.y, 40, RAMP_FIRE); light(o.core.x, o.core.y, 120, "#ffae35", 1, 0.5); shake(6, 0.4);
           for (let k = 0; k < 14; k++) spawn({ kind: "soulfly", x: o.core.x, y: o.core.y, vx: rnd(-160, 160), vy: rnd(-160, 40), age: 0, last: k === 13 }); } }
       if (o.stage === 2 && o.t > 4.6) { o.stage = 3; banner = { s: "마을 수호 골렘 — 처치", t: 3 }; }
-      if (o.stage === 3 && o.t > 5.4) { o.stage = 4; dropCoins(o.cx, FLOOR - 40, 160 * goldMult(), 20); const lg = freeItems().filter((x) => x.grade === 3);
+      if (o.stage === 3 && o.t > 5.8) { o.stage = 4; dropCoins(o.cx, FLOOR - 40, 160 * goldMult(), 20); const lg = freeItems().filter((x) => x.grade === 3);
         spawn({ kind: "chest", x: o.cx - 60, item: lg.length ? pick(lg) : rollChestItem("elite"), red: false, gold: 0, open: -1, age: 0 }); spawn({ kind: "exitgate", x: L.w - 50 }); }
     } else if (o.kind === "soulfly") {                           // 깨진 핵의 빛줄기: 휘어져 보이드에게 빨려 든다
       o.age += dt; const dx = p.x - o.x, dy = p.y - 16 - o.y, d = Math.hypot(dx, dy) || 1, sp = 80 + o.age * 500;
@@ -2114,7 +2122,7 @@ function drawObjs(back) {
       const a = Math.max(0, 1 - o.age / o.life); g.globalAlpha = Math.min(1, a * 2); const sz = Math.round(o.sz); g.fillStyle = ROCK[1]; g.fillRect(Math.round(o.x - sz / 2), Math.round(o.y - sz / 2), sz, sz); g.fillStyle = (o.rot | 0) % 2 ? ROCK[3] : ROCK[4]; g.fillRect(Math.round(o.x - sz / 2), Math.round(o.y - sz / 2), Math.max(1, sz - 1), 1); g.globalAlpha = 1;
     } else if (o.kind === "giantDeath") {
       o.hands.forEach((h, i) => { if (!h.gone) { const ps = (i ? "R_" : "L_") + (h.pose.includes("_") ? h.pose.split("_")[1] : h.pose); GPART(ps, h.x, h.y, HSC(ps)); } });
-      if (o.stage >= 3 || o.t > 3.6) { const a = Math.min(1, (o.t - 3.6) / 0.8); g.globalAlpha = a; GPART("rubble", o.cx, FLOOR + 6, 1); g.globalAlpha = 1; }
+      if (!ready(collapseImg) && (o.stage >= 3 || o.t > 3.6)) { const a = Math.min(1, (o.t - 3.6) / 0.8); g.globalAlpha = a; GPART("rubble", o.cx, FLOOR + 6, 1); g.globalAlpha = 1; }
       if (o.core && o.stage === 1) { const f = ((time * 20) | 0) % 2; glow(o.core.x, o.core.y, 30, "#ffae35", f ? 1 : 0.5); g.fillStyle = f ? "#fff6c8" : "#ffae35"; g.fillRect(Math.round(o.core.x) - 3, Math.round(o.core.y) - 4, 6, 8); }
     } else if (o.kind === "soulfly") {
       glow(o.x, o.y, 8, "#ffae35", 0.7); g.fillStyle = "#fff6c8"; g.fillRect(Math.round(o.x) - 1, Math.round(o.y) - 1, 2, 2);
