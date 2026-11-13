@@ -292,10 +292,24 @@ const roarImg = new Image(); roarImg.src = "assets/giant_roar.png";
 const BREATHV = {"w": 249, "h": 234, "cols": 8, "n": 41, "fps": 8, "ax": 125, "ay": 234}, BREATH2V = {"w": 250, "h": 244, "cols": 8, "n": 41, "fps": 8, "ax": 125, "ay": 244};
 const breathImg = new Image(); breathImg.src = "assets/giant_breath.png"; const breath2Img = new Image(); breath2Img.src = "assets/giant_breath2.png";
 // 효과음 (영상에서 뽑은 소리: assets/sfx). M 키로 끄고 켠다
-const SFX = {}; for (const k of ["golem_roar", "golem_collapse", "golem_breath"]) { try { SFX[k] = new Audio(`assets/sfx/${k}.mp3`); SFX[k].preload = "auto"; } catch (err) {} }
+const SFX = {}; for (const k of ["golem_roar", "golem_collapse"]) { try { SFX[k] = new Audio(`assets/sfx/${k}.mp3`); SFX[k].preload = "auto"; } catch (err) {} }
 let muted = false;
-// 숨쉬기 소리: 골렘이 살아 있고 영상(포효)이 안 나올 때만 반복. 다른 때는 멈춤
-function breathSound(on) { const a = SFX.golem_breath; if (!a) return; try { if (on && !muted) { a.loop = true; a.volume = 0.55; if (a.paused) { const pr = a.play(); if (pr) pr.catch(() => {}); } } else if (!a.paused) a.pause(); } catch (err) {} }
+// 합성 효과음 (파일 없음, WebAudio): 쿵(낮게 떨어지는 사인파) + 거친 잡음(저역) + 딱(짧은 고역 잡음)을 섞는다
+let AC = null, NOISE = null;
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); const n = AC.sampleRate * 2; NOISE = AC.createBuffer(1, n, AC.sampleRate); const d = NOISE.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; } catch (err) { AC = null; } } if (AC && AC.state === "suspended") AC.resume(); return AC; }
+function envGain(c, t0, v, att, dur) { const g2 = c.createGain(); g2.gain.setValueAtTime(0.0001, t0); g2.gain.exponentialRampToValueAtTime(Math.max(0.0002, v), t0 + att); g2.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); g2.connect(c.destination); return g2; }
+function noiseSrc(c, t0, dur, type, f0, f1, out) { const src = c.createBufferSource(); src.buffer = NOISE; src.loop = true; const f = c.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(f0, t0); f.frequency.exponentialRampToValueAtTime(f1, t0 + dur); src.connect(f); f.connect(out); src.start(t0, Math.random()); src.stop(t0 + dur + 0.05); }
+function hitSound(kind, big = 1) {
+  if (muted) return; const c = ac(); if (!c) return; const t0 = c.currentTime + 0.005, V = 0.55 * Math.min(1.6, big);
+  const boom = (f0, f1, dur, v) => { const o = c.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f1, t0 + dur); o.connect(envGain(c, t0, v, 0.006, dur)); o.start(t0); o.stop(t0 + dur + 0.05); };
+  if (kind === "slam") { boom(95, 32, 0.7 * big, V); noiseSrc(c, t0, 0.6 * big, "lowpass", 1400, 120, envGain(c, t0, V * 0.8, 0.004, 0.6 * big)); noiseSrc(c, t0, 0.05, "highpass", 2500, 1500, envGain(c, t0, V * 0.35, 0.002, 0.06)); }
+  else if (kind === "clap") { noiseSrc(c, t0, 0.12, "bandpass", 3000, 1200, envGain(c, t0, V * 0.9, 0.002, 0.14)); boom(120, 30, 0.9, V * 1.1); noiseSrc(c, t0, 0.8, "lowpass", 2000, 100, envGain(c, t0, V, 0.004, 0.8)); }
+  else if (kind === "meteor") { boom(80, 25, 1.2, V * 1.2); noiseSrc(c, t0, 1.1, "lowpass", 2500, 90, envGain(c, t0, V * 1.1, 0.004, 1.1)); noiseSrc(c, t0, 0.08, "highpass", 3000, 1500, envGain(c, t0, V * 0.5, 0.002, 0.1)); }
+  else if (kind === "whoosh") { noiseSrc(c, t0, 0.8, "bandpass", 300, 1600, envGain(c, t0, V * 0.35, 0.7, 0.85)); }
+  else if (kind === "spike") { noiseSrc(c, t0, 0.18, "bandpass", 900, 300, envGain(c, t0, V * 0.45, 0.003, 0.2)); boom(140, 60, 0.18, V * 0.35); }
+  else if (kind === "scrape") { noiseSrc(c, t0, 1.1, "lowpass", 500, 260, envGain(c, t0, V * 0.6, 0.08, 1.1)); boom(55, 40, 1.0, V * 0.4); }
+}
+addEventListener("keydown", () => ac(), { once: true });
 function sfx(k, rate = 1, vol = 0.8) { const a = SFX[k]; if (!a || muted) return; try { a.pause(); a.currentTime = 0; a.playbackRate = rate; a.volume = vol; const pr = a.play(); if (pr) pr.catch(() => {}); } catch (err) {} }
 function giantAI(e, p) {
   const ph2 = e.phase === 2, k = ph2 ? 1.3 : 1, H = e.hands, cx = e.cx;
@@ -328,7 +342,7 @@ function giantAI(e, p) {
   if (e.st === "sweep") {                                             // 바닥 쓸기: 손을 눕혀 방 끝에서 끝까지 (점프로 피함)
     const from = e.hi === 0 ? 40 : L.w - 40, to = e.hi === 0 ? L.w - 40 : 40;
     if (e.sub === 0) { giantHand(e, e.hi, from, FLOOR - 2, e.hi === 0 ? "L_side" : "R_side"); h.lerp = 4; h.warn = 1; e.sub = 1; e.t = 1.1 / k; }
-    else if (e.sub === 1) { if (e.t <= 0) { e.sub = 2; h.fast = true; } }
+    else if (e.sub === 1) { if (e.t <= 0) { e.sub = 2; h.fast = true; hitSound("scrape"); } }
     else if (e.sub === 2) { h.x += Math.sign(to - from) * 360 * k * STEP; h.y = FLOOR - 2; { const d2 = Math.sign(to - from); if (Math.random() < 0.8) debris(h.x - d2 * 30, FLOOR - 4, -d2 * rnd(40, 160), -rnd(60, 180), rnd(1.5, 3)); if (Math.random() < 0.5) puff(h.x - d2 * 34, FLOOR - rnd(2, 14), -d2 * rnd(20, 60), -rnd(10, 30), rnd(0.5, 0.9), "#8a7a68", rnd(4, 7));
         if (Math.random() < 0.5) spark(h.x + d2 * 40, FLOOR - 4, d2 * rnd(60, 160), -rnd(40, 120), 0.3, RAMP_FIRE, true); if (((time * 30) | 0) % 3 === 0) flashes.push({ kind: "crack", x: h.x, y: FLOOR, t: 0, life: 1.4, rays: crackRays(h.x, 2, 26) }); }
       if (Math.abs(p.x - h.x) < 42 && p.y > FLOOR - 58) hurtPlayer(22, Math.sign(to - from));
@@ -368,6 +382,7 @@ function debris(x, y, vx, vy, sz) { spawn({ kind: "debris", x, y, vx, vy, sz, ro
 function crackRays(x, n, len) { const rays = []; for (let i = 0; i < n; i++) { const a0 = (i / n) * Math.PI + rnd(-0.3, 0.3), pts = [[x, FLOOR]]; let px = x, ang = a0 > Math.PI / 2 ? Math.PI : 0;
     for (let k = 0; k < 5; k++) { const L2 = len / 5 * rnd(0.7, 1.3); px += Math.cos(ang) * L2; pts.push([px, FLOOR + rnd(-1, 1)]); ang += rnd(-0.6, 0.6) * 0.2; } rays.push(pts); } return rays; }
 function groundSlamFx(x, big) {                                      // 손 내려찍기: 용암 크레이터 시트 (흰 번쩍, 용암 균열, 솟는 바위, 불·파편·먼지) + 충격 고리
+  hitSound("slam", big);
   if (gfx("crater", x, big > 1.2 ? 1 : 1.25)) { fxShock(x, FLOOR, 90 * big, LAVA); light(x, FLOOR - 16, 90 * big, "#ffae35", 0.8, 0.35); return; }
   flashes.push({ kind: "burst", x, y: FLOOR - 10, r: 22 * big, t: 0, ramp: LAVA }); fxShock(x, FLOOR, 90 * big, LAVA); fxRing(x, FLOOR - 4, 40 * big, LAVA);
   flashes.push({ kind: "crack", x, y: FLOOR, t: 0, life: 1.8, rays: crackRays(x, 6, 70 * big) }); light(x, FLOOR - 16, 90 * big, "#ffae35", 0.8, 0.35);
@@ -376,7 +391,7 @@ function groundSlamFx(x, big) {                                      // 손 내�
   for (let i = 0; i < 10; i++) spark(x + rnd(-20, 20), FLOOR - 6, rnd(-200, 200), -rnd(80, 260), rnd(0.25, 0.5), LAVA.slice(1), true);
 }
 function clapFx(x) {                                                 // 박수: 두 손 사이로 큰 흰 섬광, 위로 솟는 충격파, 사방 파편
-  groundSlamFx(x, 1.4); flashes.push({ kind: "burst", x, y: FLOOR - 40, r: 40, t: 0, ramp: LAVA }); whiteT = Math.max(whiteT, 0.08);
+  hitSound("clap", 1.2); groundSlamFx(x, 1.4); flashes.push({ kind: "burst", x, y: FLOOR - 40, r: 40, t: 0, ramp: LAVA }); whiteT = Math.max(whiteT, 0.08);
   for (let i = 0; i < 18; i++) { const a = rnd(-Math.PI, 0); debris(x, FLOOR - 40, Math.cos(a) * rnd(150, 320), Math.sin(a) * rnd(150, 320), rnd(2, 4)); }
 }
 function drawGiantBody(e, sinkExtra = 0, img2) {                  // 지형보다 먼저 (몸통은 뒤). 바닥 아래는 잘라서 땅에 묻힌 것처럼
@@ -1949,13 +1964,13 @@ function updateObjs(dt) {
     } else if (o.kind === "grave") {                             // 투구 무덤: ↑로 부수면 쇳조각
     } else if (o.kind === "meteor") {                            // 운석: 경고 원이 커지다가 꼬리 불을 끌며 천천히 떨어져 큰 폭발
       o.t += dt; const u = (o.t - o.delay) / o.fall;
-      if (!o.fx && o.t >= o.delay + o.fall - GFX_METEOR_HIT) o.fx = gfx("meteor", o.x);
+      if (!o.fx && o.t >= o.delay + o.fall - GFX_METEOR_HIT) { o.fx = gfx("meteor", o.x); hitSound("whoosh"); }
       if (!o.fx && u > 0 && u < 1 && Math.random() < 0.8) { const my = -160 + (FLOOR - 10 + 160) * u * u; puff(o.x + rnd(-8, 8), my - rnd(6, 16), rnd(-10, 10), -rnd(20, 50), rnd(0.5, 0.9), "#4a3a30", rnd(4, 7)); spark(o.x + rnd(-10, 10), my - 10, rnd(-30, 30), -rnd(40, 100), 0.35, LAVA.slice(1), true); }
       if (u >= 1 && !o.hit) { o.hit = true; o.gone = true; if (Math.abs(p.x - o.x) < o.r && p.y > FLOOR - 60) hurtPlayer(o.dmg, Math.sign(p.x - o.x) || 1); shake(7, 0.4); hitstop = Math.max(hitstop, 0.04);
-        if (o.fx) { fxShock(o.x, FLOOR, 120, LAVA); light(o.x, FLOOR - 20, 120, "#ffae35", 0.9, 0.4); } else groundSlamFx(o.x, 1.3); spawn({ kind: "fire", x: o.x, gy: FLOOR, life: 1.6 }); }
+        hitSound("meteor", 1.2); if (o.fx) { fxShock(o.x, FLOOR, 120, LAVA); light(o.x, FLOOR - 20, 120, "#ffae35", 0.9, 0.4); } else groundSlamFx(o.x, 1.3); spawn({ kind: "fire", x: o.x, gy: FLOOR, life: 1.6 }); }
     } else if (o.kind === "spike") {                             // 돌기둥: 균열 → 솟음 → 잠시 → 들어감
       o.t += dt; const u = o.t - o.delay; if (!o.fx && u > -GFX_SPIRE_UP / 1.5) o.fx = gfx("spire", o.x, 1.5);
-      if (u > 0 && !o.up) { o.up = true; if (!o.fx) debris(o.x, FLOOR - 6, rnd(-80, 80), -rnd(120, 240), rnd(2, 3)); puff(o.x, FLOOR - 4, rnd(-20, 20), -30, 0.6, "#7a6a58", 5); shake(1.5, 0.06); }
+      if (u > 0 && !o.up) { o.up = true; if (time - (window.__spikeSnd ?? -9) > 0.09) { window.__spikeSnd = time; hitSound("spike"); } if (!o.fx) debris(o.x, FLOOR - 6, rnd(-80, 80), -rnd(120, 240), rnd(2, 3)); puff(o.x, FLOOR - 4, rnd(-20, 20), -30, 0.6, "#7a6a58", 5); shake(1.5, 0.06); }
       if (u > 0 && u < 0.45 && !o.hit && Math.abs(p.x - o.x) < 11 && p.y > FLOOR - 44) { o.hit = true; hurtPlayer(o.dmg, Math.sign(p.x - o.x) || 1); }
       if (u > 0.8) o.gone = true;
     } else if (o.kind === "gfx") {                               // pixelfx 시트 재생
@@ -1966,7 +1981,7 @@ function updateObjs(dt) {
     } else if (o.kind === "giantDeath") {                        // 처치 연출: 손 추락 → 몸통 붕괴 → 핵 분리·영혼 흡수 → 이름 → 잔해 위 전설 상자와 출구
       o.t += dt; const base = FLOOR + 16 + o.sink, core = { x: o.cx - GIANT.body[2] / 2 + GIANT.core[0], y: base - GIANT.body[3] + GIANT.core[1] };
       o.hands.forEach((h, i) => { if (h.gone || o.t < 0.4 + i * 0.25) return; h.vy += 900 * dt; h.y += h.vy * dt;
-        if (h.y >= FLOOR) { h.gone = true; shake(5, 0.3); fxShock(h.x, FLOOR, 80, RAMP_FIRE); for (let k = 0; k < 24; k++) { spark(h.x + rnd(-44, 44), FLOOR - rnd(4, 30), rnd(-140, 140), -rnd(60, 220), rnd(0.4, 0.9), ["#2a1e14", "#5a4a3a", "#8a7a68", "#b9a995", "#e8dcc0"], false); puff(h.x + rnd(-26, 26), FLOOR - rnd(0, 16), rnd(-40, 40), -rnd(10, 50), rnd(0.5, 1), "#8a7a68", rnd(3, 6)); } } });
+        if (h.y >= FLOOR) { h.gone = true; shake(5, 0.3); hitSound("slam", 1.1); fxShock(h.x, FLOOR, 80, RAMP_FIRE); for (let k = 0; k < 24; k++) { spark(h.x + rnd(-44, 44), FLOOR - rnd(4, 30), rnd(-140, 140), -rnd(60, 220), rnd(0.4, 0.9), ["#2a1e14", "#5a4a3a", "#8a7a68", "#b9a995", "#e8dcc0"], false); puff(h.x + rnd(-26, 26), FLOOR - rnd(0, 16), rnd(-40, 40), -rnd(10, 50), rnd(0.5, 1), "#8a7a68", rnd(3, 6)); } } });
       const vid = ready(collapseImg); if (!o.snd && o.t >= COLLAPSE_T0) { o.snd = true; sfx("golem_collapse"); }
       if (o.t > 1.2 && o.t < 4) { if (!vid) o.sink += dt * 46; if (Math.random() < 0.5) puff(o.cx + rnd(-110, 110), FLOOR - rnd(0, 8), rnd(-30, 30), -rnd(20, 60), rnd(0.6, 1.1), "#7a6a58", rnd(4, 7)); if (Math.random() < 0.15) shake(3, 0.15); }
       if (vid && o.t > 4.2 && o.t < 4.9 && Math.random() < 0.6) { puff(o.cx + rnd(-150, 150), FLOOR - rnd(0, 6), rnd(-60, 60), -rnd(5, 30), rnd(0.7, 1.3), "#8a7a68", rnd(5, 9)); if (Math.random() < 0.2) shake(4, 0.2); }   // 무너져 내릴 때 흙먼지
@@ -2360,7 +2375,6 @@ function drawHudText() {                          // 글자는 화면 해상도�
 //  메인 루프
 // =====================================================================================
 function update(dt) {
-  { const gi = enemies.find((e) => e.type.giant && !(e.dead > 0) && e.hp > 0); breathSound(!!gi && !gi.vid && gi.st !== "intro" && !menuOpen && state !== "castle"); }
   for (const k in pressed) pressed[k] -= dt;
   if (state === "castle") { castleFlash = Math.max(0, castleFlash - dt); updateCastle(); return; }
   updateMenu(dt); if (menuOpen) return;                          // 캐릭터 창이 열려 있으면 게임은 멈춘다
