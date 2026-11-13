@@ -969,20 +969,28 @@ function rollReward(not) {
   return ok[0];
 }
 // 방을 깨면: 들어올 때 고른 문의 보상을 주고, 다음 방의 문을 연다
-function grantReward() {
-  const r = pendingReward, p = player; pendingReward = null;
-  if (r === "gold") { const n = Math.round(rnd(60, 90) * goldMult()); p.gold += n; banner = { s: `금화 +${n}`, t: 2 }; }
-  else if (r === "scrap") { const n = Math.round(rnd(15, 25)); p.scrap += n; banner = { s: `쇳조각 +${n}`, t: 2 }; }
-  else if (r === "chest") {                                   // 등급: 녹슨 68% / 단련된 25% / 명품 5% / 전설 2%
-    let k = rnd(0, 100), gr = k < 68 ? 0 : k < 93 ? 1 : k < 98 ? 2 : 3, pool = freeItems().filter((x) => x.grade === gr); if (!pool.length) pool = normalItems(); if (!pool.length) pool = freeItems();
-    const it = pick(pool); p.items.push(it); if (it.mod.hp) p.hp = clamp(p.hp + it.mod.hp, 1, maxHp()); banner = { s: `${it.name} — ${it.desc}`, t: 3 }; }
-  else if (r === "elite") {                                   // 정예 보상: 단련된 이상 아이템 + 금화
-    const gr = Math.random() < 0.4 ? 2 : 1; let pool = freeItems().filter((x) => x.grade === gr); if (!pool.length) pool = normalItems();
-    const n = Math.round(60 * goldMult()); p.gold += n;
-    if (pool.length) { const it = pick(pool); p.items.push(it); if (it.mod.hp) p.hp = clamp(p.hp + it.mod.hp, 1, maxHp()); banner = { s: `정예 격파! ${it.name} · 금화 +${n}`, t: 3 }; } }
-  else if (r === "helm") { spawn({ kind: "pickup", id: pick(freeHelms()).id, x: L.w / 2, grade: Math.random() < 0.25 ? 1 : 0 }); banner = { s: "투구가 떨어졌다!", t: 2 }; }
-  else banner = { s: "방 클리어!", t: 1.8 };
-  light(L.w / 2, FLOOR - 16, 60, "#fff", 0.7, 0.4);
+// ---------- 보상 오브젝트: 방을 깨면 문 앞에 보상이 떨어진다 (pixelfx 줍기 기법: 회전하는 동전, 줍는 순간 흰 고리·별 불꽃, 상자 덜컹 → 뚜껑 → 빛기둥) ----------
+const COIN = ["#4a2c08", "#c48412", "#f0b424", "#ffe066", "#fff6c4"], SCRAPC = ["#1d1c28", "#474658", "#6a6a7e", "#9898ac", "#dfe6f0"];
+function dropBits(x, y, total, n, scrap) { total = Math.max(1, Math.round(total)); n = Math.max(1, Math.min(n, total));
+  for (let i = 0; i < n; i++) spawn({ kind: "coin", scrap, x: x + rnd(-5, 5), y: y - 8, vx: rnd(-90, 90), vy: rnd(-250, -130), val: Math.floor(total / n) + (i < total % n ? 1 : 0), age: 0, ph: rnd(0, 6) }); }
+const dropCoins = (x, y, total, n) => dropBits(x, y, total, n, false);
+function collectPop(x, y, ramp) { fxRing(x, y, 7, ramp); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + rnd(-0.3, 0.3); spark(x, y, Math.cos(a) * 70, Math.sin(a) * 70, 0.22, ramp, true); } light(x, y, 16, ramp[3], 0.6, 0.15); }
+function gainText(tag, n, c) { const p = player; let t = texts.find((t) => t.tag === tag && t.t > 0.25); if (!t) { t = { tag, x: p.x, y: p.y - 44, vy: -14, t: 1, n: 0, c }; texts.push(t); }
+  t.n += n; t.s = tag === "gold" ? `+${t.n}G` : `쇳조각 +${t.n}`; t.t = 1; t.x = p.x; }
+function rollChestItem(r) {                                   // 상자: 녹슨 68% / 단련된 25% / 명품 5% / 전설 2%, 정예: 단련된 60% / 명품 40%
+  const k = rnd(0, 100), gr = r === "elite" ? (k < 60 ? 1 : 2) : k < 68 ? 0 : k < 93 ? 1 : k < 98 ? 2 : 3;
+  let pool = freeItems().filter((x) => x.grade === gr); if (!pool.length) pool = normalItems(); return pool.length ? pick(pool) : null;
+}
+function giveItem(it) { const p = player; p.items.push(it); if (it.mod.hp) p.hp = clamp(p.hp + it.mod.hp, 1, maxHp()); banner = { s: `${it.name} — ${it.desc}`, t: 3 }; }
+function grantReward() {                                      // 방 클리어: 보상을 문 앞에 떨어뜨린다
+  const r = pendingReward; pendingReward = null; let x = L.w - 150;
+  while (x > 60 && (isSolid(x, FLOOR - 4) || isSolid(x - 12, FLOOR - 4) || isSolid(x + 12, FLOOR - 4) || !isSolid(x, FLOOR + 4))) x -= 8;   // 바닥(FLOOR)이 비어 있는 자리
+  if (r === "gold") spawn({ kind: "loot", look: "gold", x, val: Math.round(rnd(60, 90) * goldMult()), age: 0 });
+  else if (r === "scrap") spawn({ kind: "loot", look: "scrap", x, val: Math.round(rnd(15, 25)), age: 0 });
+  else if (r === "chest" || r === "elite") spawn({ kind: "chest", x, item: rollChestItem(r), red: r === "elite", gold: r === "elite" ? Math.round(60 * goldMult()) : 0, open: -1, age: 0 });
+  else if (r === "helm") spawn({ kind: "pickup", id: pick(freeHelms()).id, x, grade: Math.random() < 0.25 ? 1 : 0, ped: true });
+  banner = { s: r ? "방 클리어! 보상이 떨어졌다" : "방 클리어!", t: 1.8 };
+  if (r) { light(x, FLOOR - 16, 60, "#fff", 0.7, 0.4); fxRing(x, FLOOR, 22, ["#2a2010", "#8a7a4a", "#ffe27a", "#fff6c8", "#ffffff"]); }
 }
 function openDoors() {
   if (room + 1 >= ROOMS.length) { state = "clear"; return; }
@@ -1090,7 +1098,7 @@ function damage(e, base, o = {}) {
     p.hp = Math.min(maxHp(), p.hp + stat("killHeal") + (bled && cr("blood", 4) ? 3 : 0));
     if ((wasFrozen || e.frozen > 0) && stat("frozenChain")) for (const t of enemies) if (t !== e && live(t) && Math.abs(t.x - e.x) < 70) t.frozen = 3 + stat("freezeDur");
   }
-  if (e.hp <= 0) { e.dead = 0.001; if (phase === "fight" && wave + 1 >= ROOMS[room].length && !enemies.some((x) => x !== e && !x.dead)) slowT = 0.5;   // 마지막 적: 슬로우 모션
+  if (e.hp <= 0) { e.dead = 0.001; if (!e.noCoin) dropCoins(e.x, e.y, (e.type.boss ? 120 : e.type.mid ? 30 : e.elite ? 12 : rnd(4, 8)) * goldMult(), e.type.boss ? 24 : e.type.mid ? 10 : e.elite ? 4 : 2); if (phase === "fight" && wave + 1 >= ROOMS[room].length && !enemies.some((x) => x !== e && !x.dead)) slowT = 0.5;   // 마지막 적: 슬로우 모션
     for (let i = 0; i < 9; i++) puff(e.x + rnd(-7, 7), e.y - rnd(2, 22), rnd(-30, 30), rnd(-50, -10), rnd(0.3, 0.6), "#cfc6d8", rnd(2, 4)); }
 }
 
@@ -1356,6 +1364,8 @@ function basicAttack(p) {
 function recallHelm() { player.headless = false; objs = objs.filter((o) => o.kind !== "helm"); }
 // ↑키: 떨어진 투구를 지금 쓴 투구와 바꾸거나, 문으로 다음 방에 간다
 function interact(p) {
+  const ch = objs.find((o) => o.kind === "chest" && o.open < 0 && Math.abs(o.x - p.x) < 18);
+  if (ch) { ch.open = 0; return; }
   const it = objs.find((o) => o.kind === "pickup" && Math.abs(o.x - p.x) < 16);
   if (it) {                                                      // 투구 줍기: 등급도 같이 바뀐다
     recallHelm(); const g0 = it.grade ?? 0;
@@ -1384,7 +1394,8 @@ function interact(p) {
     return;
   }
   const door = objs.find((o) => o.kind === "door" && Math.abs(o.x - p.x) < 18);
-  if (door) { for (const o of objs) if (o.kind === "pickup") p.scrap += SCRAP_OF[o.grade ?? 0];   // 두고 가는 투구는 자동 분해
+  if (door) { for (const o of objs) if (o.kind === "pickup") p.scrap += SCRAP_OF[o.grade ?? 0];
+    for (const o of objs) if (o.kind === "coin" || o.kind === "loot") { if (o.scrap || o.look === "scrap") p.scrap += o.val; else p.gold += o.val; }   // 두고 가는 투구는 자동 분해
     recallHelm(); pendingReward = REWARDS[door.reward].w || door.reward === "elite" ? door.reward : null; eliteRoom = door.reward === "elite"; p.gold = Math.max(0, p.gold - stat("roomTax")); room++; p.x = 40; p.dir = 1; whiteT = 0.1; startRoom(); }
 }
 
@@ -1531,6 +1542,26 @@ function updateObjs(dt) {
       o.age += dt; o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt;
       if (Math.abs(p.x - o.x) < 9 && o.y > p.y - 28 && o.y < p.y) { hurtPlayer(10, Math.sign(o.vx) || 1); o.gone = true; }
       else if (o.y >= groundAt(o.x, o.y - 8)) { o.gone = true; spawn({ kind: "fire", x: clamp(o.x, ROOM_L, ROOM_R), gy: groundAt(o.x, o.y - 8), life: 2 }); light(o.x, FLOOR - 6, 40, "#ffae35", 0.6, 0.25); }
+    } else if (o.kind === "coin") {                              // 금화·쇳조각: 튀어 오르고 굴러서 멈췄다가 가까우면 빨려 온다
+      o.age += dt; const dx = p.x - o.x, dy = p.y - 12 - o.y, d = Math.hypot(dx, dy) || 1;
+      if (o.age > 0.45 && (d < 50 || (phase === "clear" && o.age > 1))) { const sp = Math.min(320, 120 + o.age * 160); o.vx += (dx / d * sp - o.vx) * Math.min(1, 10 * dt); o.vy += (dy / d * sp - o.vy) * Math.min(1, 10 * dt); o.x += o.vx * dt; o.y += o.vy * dt; o.mag = true; }
+      else { o.vy += 640 * dt; o.x += o.vx * dt; if (isSolid(o.x, o.y - 3)) { o.x -= o.vx * dt; o.vx *= -0.6; } o.y += o.vy * dt;
+        const gy = groundAt(o.x, o.y - 8); if (o.y >= gy && o.vy > 0) { o.y = gy; if (o.vy > 70) { o.vy *= -0.42; o.vx *= 0.7; } else { o.vy = 0; o.vx *= Math.max(0, 1 - 8 * dt); } } }
+      if (o.age > 0.3 && Math.abs(dx) < 9 && Math.abs(dy) < 14) { o.gone = true; collectPop(o.x, o.y - 3, o.scrap ? SCRAPC : COIN); if (o.scrap) { p.scrap += o.val; gainText("scrap", o.val, "#c8ccd6"); } else { p.gold += o.val; gainText("gold", o.val, "#ffd24a"); } }
+    } else if (o.kind === "loot") {                              // 금화 자루·쇳조각 더미: 하늘에서 떨어지고, 닿으면 터져서 흩어진다
+      o.age += dt;
+      if (o.age > 0.35 && Math.abs(p.x - o.x) < 14 && p.y > FLOOR - 30) { o.gone = true; dropBits(o.x, FLOOR - 4, o.val, o.look === "gold" ? 16 : 8, o.look === "scrap"); shake(2, 0.12);
+        fxRing(o.x, FLOOR - 6, 16, o.look === "gold" ? COIN : SCRAPC); flashes.push({ kind: "burst", x: o.x, y: FLOOR - 8, r: 12, t: 0, ramp: o.look === "gold" ? COIN : SCRAPC }); light(o.x, FLOOR - 10, 40, o.look === "gold" ? "#ffd24a" : "#dfe6f0", 0.7, 0.25); }
+    } else if (o.kind === "chest") {                             // 상자: ↑ → 덜컹 0.45초 → 뚜껑이 열리며 빛 → 아이템이 떠오른다
+      o.age += dt;
+      if (o.open >= 0) { const t0 = o.open; o.open += dt;
+        if (t0 < 0.45 && o.open >= 0.45) { shake(3, 0.2); hitstop = Math.max(hitstop, 0.05); const ramp = o.red ? ["#2a0808", "#8e2a2a", "#ff7a6a", "#ffd0c8", "#ffffff"] : COIN;
+          fxRing(o.x, FLOOR - 8, 20, ramp); flashes.push({ kind: "burst", x: o.x, y: FLOOR - 12, r: 14, t: 0, ramp }); light(o.x, FLOOR - 20, 60, "#ffe27a", 0.9, 0.5);
+          for (let i = 0; i < 10; i++) spark(o.x + rnd(-6, 6), FLOOR - 10, rnd(-80, 80), rnd(-200, -80), rnd(0.3, 0.6), COIN, true);
+          if (o.gold) dropCoins(o.x, FLOOR - 10, o.gold, 10);
+          if (o.item) spawn({ kind: "reveal", item: o.item, x: o.x, t: 0 }); } }
+    } else if (o.kind === "reveal") {                            // 상자에서 떠오른 아이템: 등급 색 빛기둥 → 플레이어에게 들어간다
+      o.t += dt; if (o.t >= 1.1) { o.gone = true; giveItem(o.item); collectPop(p.x, p.y - 14, ["#1a1206", "#8a6a2a", GRADES[o.item.grade].c, "#fff6c8", "#ffffff"]); light(p.x, p.y - 14, 30, GRADES[o.item.grade].c, 0.8, 0.3); }
     } else if (o.kind === "strike") {                            // 표시 후 떨어지는 공격 (화살비·빛기둥)
       o.t -= dt; if (o.t <= 0) { o.gone = true; fxRing(o.x, o.gy, o.r, ["#2a2010", "#8a7a4a", o.c, "#fff6c8", "#ffffff"]); light(o.x, o.gy - 10, 30, o.c, 0.6, 0.2); dust(o.x, o.gy, 0, 3);
         if (o.big) { shake(6, 0.4); flashes.push({ kind: "burst", x: o.x, y: o.gy - 20, r: 30, t: 0, ramp: BLUE }); }
@@ -1608,6 +1639,40 @@ function drawObjs(back) {
     } else if (o.kind === "torch") {
       world(o.x, o.y, () => { const a = o.age * 14; R(Math.cos(a) * -4 - 1, Math.sin(a) * -4 - 1, 3, 3, C.wood2); R(-1, -1, 3, 3, C.wood); flame(Math.cos(a) * 4, Math.sin(a) * 4 + 3, 2, 7, time, FIRE); });
       glow(o.x, o.y, 20, "#ffae35", 0.5);
+    } else if (o.kind === "coin") {
+      const cy = y - 3;
+      if (o.scrap) { const a = ((time * 6 + o.ph) | 0) % 2; g.fillStyle = SCRAPC[0]; g.fillRect(x - 2, cy - 2, 4, 4); g.fillStyle = a ? SCRAPC[3] : SCRAPC[2]; g.fillRect(x - 1, cy - 1, 2, 2); g.fillStyle = SCRAPC[4]; g.fillRect(x - 1 + a, cy - 1, 1, 1); }
+      else { const w = Math.max(1, Math.round(3 * Math.abs(Math.cos(time * 7 + o.ph))));   // 옆으로 돌면 얇아진다
+        g.fillStyle = COIN[0]; g.fillRect(x - w, cy - 3, w * 2, 6); g.fillRect(x - w - 1, cy - 2, w * 2 + 2, 4);
+        g.fillStyle = w > 1 ? COIN[2] : COIN[3]; g.fillRect(x - w, cy - 2, w * 2, 4); if (w > 1) { g.fillStyle = COIN[3]; g.fillRect(x - w, cy - 2, 1, 3); g.fillStyle = COIN[1]; g.fillRect(x + w - 1, cy - 1, 1, 3); }
+        if (Math.sin(time * 5 + o.ph * 3) > 0.92) { g.fillStyle = "#fff"; g.fillRect(x - 1, cy - 5, 1, 3); g.fillRect(x - 2, cy - 4, 3, 1); } }
+      glow(o.x, cy, 7, o.scrap ? "#9898ac" : "#ffd24a", o.mag ? 0.45 : 0.25);
+    } else if (o.kind === "loot") {
+      const fall = Math.max(0, 1 - o.age / 0.3), yy = FLOOR - Math.round(60 * fall * fall), bob = fall ? 0 : Math.round(Math.sin(time * 3) * 1);
+      shadow(x, 9); const P = o.look === "gold" ? COIN : SCRAPC;
+      if (o.look === "gold") { g.fillStyle = "#3a2410"; g.fillRect(x - 7, yy - 11 + bob, 14, 11); g.fillStyle = "#7a5228"; g.fillRect(x - 6, yy - 10 + bob, 12, 9); g.fillStyle = "#9a6a38"; g.fillRect(x - 6, yy - 10 + bob, 4, 7);   // 자루
+        g.fillStyle = "#3a2410"; g.fillRect(x - 3, yy - 14 + bob, 6, 3); g.fillStyle = COIN[3]; g.fillRect(x - 2, yy - 16 + bob, 4, 2); g.fillStyle = COIN[4]; g.fillRect(x - 1, yy - 16 + bob, 1, 1);
+        for (const [cx, cy] of [[-9, -2], [8, -3], [10, -1], [-6, -1]]) { g.fillStyle = COIN[0]; g.fillRect(x + cx - 2, yy + cy - 1, 4, 3); g.fillStyle = COIN[2]; g.fillRect(x + cx - 1, yy + cy - 1, 2, 2); } }
+      else for (const [cx, cy, w, h] of [[-7, -5, 6, 5], [-2, -9, 7, 9], [4, -6, 5, 6], [-4, -3, 4, 3]]) { g.fillStyle = P[0]; g.fillRect(x + cx, yy + cy + bob, w, h); g.fillStyle = P[2]; g.fillRect(x + cx + 1, yy + cy + 1 + bob, w - 2, h - 2); g.fillStyle = P[4]; g.fillRect(x + cx + 1, yy + cy + 1 + bob, 1, 1); }
+      glow(o.x, yy - 6, 22, o.look === "gold" ? "#ffd24a" : "#c8ccd6", 0.35 + 0.1 * Math.sin(time * 4));
+      if (Math.sin(time * 3.3) > 0.9) { g.fillStyle = "#fff"; g.fillRect(x + 4, yy - 13, 1, 3); g.fillRect(x + 3, yy - 12, 3, 1); }
+    } else if (o.kind === "chest") {
+      const W2 = o.red ? ["#1a0808", "#4a1414", "#7a2020", "#a83a2a"] : ["#110a10", "#3a1f1f", "#73402c", "#925737"], op = o.open >= 0.45, rat = o.open >= 0 && !op ? Math.round(Math.sin(o.open * 60)) : 0;
+      const cx = x + rat, yy = FLOOR; shadow(x, 12);
+      if (op) { g.fillStyle = "rgba(255,226,122,0.25)"; g.fillRect(cx - 9, yy - 60, 18, 50); glow(cx, yy - 14, 30 + Math.sin(time * 6) * 3, "#ffe27a", 0.6); }
+      g.fillStyle = W2[0]; g.fillRect(cx - 11, yy - 12, 22, 12); g.fillStyle = W2[2]; g.fillRect(cx - 10, yy - 11, 20, 10); g.fillStyle = W2[3]; g.fillRect(cx - 10, yy - 11, 20, 2);
+      g.fillStyle = "#2f2e3e"; g.fillRect(cx - 8, yy - 12, 2, 12); g.fillRect(cx + 6, yy - 12, 2, 12);
+      if (op) { g.fillStyle = COIN[3]; g.fillRect(cx - 9, yy - 13, 18, 2); g.fillStyle = W2[0]; g.fillRect(cx - 11, yy - 22, 22, 9); g.fillStyle = W2[1]; g.fillRect(cx - 10, yy - 21, 20, 7); g.fillStyle = "#2f2e3e"; g.fillRect(cx - 8, yy - 22, 2, 9); g.fillRect(cx + 6, yy - 22, 2, 9); }
+      else { g.fillStyle = W2[0]; g.fillRect(cx - 11, yy - 18, 22, 7); g.fillStyle = W2[3]; g.fillRect(cx - 10, yy - 17, 20, 5); g.fillStyle = W2[2]; g.fillRect(cx - 10, yy - 14, 20, 2); g.fillStyle = "#2f2e3e"; g.fillRect(cx - 8, yy - 18, 2, 7); g.fillRect(cx + 6, yy - 18, 2, 7);
+        g.fillStyle = COIN[1]; g.fillRect(cx - 2, yy - 13, 4, 4); g.fillStyle = COIN[3]; g.fillRect(cx - 1, yy - 12, 2, 2);
+        if (o.open >= 0) { g.fillStyle = COIN[4]; g.fillRect(cx - 10, yy - 12, 20, 1); glow(cx, yy - 12, 16, "#ffe27a", 0.5 + o.open); }
+        else glow(cx, yy - 10, 18, o.red ? "#ff5a4a" : "#ffd24a", 0.2 + 0.1 * Math.sin(time * 4)); }
+    } else if (o.kind === "reveal") {
+      const k = Math.min(1, o.t / 0.5), up = Math.round(30 * (1 - (1 - k) * (1 - k))), c0 = GRADES[o.item.grade].c, fly = Math.max(0, (o.t - 0.8) / 0.3);
+      const iy0 = FLOOR - 26 - up, ix = Math.round(o.x + (player.x - o.x) * fly * fly), iy = Math.round(iy0 + (player.y - 20 - iy0) * fly * fly);
+      if (!fly) { g.globalAlpha = 0.35; g.fillStyle = c0; g.fillRect(x - 4, FLOOR - 120, 8, 108); g.globalAlpha = 0.7; g.fillRect(x - 1, FLOOR - 120, 2, 108); g.globalAlpha = 1; glow(o.x, iy, 26, c0, 0.8); }
+      g.drawImage(itemImg.small, o.item.icon * 16, 0, 16, 16, ix - 8, iy - 8, 16, 16);
+      if (((time * 10) | 0) % 3 === 0) { g.fillStyle = "#fff"; g.fillRect(ix + 5, iy - 9, 1, 3); g.fillRect(ix + 4, iy - 8, 3, 1); }
     } else if (o.kind === "strike") {
       const k = 1 - o.t / o.max, x = Math.round(o.x), w = Math.round(o.r * 2 * k); g.fillStyle = "#d8423a"; g.fillRect(x - Math.round(w / 2), Math.round(o.gy) - 1, w, 2);
       if (o.sword) { const y0 = Math.round(o.gy) - Math.max(0, Math.round((o.t - o.max + 0.15) / 0.15 * 80)); g.fillStyle = "#17131c"; g.fillRect(x - 2, y0 - 22, 5, 22); g.fillStyle = "#c8ccd6"; g.fillRect(x - 1, y0 - 20, 3, 20); g.fillStyle = "#fff"; g.fillRect(x - 1, y0 - 20, 1, 20); g.fillStyle = "#c9a24a"; g.fillRect(x - 4, y0 - 23, 9, 2); g.fillRect(x, y0 - 28, 1, 5); glow(o.x, o.gy - 10, 14 + k * 10, o.c, 0.4); }
@@ -1631,8 +1696,10 @@ function drawObjs(back) {
       glow(o.x, FLOOR - 6, 36, "#ff8a2a", 0.4 * k);
     } else if (o.kind === "pickup") {
       const bobY = Math.round(Math.sin(time * 3) * 2), h = helmById(o.id);
+      if (o.ped) { g.fillStyle = "#1d1c28"; g.fillRect(x - 9, FLOOR - 7, 18, 7); g.fillStyle = "#474658"; g.fillRect(x - 8, FLOOR - 6, 16, 5); g.fillStyle = "#6a6a7e"; g.fillRect(x - 8, FLOOR - 6, 16, 1); g.fillStyle = HGRADE[o.grade ?? 0].c; g.fillRect(x - 3, FLOOR - 4, 6, 1);   // 받침대
+        g.globalAlpha = 0.18; g.fillStyle = HGRADE[o.grade ?? 0].c; g.fillRect(x - 6, FLOOR - 90, 12, 83); g.globalAlpha = 1; } else
       shadow(x, 7);
-      begin(); at(0, -6 + bobY, () => h.draw(time)); outline(); g.drawImage(spr, x - SX, FLOOR - SY);
+      begin(); at(0, -6 + bobY - (o.ped ? 7 : 0), () => h.draw(time)); outline(); g.drawImage(spr, x - SX, FLOOR - SY);
       glow(x, FLOOR - 16, 26, h.ramp[2], 0.35 + 0.1 * Math.sin(time * 5));
       if (((time * 2.5) | 0) % 3 === 0) starGlint(g, x + 11, FLOOR - 28 + bobY, 2, h.ramp[3], h.ramp[2]);
     } else if (o.kind === "shop") {                             // 받침대 위의 상품 (상인 그림 shop_npcs가 오면 교체)
@@ -1703,6 +1770,7 @@ function drawHudText() {                          // 글자는 화면 해상도�
   txt("←→ 이동   C 점프(2단)   Z 대시   X 공격   A·S 스킬   Space 투구 교체   ↑ 줍기·문·구매   ↓+C 발판 내려가기   ↓ 투구 분해   D 영혼   Tab 캐릭터 창   R 성채로", W / 2, H - 5, 11, "#d0c8dc", "center");
   for (const t of texts) txt(t.s, t.x - camX, t.y - camY, t.big ? 18 : 13, t.c, "center");
   for (const o of objs) {
+    if (o.kind === "chest" && o.open < 0) { txt(o.red ? "정예 상자" : "상자", o.x - camX, FLOOR - camY - 26, 11, o.red ? "#ff7a6a" : "#ffd24a", "center"); if (Math.abs(o.x - p.x) < 18) tip("↑ 열기", o.x - camX, FLOOR - camY - 38, "#ffe27a"); }
     if (o.kind === "pickup") { txt(`${HGRADE[o.grade ?? 0].name} ${helmById(o.id).name}`, o.x - camX, FLOOR - camY - 46, 11, HGRADE[o.grade ?? 0].c, "center"); if (Math.abs(o.x - p.x) < 16) tip(`↑ 바꾸기 · ↓ 분해(쇳조각 ${SCRAP_OF[o.grade ?? 0]})`, o.x - camX, FLOOR - camY - 58, "#ffe27a"); }
     if (o.kind === "smith") { txt("대장장이", o.x - camX, FLOOR - camY - 30, 11, "#ffae35", "center"); if (Math.abs(o.x - p.x) < 18) { const g0 = hgOf(p.helm.id); tip(g0 < 0 ? "빈 투구는 각성 불가" : g0 >= 3 ? "이미 전설" : `↑ ${p.helm.name} 각성 → ${HGRADE[g0 + 1].name} (쇳조각 ${AWAKE_COST[g0]})`, o.x - camX, FLOOR - camY - 44, "#ffe27a"); } }
     if (o.kind === "door") txt((Math.abs(o.x - p.x) < 18 ? "↑ " : "") + REWARDS[o.reward].name, o.x - camX, FLOOR - camY - 61, 11, REWARDS[o.reward].c, "center");
@@ -1756,7 +1824,7 @@ function update(dt) {
     if (waveT > 0.7) {
       waveT = 0;
       if (ROOMS[room] === "midboss") {                            // 파티를 깨면: 명품 3개 중 하나 + 금화 100 + 영혼석 10
-        phase = "clear"; player.gold += 100; player.stones += 10; banner = { s: "파티 격파! 명품 하나를 골라", t: 2.5 };
+        phase = "clear"; dropCoins(L.w / 2, FLOOR - 20, 100 * goldMult(), 16); player.stones += 10; banner = { s: "파티 격파! 명품 하나를 골라", t: 2.5 };
         let pool = freeItems().filter((x) => x.grade === 2); if (pool.length < 3) pool = pool.concat(freeItems().filter((x) => x.grade === 1));
         pool = pool.sort(() => Math.random() - 0.5).slice(0, 3); const lg = freeItems().filter((x) => x.grade === 3);
         if (lg.length && (chapter === 4 || Math.random() < 0.25)) pool[0] = pick(lg);
@@ -1911,7 +1979,7 @@ goCastle(); requestAnimationFrame(frame);
 // 시험용 손잡이
 window.__gameL = () => L; window.__items = ITEMS;
 window.__meta = () => meta; window.__startRun = () => startRun();
-window.__game = { set chapter(v) { chapter = v; }, hit(e, n, o) { damage(e, n, o || {}); }, goto(n) { room = n; enemies = []; player.x = 60; player.y = FLOOR; startRoom(); }, get player() { return player; }, get enemies() { return enemies; }, get state() { return state; }, get room() { return room; }, get wave() { return wave; }, get objs() { return objs; },
+window.__game = { get cam() { return [camX, camY]; }, set chapter(v) { chapter = v; }, set reward(v) { pendingReward = v; }, hit(e, n, o) { damage(e, n, o || {}); }, goto(n) { room = n; enemies = []; player.x = 60; player.y = FLOOR; startRoom(); }, get player() { return player; }, get enemies() { return enemies; }, get state() { return state; }, get room() { return room; }, get wave() { return wave; }, get objs() { return objs; },
   lineup() { enemies = ["militia", "torch", "shield", "hound"].map((id, i) => Object.assign(newEnemy(id, 200 + i * 60), { born: 0, speed: 0, t: 99, dir: -1 })); } };
 </script>
 </body>
