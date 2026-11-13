@@ -846,6 +846,9 @@ function span(x, gy) { let a = x, b = x; const ok = (v) => groundAt(v, gy - 1) =
 // 챕터 1 초록 숲 그림 (Higgsfield → art/ch1/ch1_cut.py). 좌표는 그 스크립트가 뽑아 준 값
 const CH1 = {"bg_a":[601,340],"bg_b":[601,340],"front":[480,270],"terrain":{"fill":[0,0,64,64],"back":[66,0,64,64],"top":[132,0,98,22],"under":[232,0,66,18],"plank":[300,0,44,12],"side":[346,0,12,46]},"props":{"mushroom":[0,0,20,16],"fern":[22,0,26,20],"flowers":[50,0,22,16],"stump":[74,0,29,18],"log":[105,0,18,16],"column":[125,0,38,32],"arch":[165,0,44,34],"fence":[211,0,27,18],"lamp":[240,0,32,40],"sign":[274,0,20,26],"rock":[296,0,23,16],"vine":[321,0,33,30]}};
 const ch1Img = {}; for (const k of ["bg_a", "bg_b", "front", "terrain", "props"]) { ch1Img[k] = new Image(); ch1Img[k].onload = () => { if (L) buildTerrain(); }; ch1Img[k].src = `assets/ch1_${k}.png`; }
+// 성채 로비 그림 (Higgsfield → art/castle/castle_cut.py)
+const CASTLE = {"bg":[609,340],"sky":"#312f56","front":[480,270],"terrain":{"fill":[0,0,64,64],"back":[66,0,64,64],"top":[132,0,100,22],"under":[234,0,57,18],"plank":[293,0,52,12],"side":[347,0,12,46]},"props":{"gate":[0,0,50,60],"altar":[52,0,27,18],"helmrack":[81,0,34,26],"dummy":[117,0,25,36],"armor":[144,0,19,36],"helmpile":[165,0,20,16],"candles":[187,0,18,20],"statue":[207,0,22,30],"banner":[231,0,27,48],"chandelier":[260,0,30,36],"bench":[292,0,18,12],"pedestal":[312,0,12,16]}};
+const castleImg = {}; for (const k of ["bg", "front", "terrain", "props"]) { castleImg[k] = new Image(); castleImg[k].onload = () => { if (L && inLobby) buildTerrain(); }; castleImg[k].src = `assets/castle_${k}.png`; }
 const ready = (im) => im.complete && im.naturalWidth > 0;
 // 방에 들어갈 때 지형을 한 번 그려 둔다: 질감으로 땅을 채우고, 드러난 윗면·아랫면·옆면에 띠를 두르고, 소품을 놓는다
 let terr = null;
@@ -853,7 +856,7 @@ function buildTerrain() {
   const OY = 24, top0 = rowTop(0); terr = mk(L.w, L.rows * TS + 80 + OY); terr.oy = OY; const c = terr.getContext("2d");
   let seed = L.w * 7 + L.rows * 13; const rnd2 = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   const at = (r, cc) => (r < 0 ? "#" : r >= L.rows ? L.grid[L.rows - 1][cc] : cc < 0 || cc >= L.cols ? "#" : L.grid[r][cc]);
-  const T = CH1.terrain, P = CH1.props, img = ch1Img.terrain, pim = ch1Img.props, ok = ready(img) && ready(pim);
+  const T = inLobby ? CASTLE.terrain : CH1.terrain, P = CH1.props, img = inLobby ? castleImg.terrain : ch1Img.terrain, pim = ch1Img.props, ok = ready(img) && ready(pim);
   const piece = (k) => { const q = T[k], cv = mk(q[2], q[3]); cv.getContext("2d").drawImage(img, q[0], q[1], q[2], q[3], 0, 0, q[2], q[3]); return cv; };
   const pat = ok ? { fill: c.createPattern(piece("fill"), "repeat"), back: c.createPattern(piece("back"), "repeat") } : null;
   const seg = (k, i, dx, dy, w, h) => { const q = T[k], span = q[2] - 16, sx = q[0] + ((i * 16) % span); c.drawImage(img, sx, q[1], 16, q[3], dx, dy, w ?? 16, h ?? q[3]); };
@@ -884,7 +887,7 @@ function buildTerrain() {
   const busy = (x, r) => x < 72 || L.spawns.some((q) => Math.abs(q.x - x) < 14 && Math.abs(q.y - rowTop(r)) < 4) || (r === L.rows - 1 && (x > L.w - 136 || Math.abs(x - L.w / 2) < 30));
   const prop = (nm, x, yb) => { const q = P[nm]; c.drawImage(pim, q[0], q[1], q[2], q[3], Math.round(x - q[2] / 2), yb - q[3] + 1, q[2], q[3]);
     if (nm === "lamp") L.lamps.push([x + 4, top0 - TS + yb - OY - q[3] + 30, "#ffbe5a", 26]); if (nm === "mushroom") L.lamps.push([x, top0 - TS + yb - OY - 8, "#5ab8ff", 18]); };
-  if (ready(pim)) for (let r = 1; r < L.rows; r++) {
+  if (ready(pim) && !inLobby) for (let r = 1; r < L.rows; r++) {
     for (let cc = 1; cc < L.cols - 1; ) {
       if (!(at(r, cc) === "#" && open(r - 1, cc))) { cc++; continue; }
       let e = cc; while (e < L.cols - 1 && at(r, e) === "#" && open(r - 1, e)) e++;
@@ -935,6 +938,7 @@ let inLobby = false;
 function goCastle() {
   menuOpen = false; startRun(); inLobby = true; phase = "clear";
   L = buildRoom(SHOP_MAP); ROOM_R = L.w - 20; buildTerrain(); objs = []; enemies = []; player.x = 70; player.y = FLOOR; player.safe = [70, FLOOR];
+  for (const [nm, x, hang] of [["banner", 70, 1], ["armor", 110], ["helmrack", 150], ["candles", 196], ["altar", 262], ["dummy", 330], ["statue", 380], ["helmpile", 412], ["banner", 470, 1], ["armor", 486], ["bench", 440]]) spawn({ kind: "deco", nm, x, hang });
   spawn({ kind: "elder", x: 230 }); spawn({ kind: "gate", x: L.w - 70 }); banner = { s: "성채", t: 2 };
 }
 function endRun() { meta.stones += player?.stones ?? 0; saveMeta(); goCastle(); }
@@ -1750,7 +1754,7 @@ function spearUp(x, tipY, baseY) {
 // back=true: 캐릭터 뒤에 놓이는 것(문, 보상) / false: 나머지
 function drawObjs(back) {
   for (const o of objs) {
-    if ((o.kind === "door" || o.kind === "pickup" || o.kind === "shop" || o.kind === "smith") !== back) continue;
+    if ((o.kind === "door" || o.kind === "pickup" || o.kind === "shop" || o.kind === "smith" || o.kind === "deco" || o.kind === "gate") !== back) continue;
     const x = Math.round(o.x), y = Math.round(o.y);
     if (o.kind === "helm") {
       begin(); E(0, -6, 7, 6, C.iron1); E(-1, -8, 5, 4, C.iron2); E(-2, -10, 3, 1, C.iron3); R(-7, -4, 15, 2, C.iron0); R(-1, -8, 9, 5, C.dark); R(-2, -9, 10, 1, C.iron3); outline();
@@ -1800,6 +1804,15 @@ function drawObjs(back) {
       for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? "#1d3a6a" : "#2a58aa"; g.fillRect(x - 7 + i * 4, FLOOR - 7 + b + ((time * 4 + i) % 2 | 0), 3, 3); }   // 흩날리는 끝자락
       g.fillStyle = "#9bdcff"; g.fillRect(x - 3, FLOOR - 28 + b, 2, 2); g.fillRect(x + 2, FLOOR - 28 + b, 2, 2);                                               // 눈
       g.fillStyle = "#c8a24a"; g.fillRect(x + 9, FLOOR - 36 + b, 2, 34); g.fillStyle = "#63c8ea"; g.fillRect(x + 8, FLOOR - 39 + b, 4, 4); glow(o.x + 10, FLOOR - 37 + b, 10, "#63c8ea", 0.6);   // 지팡이
+    } else if (o.kind === "deco") {                             // 성채 장식 (castle_props)
+      const q = CASTLE.props[o.nm]; if (!ready(castleImg.props)) continue; const sw = o.hang ? Math.sin(time * 1.2 + o.x) * 0.03 : 0;
+      if (o.hang) { g.save(); g.translate(x, Math.min(0, camY) - 2); g.rotate(sw); g.drawImage(castleImg.props, q[0], q[1], q[2], q[3], -Math.round(q[2] / 2), 0, q[2], q[3]); g.restore(); }
+      else g.drawImage(castleImg.props, q[0], q[1], q[2], q[3], x - Math.round(q[2] / 2), FLOOR - q[3] + 1, q[2], q[3]);
+      if (o.nm === "candles") glow(o.x, FLOOR - 12, 22, "#63e8d0", 0.5 + 0.1 * Math.sin(time * 6)); if (o.nm === "altar") glow(o.x, FLOOR - 14, 16, "#9bdcff", 0.35);
+      if (o.nm === "chandelier") glow(o.x, FLOOR - 100, 26, "#63e8d0", 0.35);
+    } else if (o.kind === "gate" && ready(castleImg.props)) {    // 출발 문 (castle_props)
+      const q = CASTLE.props.gate; g.drawImage(castleImg.props, q[0], q[1], q[2], q[3], x - Math.round(q[2] / 2), FLOOR - q[3] + 1, q[2], q[3]); glow(o.x, FLOOR - 28, 34, "#63e8d0", 0.45 + 0.15 * Math.sin(time * 3));
+      if (Math.random() < 0.3) spark(o.x + rnd(-12, 12), FLOOR - rnd(6, 50), 0, -25, 0.5, ["#0c1430", "#2a6ab0", "#63e8d0", "#d8fff4", "#fff"], true);
     } else if (o.kind === "gate") {                             // 출발 문
       const k = 0.6 + 0.4 * Math.sin(time * 3); shadow(x, 16);
       g.fillStyle = "#17131c"; g.fillRect(x - 16, FLOOR - 48, 32, 48); g.fillStyle = "#2a2336"; g.fillRect(x - 14, FLOOR - 46, 28, 46); g.fillStyle = "#474658"; g.fillRect(x - 16, FLOOR - 50, 32, 4);
@@ -2032,7 +2045,10 @@ function render() {
   camY = Math.round(Math.min(0, Math.max(rowTop(0) - TS, player.y - 175)));
   const layer = (img, w, h, k, y) => { const off = camX * k; for (let i = Math.floor(off / w); i * w < off + W; i++) { g.save(); g.translate(Math.round(i * w - off + (i % 2 ? w : 0)), Math.round(y)); g.scale(i % 2 ? -1 : 1, 1); g.drawImage(img, 0, 0, w, h); g.restore(); } };   // 좌우로 뒤집어 이어 붙인다
   const bk = room % 2 ? "bg_b" : "bg_a", bgi = ch1Img[bk], BGFIT = { bg_a: [0.75, "#55afc0"], bg_b: [0.676, "#106260"] };   // [풍경이 끝나는 높이 비율, 하늘 색]
-  if (inLobby) {                                                 // 성채 안: 어두운 돌벽, 기둥, 푸른 창 (그림 castle_*이 오면 교체)
+  if (inLobby && ready(castleImg.bg)) {                          // 성채 홀 그림 한 장 (숲과 같은 방식: 바닥 띠가 바닥 바로 위에 오게)
+    const bh = 380, bw = Math.ceil(castleImg.bg.naturalWidth * bh / castleImg.bg.naturalHeight), by = Math.round(242 - 0.8 * bh - camY * 0.5);
+    if (by > 0) { g.fillStyle = CASTLE.sky; g.fillRect(0, 0, W, by); } g.drawImage(castleImg.bg, Math.round(-camX * 0.25), by, bw, bh);
+  } else if (inLobby) {                                                 // 그림을 불러오는 동안: 어두운 돌벽, 기둥, 푸른 창
     const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "#120e1c"); gr.addColorStop(1, "#2a2236"); g.fillStyle = gr; g.fillRect(0, 0, W, H);
     for (let i = -1; i < 8; i++) { const x = Math.round(i * 90 - (camX * 0.5) % 90);
       g.fillStyle = "#1a1526"; g.fillRect(x + 30, 60, 30, 70); g.fillStyle = "#3a6ab0"; g.globalAlpha = 0.35 + 0.1 * Math.sin(time + i); g.fillRect(x + 34, 66, 22, 60); g.globalAlpha = 1; g.fillStyle = "#1a1526"; g.fillRect(x + 44, 66, 2, 60); g.fillRect(x + 34, 94, 22, 2);   // 창
@@ -2067,10 +2083,11 @@ function render() {
   glow(p.x + p.dir * 2, p.y - 30, 18, C.flame1, 0.3); glow(p.x, p.y - 12, 34, C.flame0, 0.12);
   drawFxFront();
   g.restore(); lg.restore();
-  if (ready(ch1Img.front)) {                                     // 앞 실루엣: 위쪽 잎은 화면 맨 위에 붙이고, 아래 덤불만 바닥 쪽으로 내린다
+  const frontImg = inLobby ? castleImg.front : ch1Img.front;
+  if (ready(frontImg)) {                                     // 앞 실루엣: 위쪽 잎은 화면 맨 위에 붙이고, 아래 덤불만 바닥 쪽으로 내린다
     const fw = CH1.front[0], fh = CH1.front[1];
-    g.save(); g.beginPath(); g.rect(0, 0, W, H / 2); g.clip(); layer(ch1Img.front, fw, fh, 1.2, -46); g.restore();
-    g.save(); g.beginPath(); g.rect(0, H / 2, W, H / 2); g.clip(); layer(ch1Img.front, fw, fh, 1.2, 22); g.restore();
+    g.save(); g.beginPath(); g.rect(0, 0, W, inLobby ? H * 0.16 : H / 2); g.clip(); layer(frontImg, fw, fh, 1.2, inLobby ? -20 : -46); g.restore();
+    g.save(); g.beginPath(); g.rect(0, inLobby ? H * 0.86 : H / 2, W, H / 2); g.clip(); layer(frontImg, fw, fh, 1.2, inLobby ? 6 : 22); g.restore();
   }
   for (const m of embers) if (m.near) { g.fillStyle = "#f2ffc8"; g.fillRect(Math.round(m.x), Math.round(m.y), 2, 2); glow(m.x, m.y, 7, "#c8ff9a", 0.35 + 0.25 * Math.sin(time * 4 + m.ph)); }
   g.drawImage(vignette, 0, 0);
