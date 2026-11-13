@@ -273,7 +273,7 @@ function exclaim(x, y) { R(x, y - 6, 2, 5, C.red); R(x, y, 2, 2, C.red); R(x, y 
 // 상태: walk(다음 패턴 고르기) → slamWind/slam/fistRest, throwWind/throw, stompWind/stomp, (2페이즈) chargeWind/charge/stunned, roar
 // ===================== 거대 골렘 (boss1_body·body2·hands·rubble → art/boss1/giant_cut.py) =====================
 // 몸통은 방 가운데 뒤에 버티고(지형보다 뒤), 떨어진 양손이 공격한다. 약점은 가슴 핵: 손을 내려찍은 뒤 몸을 숙이고, 박수·연타 뒤에는 그로기로 핵이 바닥 가까이 내려온다(피해 2배)
-const GIANT = {"body":[0,0,246,212],"body2":[248,0,246,212],"R_open":[496,0,67,58],"R_fist":[565,0,48,46],"R_side":[615,0,54,40],"L_open":[671,0,67,58],"L_fist":[740,0,58,46],"L_side":[800,0,53,40],"rubble":[855,0,230,112],"core":[123,101]};
+const GIANT = {"body":[0,0,246,212],"body2":[248,0,246,212],"R_open":[496,0,120,104],"R_fist":[618,0,85,82],"R_side":[705,0,94,70],"L_open":[801,0,121,104],"L_fist":[924,0,104,82],"L_side":[1030,0,93,70],"rubble":[1125,0,230,112],"core":[123,101]};
 const giantImg = new Image(); giantImg.src = "assets/giant.png";
 const GPART = (k, x, y, sc = 1, ax = 0.5, ay = 1, rot = 0) => { const q = GIANT[k]; g.save(); g.translate(Math.round(x), Math.round(y)); if (rot) g.rotate(rot); g.drawImage(giantImg, q[0], q[1], q[2], q[3], -Math.round(q[2] * ax * sc), -Math.round(q[3] * ay * sc), Math.round(q[2] * sc), Math.round(q[3] * sc)); g.restore(); };
 const giantBase = (e) => FLOOR + 16 + e.sink;                      // 몸통 그림의 아래 끝 (땅속에 묻힌다)
@@ -284,10 +284,10 @@ function giantAI(e, p) {
   for (const h of H) { const sp = h.fast ? 1 : Math.min(1, STEP * (h.lerp ?? 5)); if (!h.fast) { h.x += (h.tx - h.x) * sp; h.y += (h.ty - h.y) * sp; } }
   e.sink += ((e.st === "groggy" ? 78 : e.lean > 0 ? 42 : e.st === "roar" ? -6 : 0) - e.sink) * Math.min(1, STEP * 4); if (e.lean > 0) e.lean -= STEP;
   const c = giantCore(e); e.x = c.x; e.gy = e.y = c.y + 28; e.minX = e.maxX = c.x; e.groggy = e.st === "groggy";
-  e.fist = null; for (const h of H) if (h.rest > 0) { h.rest -= STEP; e.fist = { x0: h.x - 26, x1: h.x + 26, y: FLOOR - 40 }; }   // 박힌 손은 발판
+  e.fist = null; for (const h of H) if (h.rest > 0) { h.rest -= STEP; e.fist = { x0: h.x - 46, x1: h.x + 46, y: FLOOR - 74 }; }   // 박힌 손은 발판
   if (e.phase === 1 && e.hp <= e.maxHp / 2) { e.phase = 2; setSt(e, "roar", 1.6); e.invuln = 1.6; shake(6, 1); banner = { s: "골렘이 불타오른다!", t: 2 }; for (const h of H) { h.fast = false; h.rest = 0; } }
   if (e.invuln > 0) e.invuln -= STEP;
-  const home = () => { giantHand(e, 0, cx - 128, FLOOR - 118 + Math.sin(time * 2) * 4, "fist"); giantHand(e, 1, cx + 128, FLOOR - 118 + Math.sin(time * 2 + 1) * 4, "fist"); for (const h of H) { h.fast = false; h.lerp = 5; } };
+  const home = () => { giantHand(e, 0, cx - 150, FLOOR - 128 + Math.sin(time * 2) * 4, "fist"); giantHand(e, 1, cx + 150, FLOOR - 128 + Math.sin(time * 2 + 1) * 4, "fist"); for (const h of H) { h.fast = false; h.lerp = 5; } };
   const near = Math.abs(H[0].x - p.x) < Math.abs(H[1].x - p.x) ? 0 : 1;
   if (e.st === "intro" || e.st === "roar") { home(); if (e.st === "roar" && Math.random() < 0.5) spark(c.x + rnd(-60, 60), c.y - rnd(0, 80), rnd(-60, 60), -rnd(40, 120), 0.5, RAMP_FIRE, true); if (e.t <= 0) setSt(e, "idle", 0.8); return; }
   if (e.st === "idle") { home(); if (e.t <= 0) { const P = ph2 ? ["combo", "combo", "sweep", "clap", "rocks", "erupt"] : ["slam", "slam", "sweep", "clap", "rocks"];
@@ -295,31 +295,31 @@ function giantAI(e, p) {
   const h = H[e.hi];
   if (e.st === "slam" || e.st === "combo") {                         // 손 내려찍기: 플레이어 위를 따라오다(바닥에 그림자) 쾅 → 1.2초 박혀 발판, 몸이 숙여진다
     if (e.sub === 0) { e.sub = 1; e.t = (e.st === "combo" ? 0.55 : 1.0) / k; h.lerp = 6; }
-    if (e.sub === 1) { giantHand(e, e.hi, clamp(p.x, 40, L.w - 40), FLOOR - 130, "open"); h.warn = 1; if (e.t <= 0) { e.sub = 2; h.fast = true; h.vy = 0; } }
+    if (e.sub === 1) { giantHand(e, e.hi, clamp(p.x, 60, L.w - 60), FLOOR - 150, "open"); h.warn = 1; if (e.t <= 0) { e.sub = 2; h.fast = true; h.vy = 0; } }
     else if (e.sub === 2) { h.vy += 2600 * STEP; h.y += h.vy * STEP; if (h.y >= FLOOR) { h.y = FLOOR; h.fast = false; h.ty = FLOOR; h.tx = h.x; h.warn = 0; e.sub = 3; e.t = (e.st === "combo" ? 0.45 : 1.2) / k; h.rest = e.t; e.lean = e.t + 0.4;
-        if (Math.abs(p.x - h.x) < 36 && p.y > FLOOR - 50) hurtPlayer(18, Math.sign(p.x - h.x) || 1);
-        shake(6, 0.35); hitstop = Math.max(hitstop, 0.05); dust(h.x, FLOOR, 1, 8); dust(h.x, FLOOR, -1, 8); fxShock(h.x, FLOOR, 54, RAMP_FIRE); fxRing(h.x, FLOOR, 30, RAMP_FIRE); light(h.x, FLOOR - 12, 70, "#ffae35", 0.6, 0.3);
-        for (let i = 0; i < 8; i++) puff(h.x + rnd(-30, 30), FLOOR - rnd(0, 10), rnd(-60, 60), -rnd(20, 70), rnd(0.4, 0.8), "#8a7a68", rnd(3, 5));
-        if (ph2) for (const o of [-26, 26]) spawn({ kind: "fire", x: h.x + o, gy: FLOOR, life: 2.5 }); } }
+        if (Math.abs(p.x - h.x) < 56 && p.y > FLOOR - 90) hurtPlayer(18, Math.sign(p.x - h.x) || 1);
+        shake(6, 0.35); hitstop = Math.max(hitstop, 0.05); dust(h.x, FLOOR, 1, 8); dust(h.x, FLOOR, -1, 8); fxShock(h.x, FLOOR, 80, RAMP_FIRE); fxRing(h.x, FLOOR, 46, RAMP_FIRE); light(h.x, FLOOR - 12, 70, "#ffae35", 0.6, 0.3);
+        for (let i = 0; i < 12; i++) puff(h.x + rnd(-50, 50), FLOOR - rnd(0, 10), rnd(-60, 60), -rnd(20, 70), rnd(0.4, 0.8), "#8a7a68", rnd(3, 5));
+        if (ph2) for (const o of [-48, 48]) spawn({ kind: "fire", x: h.x + o, gy: FLOOR, life: 2.5 }); } }
     else if (e.sub === 3 && e.t <= 0) { h.rest = 0; e.n++;
       if (e.st === "combo" && e.n < 3) { e.hi = 1 - e.hi; e.sub = 0; } else if (e.st === "combo") setSt(e, "groggy", 2.6); else setSt(e, "idle", 1.0 / k); }
     return; }
   if (e.st === "sweep") {                                             // 바닥 쓸기: 손을 눕혀 방 끝에서 끝까지 (점프로 피함)
-    const from = e.hi === 0 ? 30 : L.w - 30, to = e.hi === 0 ? L.w - 30 : 30;
+    const from = e.hi === 0 ? 40 : L.w - 40, to = e.hi === 0 ? L.w - 40 : 40;
     if (e.sub === 0) { giantHand(e, e.hi, from, FLOOR - 2, e.hi === 0 ? "L_side" : "R_side"); h.lerp = 4; h.warn = 1; e.sub = 1; e.t = 1.1 / k; }
     else if (e.sub === 1) { if (e.t <= 0) { e.sub = 2; h.fast = true; } }
     else if (e.sub === 2) { h.x += Math.sign(to - from) * 360 * k * STEP; h.y = FLOOR - 2; if (Math.random() < 0.6) dust(h.x - Math.sign(to - from) * 20, FLOOR, -Math.sign(to - from), 1);
-      if (Math.abs(p.x - h.x) < 26 && p.y > FLOOR - 34) hurtPlayer(14, Math.sign(to - from));
+      if (Math.abs(p.x - h.x) < 42 && p.y > FLOOR - 58) hurtPlayer(14, Math.sign(to - from));
       if ((to - h.x) * Math.sign(to - from) <= 0) { h.fast = false; h.warn = 0; setSt(e, "idle", 0.9 / k); } }
     return; }
   if (e.st === "clap") {                                              // 박수: 양손이 끝에서 가운데로 → 쾅, 그 뒤 그로기 (핵 2배 피해)
-    if (e.sub === 0) { giantHand(e, 0, 34, FLOOR - 6, "L_side"); giantHand(e, 1, L.w - 34, FLOOR - 6, "R_side"); for (const q of H) { q.lerp = 4; q.warn = 1; } e.sub = 1; e.t = 1.2 / k; }
+    if (e.sub === 0) { giantHand(e, 0, 44, FLOOR - 4, "L_side"); giantHand(e, 1, L.w - 44, FLOOR - 4, "R_side"); for (const q of H) { q.lerp = 4; q.warn = 1; } e.sub = 1; e.t = 1.2 / k; }
     else if (e.sub === 1) { if (e.t <= 0) { e.sub = 2; for (const q of H) q.fast = true; } }
     else if (e.sub === 2) { H[0].x += 440 * k * STEP; H[1].x -= 440 * k * STEP;
-      for (const q of H) if (Math.abs(p.x - q.x) < 24 && p.y > FLOOR - 40) hurtPlayer(16, Math.sign(p.x - q.x) || 1);
-      if (H[1].x - H[0].x < 54) { const mx = (H[0].x + H[1].x) / 2; if (Math.abs(p.x - mx) < 40 && p.y > FLOOR - 50) hurtPlayer(22, Math.sign(p.x - mx) || 1);
+      for (const q of H) if (Math.abs(p.x - q.x) < 40 && p.y > FLOOR - 64) hurtPlayer(16, Math.sign(p.x - q.x) || 1);
+      if (H[1].x - H[0].x < 90) { const mx = (H[0].x + H[1].x) / 2; if (Math.abs(p.x - mx) < 56 && p.y > FLOOR - 70) hurtPlayer(22, Math.sign(p.x - mx) || 1);
         shake(8, 0.45); hitstop = 0.08; fxShock(mx, FLOOR, 80, RAMP_FIRE); fxRing(mx, FLOOR - 16, 40, RAMP_FIRE); light(mx, FLOOR - 20, 90, "#ffe27a", 0.8, 0.3);
-        for (const q of H) { q.fast = false; q.warn = 0; } giantHand(e, 0, mx - 70, FLOOR, "L_open"); giantHand(e, 1, mx + 70, FLOOR, "R_open"); setSt(e, "groggy", (ph2 ? 2.6 : 3.2)); } }
+        for (const q of H) { q.fast = false; q.warn = 0; } giantHand(e, 0, mx - 100, FLOOR, "L_open"); giantHand(e, 1, mx + 100, FLOOR, "R_open"); setSt(e, "groggy", (ph2 ? 2.6 : 3.2)); } }
     return; }
   if (e.st === "groggy") { for (const q of H) { q.ty = FLOOR; q.rest = 0; } if (e.t <= 0) setSt(e, "idle", 1.0); return; }
   if (e.st === "rocks" || e.st === "erupt") {                         // 바위 비 / 핵 분출(바닥을 구르는 불길)
@@ -348,9 +348,9 @@ function drawGiantDeath(o) {                                       // 무너지�
 function drawGiantHands(e) {
   if (!ready(giantImg)) return;
   e.hands.forEach((h, i) => { const side = i === 0 ? "L_" : "R_", pose = h.pose.includes("_") ? h.pose : side + h.pose;
-    if (h.warn && e.st !== "sweep" && e.st !== "clap") { g.fillStyle = "rgba(255,60,40,0.35)"; const w = 30 + Math.sin(time * 20) * 3; g.beginPath(); g.ellipse(h.x, FLOOR - 1, w, 4, 0, 0, 7); g.fill(); }   // 떨어질 자리 그림자
-    if (h.warn) glow(h.x, h.y - 24, 30, "#ff3a2a", 0.25 + 0.15 * Math.sin(time * 25));
-    GPART(pose, h.x, h.y + (pose.includes("open") ? 6 : 0), 1); if (e.phase === 2) glow(h.x, h.y - 20, 20, "#ff7a2a", 0.3);
+    if (h.warn && e.st !== "sweep" && e.st !== "clap") { g.fillStyle = "rgba(255,60,40,0.35)"; const w = 50 + Math.sin(time * 20) * 3; g.beginPath(); g.ellipse(h.x, FLOOR - 1, w, 4, 0, 0, 7); g.fill(); }   // 떨어질 자리 그림자
+    if (h.warn) glow(h.x, h.y - 40, 50, "#ff3a2a", 0.25 + 0.15 * Math.sin(time * 25));
+    GPART(pose, h.x, h.y + (pose.includes("open") ? 10 : 0), 1); if (e.phase === 2) glow(h.x, h.y - 36, 36, "#ff7a2a", 0.3);
     if (e.flash > 0) { g.save(); g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.4; GPART(pose, h.x, h.y, 1); g.restore(); } });
 }
 function golemAI(e, p, dx, ad) {
@@ -1132,7 +1132,7 @@ function startRoom() {
   } else if (r === "boss") {                                         // 보스 방: 골렘이 땅에서 솟아오른다
     phase = "fight"; banner = { s: "마을 수호 골렘", t: 2.5 };
     const g = newEnemy("golem", L.w / 2); g.born = 0; g.dir = -1; g.cx = L.w / 2; g.sink = 90; g.lean = 0; g.phase = 1; setSt(g, "intro", 2.2); g.invuln = 2.2;
-    g.hands = [{ x: g.cx - 128, y: FLOOR + 40, tx: 0, ty: 0, pose: "fist", rest: 0 }, { x: g.cx + 128, y: FLOOR + 40, tx: 0, ty: 0, pose: "fist", rest: 0 }];
+    g.hands = [{ x: g.cx - 150, y: FLOOR + 80, tx: 0, ty: 0, pose: "fist", rest: 0 }, { x: g.cx + 150, y: FLOOR + 80, tx: 0, ty: 0, pose: "fist", rest: 0 }];
     const c0 = giantCore(g); g.x = c0.x; g.gy = g.y = c0.y + 28; enemies.push(g); shake(5, 2);
   } else if (r === "start") { phase = "clear"; banner = { s: "투구를 줍고(↑) 문을 고르자", t: 3 }; { const hs = freeHelms().sort(() => Math.random() - 0.5); spawn({ kind: "pickup", id: hs[0].id, x: 240, grade: 0 }); if (stat("vault") && hs[1]) spawn({ kind: "pickup", id: hs[1].id, x: 300, grade: 0 }); } openDoors(); }
   else if (r === "shop") {                                     // 암시장 거리: 요리사 · 해골 상인(아이템·저주·물건 바꾸기) · 베일의 정령(영혼) · 대장장이(각성)
@@ -1887,7 +1887,7 @@ function updateObjs(dt) {
     } else if (o.kind === "giantDeath") {                        // 처치 연출: 손 추락 → 몸통 붕괴 → 핵 분리·영혼 흡수 → 이름 → 잔해 위 전설 상자와 출구
       o.t += dt; const base = FLOOR + 16 + o.sink, core = { x: o.cx - GIANT.body[2] / 2 + GIANT.core[0], y: base - GIANT.body[3] + GIANT.core[1] };
       o.hands.forEach((h, i) => { if (h.gone || o.t < 0.4 + i * 0.25) return; h.vy += 900 * dt; h.y += h.vy * dt;
-        if (h.y >= FLOOR) { h.gone = true; shake(5, 0.3); fxShock(h.x, FLOOR, 50, RAMP_FIRE); for (let k = 0; k < 16; k++) { spark(h.x + rnd(-24, 24), FLOOR - rnd(4, 30), rnd(-140, 140), -rnd(60, 220), rnd(0.4, 0.9), ["#2a1e14", "#5a4a3a", "#8a7a68", "#b9a995", "#e8dcc0"], false); puff(h.x + rnd(-26, 26), FLOOR - rnd(0, 16), rnd(-40, 40), -rnd(10, 50), rnd(0.5, 1), "#8a7a68", rnd(3, 6)); } } });
+        if (h.y >= FLOOR) { h.gone = true; shake(5, 0.3); fxShock(h.x, FLOOR, 80, RAMP_FIRE); for (let k = 0; k < 24; k++) { spark(h.x + rnd(-44, 44), FLOOR - rnd(4, 30), rnd(-140, 140), -rnd(60, 220), rnd(0.4, 0.9), ["#2a1e14", "#5a4a3a", "#8a7a68", "#b9a995", "#e8dcc0"], false); puff(h.x + rnd(-26, 26), FLOOR - rnd(0, 16), rnd(-40, 40), -rnd(10, 50), rnd(0.5, 1), "#8a7a68", rnd(3, 6)); } } });
       if (o.t > 1.2 && o.t < 4) { o.sink += dt * 46; if (Math.random() < 0.5) puff(o.cx + rnd(-110, 110), FLOOR - rnd(0, 8), rnd(-30, 30), -rnd(20, 60), rnd(0.6, 1.1), "#7a6a58", rnd(4, 7)); if (Math.random() < 0.15) shake(3, 0.15); }
       if (o.stage === 0 && o.t > 3) { o.stage = 1; o.core = { x: core.x, y: core.y }; }
       if (o.core && o.stage === 1) { o.core.y -= dt * 18; if (o.t > 3.7) { o.stage = 2; flashes.push({ kind: "burst", x: o.core.x, y: o.core.y, r: 26, t: 0, ramp: RAMP_FIRE }); fxRing(o.core.x, o.core.y, 40, RAMP_FIRE); light(o.core.x, o.core.y, 120, "#ffae35", 1, 0.5); shake(6, 0.4);

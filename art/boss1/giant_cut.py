@@ -16,7 +16,7 @@ a, m = load("hands_source.jpg"); H, W = m.shape
 for i, nm in enumerate(["R_open", "R_fist", "R_side", "L_open", "L_fist", "L_side"]):
     r, c = divmod(i, 3); s = (slice(r * H // 2, (r + 1) * H // 2), slice(c * W // 3, (c + 1) * W // 3)); sub = m[s]
     lb, n = ndimage.label(sub); sz = ndimage.sum(sub, lb, range(1, n + 1)); sub = np.isin(lb, [j + 1 for j, v in enumerate(sz) if v > 300])
-    p = rgba(a[s], sub); p = p.crop(p.getbbox()); h = 58 if "open" in nm else 46 if "fist" in nm else 40
+    p = rgba(a[s], sub); p = p.crop(p.getbbox()); h = 104 if "open" in nm else 82 if "fist" in nm else 70   # 손은 크게 (보이드의 3배 넘게)
     parts[nm] = hard(p.resize((round(p.width * h / p.height), h), Image.BOX))
 a, m = load("rubble_source.jpg"); p = rgba(a, m); p = p.crop(p.getbbox()); parts["rubble"] = hard(p.resize((230, round(p.height * 230 / p.width)), Image.BOX))
 Wt = sum(p.width + 2 for p in parts.values()); Ht = max(p.height for p in parts.values()); at = Image.new("RGBA", (Wt, Ht)); x = 0
