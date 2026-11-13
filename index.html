@@ -1000,7 +1000,7 @@ function startRoom() {
   const ev = eventRoom && typeof r !== "string";
   L = buildRoom(r === "boss" || r === "midboss" ? BOSS_MAP : r === "shop" || ev ? SHOP_MAP : typeof r === "string" ? FLAT : layoutPool.pop() ?? pick(LAYOUTS)); ROOM_R = L.w - 20; buildTerrain(); player.safe = [40, FLOOR];
   if (r === "midboss") {                                      // 붉은 문: 견습 용사 파티 3명 동시
-    phase = "fight"; const ids = (MIDBOSS[chapter] || MIDBOSS[1]).filter((id) => ENEMIES[id]), n = ids.length   // 아직 AI가 없는 직업(도적·마법사)은 빠진다, xs = [L.w - 120, L.w - 220, L.w - 70];
+    phase = "fight"; const ids = (MIDBOSS[chapter] || MIDBOSS[1]).filter((id) => ENEMIES[id]), n = ids.length, xs = [L.w - 120, L.w - 220, L.w - 70]   // 아직 AI가 없는 직업(도적·마법사)은 빠진다, xs = [L.w - 120, L.w - 220, L.w - 70];
     const awake = chapter === 4 ? 0 : -1;   // 4챕터는 검사가 각성
     ids.forEach((id, i) => { const e = newEnemy(id, xs[i], i); e.gy = e.y = FLOOR; e.minX = ROOM_L + 10; e.maxX = ROOM_R - 10; e.dir = -1; e.healT = 3; e.ultAt = [0.5]; e.potionDone = false;
       if (i === awake) { e.awake = true; e.hp = e.maxHp = Math.round(e.maxHp * 2.5); e.speed *= 1.25; e.ultAt = [0.6, 0.25]; }
