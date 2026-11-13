@@ -726,6 +726,7 @@ const doorImg = new Image(); doorImg.src = "assets/ch1_doors.png";       // 숲 
 const SHOPNPC = {"cook":[0,0,50,46],"merchant":[52,0,41,46],"spirit":[95,0,41,46],"smith":[138,0,38,46]};
 const npcImg = new Image(); npcImg.src = "assets/shop_npcs.png"; const soulImg = new Image(); soulImg.src = "assets/souls.png"; const treeImg = new Image(); treeImg.src = "assets/tree_icons.png";
 const SOUL_IDX = { salamander: 0, turtle: 1 };
+const marketImg = new Image(); marketImg.src = "assets/market_bg.png";   // 암시장 밤 배경 (그림 market_bg가 오면)
 const soulIcon = (c2, k, x, y, sc = 1) => { if (ready(soulImg) && SOUL_IDX[k] != null) c2.drawImage(soulImg, SOUL_IDX[k] * 24, 0, 24, 28, Math.round(x - 12 * sc), Math.round(y - 14 * sc), Math.round(24 * sc), Math.round(28 * sc)); };
 const DOOR_IDX = { gold: 0, chest: 1, helm: 2, scrap: 3, shop: 5, rest: 6, midboss: 7, boss: 9, elite: 8, event: 4 };
 const DOOR_GLOW = { gold: "#ffd24a", chest: "#ff9a3a", helm: "#63c8ea", scrap: "#b0a8ba", shop: "#ffae35", rest: "#5fe0a0", midboss: "#d8423a", boss: "#ff7a2a", elite: "#ff5a4a", event: "#b08ae0" };
@@ -778,6 +779,7 @@ const MAP = (...rows) => rows;
 const FLAT = MAP("............................", "............................", "............................", "............................", "............................", "............................", "............................", "############################");
 // 보스 방: 넓고 평평한 바닥, 양옆에 피할 발판
 // 암시장 방: 노점 4곳이 들어가게 넓게
+const MARKET_MAP = MAP(...Array(7).fill("............................................................"), "############################################################");   // 암시장 거리 (960px)
 const SHOP_MAP = MAP(...Array(7).fill("......................................"), "######################################");
 const BOSS_MAP = MAP("......................................", "......................................", "......................................", "......................................",
   "......................................", "...=======....................=======.", "......................................", "......................................",
@@ -1035,7 +1037,7 @@ const fightNo = () => ROOMS.slice(0, room + 1).filter((r) => typeof r !== "strin
 function startRoom() {
   wave = 0; waveT = 0; objs = []; inLobby = false; const r = ROOMS[room];
   const ev = eventRoom && typeof r !== "string";
-  L = buildRoom(r === "boss" || r === "midboss" ? BOSS_MAP : r === "shop" || ev ? SHOP_MAP : typeof r === "string" ? FLAT : layoutPool.pop() ?? pick(LAYOUTS)); ROOM_R = L.w - 20; buildTerrain(); player.safe = [40, FLOOR];
+  L = buildRoom(r === "boss" || r === "midboss" ? BOSS_MAP : r === "shop" ? MARKET_MAP : ev ? SHOP_MAP : typeof r === "string" ? FLAT : layoutPool.pop() ?? pick(LAYOUTS)); ROOM_R = L.w - 20; buildTerrain(); player.safe = [40, FLOOR];
   if (r === "midboss") {                                      // 붉은 문: 견습 용사 파티 3명 동시
     phase = "fight"; const ids = (MIDBOSS[chapter] || MIDBOSS[1]).filter((id) => ENEMIES[id]), n = ids.length, xs = [L.w - 120, L.w - 220, L.w - 70]   // 아직 AI가 없는 직업(도적·마법사)은 빠진다, xs = [L.w - 120, L.w - 220, L.w - 70];
     const awake = chapter === 4 ? 0 : -1;   // 4챕터는 검사가 각성
@@ -1047,14 +1049,15 @@ function startRoom() {
     phase = "fight"; banner = { s: "마을 수호 골렘", t: 2.5 };
     const g = newEnemy("golem", L.w - 150); g.born = 1.2; g.dir = -1; g.gy = g.y = FLOOR; g.minX = ROOM_L + 40; g.maxX = ROOM_R - 40; g.phase = 1; g.t = 1.5; enemies.push(g); shake(4, 1);
   } else if (r === "start") { phase = "clear"; banner = { s: "투구를 줍고(↑) 문을 고르자", t: 3 }; { const hs = freeHelms().sort(() => Math.random() - 0.5); spawn({ kind: "pickup", id: hs[0].id, x: 240, grade: 0 }); if (stat("vault") && hs[1]) spawn({ kind: "pickup", id: hs[1].id, x: 300, grade: 0 }); } openDoors(); }
-  else if (r === "shop") {                                     // 암시장: 음식 2 · 아이템 3 · 영혼 1 · 대장장이
-    phase = "clear"; banner = { s: "암시장 — ↑로 구매", t: 2.5 }; const d = 1 - stat("shopDisc");
-    spawn({ kind: "shop", x: 80, food: "soup", price: Math.round(50 * d) }); spawn({ kind: "shop", x: 124, food: "meat", price: Math.round(90 * d) });
-    normalItems().sort(() => Math.random() - 0.5).slice(0, 3).forEach((it, i) => spawn({ kind: "shop", x: 196 + i * 48, item: it, price: priceOf(it) }));
-    spawn({ kind: "reroll", x: 160, price: 30 });   // 수집가 리롤: 일반 아이템 3칸을 새로 (금화 30, 할 때마다 +20)
-    const cu = freeItems().filter((x) => x.grade === 4); if (cu.length) spawn({ kind: "shop", x: 334, item: pick(cu), price: priceOf(pick(cu)) });   // 저주 노점
-    const sl = Object.keys(SOULS).filter((k) => k !== player.soul); if (sl.length) spawn({ kind: "shop", x: 376, soul: pick(sl), price: Math.round(120 * d) });
-    spawn({ kind: "smith", x: 444 }); for (const [nm, x] of [["cook", 102], ["merchant", 244], ["spirit", 376], ["smith", 452]]) spawn({ kind: "npc", nm, x }); openDoors();
+  else if (r === "shop") {                                     // 암시장 거리: 요리사 · 해골 상인(아이템·저주·물건 바꾸기) · 베일의 정령(영혼) · 대장장이(각성)
+    phase = "clear"; banner = { s: "암시장 — 상인 앞에서 ↑ 대화 · 물건 앞에서 ↑ 구매", t: 2.8 }; const d = 1 - stat("shopDisc");
+    for (const [nm, x] of [["cook", 120], ["merchant", 310], ["spirit", 540], ["smith", 700]]) spawn({ kind: "npc", nm, x });
+    spawn({ kind: "shop", x: 96, food: "soup", price: Math.round(50 * d) }); spawn({ kind: "shop", x: 146, food: "meat", price: Math.round(90 * d) });
+    normalItems().sort(() => Math.random() - 0.5).slice(0, 3).forEach((it, i) => spawn({ kind: "shop", x: 268 + i * 40, item: it, price: priceOf(it) }));
+    spawn({ kind: "reroll", x: 400, price: 30 });   // 물건 바꾸기 팻말: 일반 아이템 3칸을 새로 (금화 30, 할 때마다 +20)
+    const cu = freeItems().filter((x) => x.grade === 4); if (cu.length) spawn({ kind: "shop", x: 436, item: pick(cu), price: priceOf(pick(cu)) });   // 저주 물건
+    const sl = Object.keys(SOULS).filter((k) => k !== player.soul); if (sl.length) spawn({ kind: "shop", x: 556, soul: pick(sl), price: Math.round(120 * d) });
+    spawn({ kind: "smith", x: 708 }); openDoors();
   }
   else if (r === "rest") { phase = "clear"; const n = Math.round(maxHp() * 0.3); player.hp = Math.min(maxHp(), player.hp + n); banner = { s: `휴식 — 체력 +${n}`, t: 2.5 }; openDoors(); }
   else if (ev) { phase = "clear"; const k = pick(Object.keys(EVENTS)); spawn({ kind: "event", ev: k, x: L.w / 2 - 20, used: false }); banner = { s: EVENTS[k].name, t: 2.5 }; openDoors(); }
@@ -1558,13 +1561,22 @@ function basicAttack(p) {
 }
 function recallHelm() { player.headless = false; objs = objs.filter((o) => o.kind !== "helm"); }
 // ↑키: 떨어진 투구를 지금 쓴 투구와 바꾸거나, 문으로 다음 방에 간다
+// 상인 대화 (아래 대화창). ↑로 다음 말, 멀어지면 닫힌다
+const TALK = {
+  cook: ["고블린 요리사", ["어이, 깡통! 속이 텅 빈 녀석이 뭘 먹겠다고? …농담이야. 수프 한 그릇이면 갑옷에도 온기가 돈다고.", "고기는 오늘 잡은 거야. 뭘 잡았는지는 묻지 마. 흐흐."]],
+  merchant: ["해골 상인", ["흐흐… 주인 잃은 물건엔 다 사연이 있지. 마음에 드는 게 없으면 팻말을 두드려. 새 물건을 꺼내 줄게.", "보라색 상자 물건은 싸게 줄게. 강하지만… 대가가 있지. 환불은 없어."]],
+  spirit: ["베일의 정령", ["우리에 갇힌 영혼들이 새 주인을 기다려요. 당신 같은 빈 갑옷이라면… 잘 맞을지도 몰라요.", "영혼은 하나만 깃들 수 있어요. 바꾸면 전에 있던 아이는 떠나요."]],
+  smith: ["외눈 대장장이", ["투구 가져와! 쇳조각만 있으면 녹슨 깡통도 명품으로 만들어 주지.", "명품부터는 두 번째 기술이 깨어나. 쇳조각 30개, 한 푼도 안 깎아 준다."]],
+};
+let talk = null;
 function interact(p) {
+  if (talk) { const lines = TALK[talk.nm][1]; if (talk.t * 40 < lines[talk.i].length) talk.t = 99; else if (talk.i + 1 < lines.length) { talk.i++; talk.t = 0; } else talk = null; return; }
   if (inLobby) { const el = objs.find((o) => o.kind === "elder" && Math.abs(o.x - p.x) < 22), gt = objs.find((o) => o.kind === "gate" && Math.abs(o.x - p.x) < 22);
     if (el) { state = "castle"; return; } if (gt) { whiteT = 0.15; startRun(); return; } }
   const rr = objs.find((o) => o.kind === "reroll" && Math.abs(o.x - p.x) < 16);
   if (rr) { if (p.gold < rr.price) { banner = { s: "금화가 모자라", t: 1.2 }; return; } p.gold -= rr.price; rr.price += 20;
     const slots = objs.filter((o) => o.kind === "shop" && o.item && o.item.grade <= 2 && !o.pick); for (const o of slots) o.gone = true;
-    normalItems().filter((it) => !slots.some((o) => o.item === it)).sort(() => Math.random() - 0.5).slice(0, 3).forEach((it, i) => { const o = spawn({ kind: "shop", x: 196 + i * 48, item: it, price: priceOf(it) }); fxRing(o.x, FLOOR - 20, 12, COIN); });
+    normalItems().filter((it) => !slots.some((o) => o.item === it)).sort(() => Math.random() - 0.5).slice(0, 3).forEach((it, i) => { const o = spawn({ kind: "shop", x: 268 + i * 40, item: it, price: priceOf(it) }); fxRing(o.x, FLOOR - 20, 12, COIN); });
     banner = { s: "물건을 새로 들였다", t: 1.2 }; return; }
   const gv = objs.find((o) => o.kind === "grave" && Math.abs(o.x - p.x) < 18);
   if (gv) { gv.gone = true; dropBits(gv.x, FLOOR - 12, gv.val, 8, true); shake(3, 0.15); dust(gv.x, FLOOR, 1, 6); dust(gv.x, FLOOR, -1, 6); fxRing(gv.x, FLOOR - 8, 18, SCRAPC); banner = { s: "투구 무덤을 부쉈다 — 쇳조각", t: 1.6 }; return; }
@@ -1590,6 +1602,8 @@ function interact(p) {
     p.scrap -= AWAKE_COST[g0]; p.hg[id] = g0 + 1; p.cds[id] = [0, 0]; fxSwap(p); shake(3, 0.2); banner = { s: `${p.helm.name} → ${HGRADE[g0 + 1].name}!`, t: 2 }; return;
   }
   const sh = objs.find((o) => o.kind === "shop" && Math.abs(o.x - p.x) < 16);
+  const npc = !sh && objs.find((o) => o.kind === "npc" && Math.abs(o.x - p.x) < 26 && !objs.some((q) => (q.kind === "smith" || q.kind === "reroll") && Math.abs(q.x - p.x) < 16));
+  if (npc) { talk = { nm: npc.nm, i: 0, t: 0, x: npc.x }; return; }
   if (sh) {
     if (p.gold < sh.price) { banner = { s: "금화가 모자라", t: 1.2 }; return; }
     if (sh.item && p.items.length >= 9) { banner = { s: "아이템 칸이 가득 찼어", t: 1.2 }; return; }
@@ -2005,6 +2019,7 @@ function drawObjs(back) {
       else if (o.soul) soulIcon(g, o.soul, o.x, yy, 0.8);
       else world(o.x, yy + 8, () => { if (o.food === "soup") { R(-5, -7, 10, 7, C.line); R(-4, -6, 8, 5, C.wood2); R(-3, -8, 6, 2, "#e8c070"); } else { E(0, -4, 5, 3, C.line); E(0, -4, 4, 2, "#a8502a"); R(3, -6, 4, 2, C.cream); } });
       glow(o.x, yy, 14, o.item ? GRADES[o.item.grade].c : o.soul ? SOULS[o.soul].col : "#ffae35", 0.35);
+      g.fillStyle = "#17131c"; g.fillRect(x - 13, FLOOR - 40, 26, 9); g.fillStyle = "#3a2a4a"; g.fillRect(x - 12, FLOOR - 39, 24, 7); g.fillStyle = COIN[2]; g.fillRect(x - 10, FLOOR - 37, 3, 3);   // 가격 팻말 (금화 표시)
     } else if (o.kind === "shop") {                             // 받침대 위의 상품 (붉은 문 보상 등)
       world(o.x, FLOOR, () => { R(-9, -12, 18, 12, C.line); R(-8, -11, 16, 11, C.iron1); R(-8, -11, 16, 2, C.iron3);
         if (o.potion || o.food === "soup") { R(-5, -20, 10, 7, C.line); R(-4, -19, 8, 5, C.wood2); R(-3, -21, 6, 2, "#e8c070"); R(-2, -23, 1, 2, "#ffffff"); R(1, -24, 1, 2, "#ffffff"); }
@@ -2073,7 +2088,9 @@ function drawHudText() {                          // 글자는 화면 해상도�
   txt("Z", HUD.dash.x + 36, HUD.dash.y + 10, 10, "#ffe27a");
   txt("←→ 이동   C 점프(2단)   Z 대시   X 공격   A·S 스킬   Space 투구 교체   ↑ 줍기·문·구매   ↓+C 발판 내려가기   ↓ 투구 분해   D 영혼   Tab 캐릭터 창   R 성채로", W / 2, H - 5, 11, "#d0c8dc", "center");
   for (const t of texts) txt(t.s, t.x - camX, t.y - camY, t.big ? 18 : 13, t.c, "center");
+
   for (const o of objs) {
+    if (o.kind === "npc" && !talk && Math.abs(o.x - p.x) < 26 && !objs.some((q) => (q.kind === "shop" || q.kind === "smith" || q.kind === "reroll") && Math.abs(q.x - p.x) < 16)) { txt(TALK[o.nm][0], o.x - camX, FLOOR - camY - 52, 11, "#ffe27a", "center"); tip("↑ 대화", o.x - camX, FLOOR - camY - 64, "#ffe27a"); }
     if (o.kind === "elder") { txt("늙은 망령", o.x - camX, FLOOR - camY - 46, 11, "#9bdcff", "center"); if (Math.abs(o.x - p.x) < 22) tip(`↑ 영구 강화 (영혼석 ${meta.stones})`, o.x - camX, FLOOR - camY - 58, "#ffe27a"); }
     if (o.kind === "gate") { txt("출발", o.x - camX, FLOOR - camY - 58, 12, "#c8a8ff", "center"); if (Math.abs(o.x - p.x) < 22) tip("↑ 숲으로 출발", o.x - camX, FLOOR - camY - 70, "#ffe27a"); }
     if (o.kind === "reroll") { txt("물건 바꾸기", o.x - camX, FLOOR - camY - 39, 10, "#ffd24a", "center"); txt(`${o.price}G`, o.x - camX, FLOOR - camY - 30, 11, p.gold >= o.price ? "#ffd24a" : "#ff6a5a", "center"); if (Math.abs(o.x - p.x) < 16) tip("↑ 일반 아이템 3칸 새로 들이기", o.x - camX, FLOOR - camY - 52, "#ffe27a"); }
@@ -2086,8 +2103,19 @@ function drawHudText() {                          // 글자는 화면 해상도�
     if (o.kind === "pickup") { txt(`${HGRADE[o.grade ?? 0].name} ${helmById(o.id).name}`, o.x - camX, FLOOR - camY - 46, 11, HGRADE[o.grade ?? 0].c, "center"); if (Math.abs(o.x - p.x) < 16) tip(`↑ 바꾸기 · ↓ 분해(쇳조각 ${SCRAP_OF[o.grade ?? 0]})`, o.x - camX, FLOOR - camY - 58, "#ffe27a"); }
     if (o.kind === "smith") { txt("대장장이", o.x - camX, FLOOR - camY - 30, 11, "#ffae35", "center"); if (Math.abs(o.x - p.x) < 18) { const g0 = hgOf(p.helm.id); tip(g0 < 0 ? "빈 투구는 각성 불가" : g0 >= 3 ? "이미 전설" : `↑ ${p.helm.name} 각성 → ${HGRADE[g0 + 1].name} (쇳조각 ${AWAKE_COST[g0]})`, o.x - camX, FLOOR - camY - 44, "#ffe27a"); } }
     if (o.kind === "door") txt((Math.abs(o.x - p.x) < 18 ? "↑ " : "") + REWARDS[o.reward].name, o.x - camX, FLOOR - camY - 61, 11, REWARDS[o.reward].c, "center");
-    if (o.kind === "shop") { const nm = o.soul ? SOULS[o.soul].name : o.food === "soup" ? "버섯 수프" : o.food === "meat" ? "구운 고기" : o.potion ? "회복 물약" : o.item.name, ds = o.soul ? `${SOULS[o.soul].desc} / ${SOULS[o.soul].passive}` : o.food === "soup" || o.potion ? "체력 40 회복" : o.food === "meat" ? "이번 판 최대 체력 +10" : o.item.desc;
-      txt(nm, o.x - camX, FLOOR - camY - 39, 10, o.item ? GRADES[o.item.grade].c : o.soul ? SOULS[o.soul].col : "#fff", "center"); txt(o.price ? `${o.price}G` : o.pick ? "선택" : "교환", o.x - camX, FLOOR - camY - 30, 11, p.gold >= o.price ? "#ffd24a" : "#ff6a5a", "center"); if (Math.abs(o.x - p.x) < 16) tip("↑ " + ds, o.x - camX, FLOOR - camY - 52, "#ffe27a"); }
+    if (o.kind === "shop" && !talk) { const nm = o.soul ? SOULS[o.soul].name : o.food === "soup" ? "버섯 수프" : o.food === "meat" ? "구운 고기" : o.potion ? "회복 물약" : o.item.name, ds = o.soul ? `${SOULS[o.soul].desc} / ${SOULS[o.soul].passive}` : o.food === "soup" || o.potion ? "체력 40 회복" : o.food === "meat" ? "이번 판 최대 체력 +10" : o.item.desc;
+      const fl = ready(npcImg) && !o.pick, near = Math.abs(o.x - p.x) < 16, nc = o.item ? GRADES[o.item.grade].c : o.soul ? SOULS[o.soul].col : "#fff", pc = p.gold >= o.price ? "#ffd24a" : "#ff6a5a";
+      if (fl) { txt(`${o.price}`, o.x - camX + 3, FLOOR - camY - 30, 10, pc, "center"); if (near) { txt(nm, o.x - camX, FLOOR - camY - 64, 11, nc, "center"); tip("↑ " + ds, o.x - camX, FLOOR - camY - 76, "#ffe27a"); } }   // 암시장: 가격 팻말 + 가까이 가면 이름·설명
+      else { txt(nm, o.x - camX, FLOOR - camY - 39, 10, nc, "center"); txt(o.price ? `${o.price}G` : o.pick ? "선택" : "교환", o.x - camX, FLOOR - camY - 30, 11, pc, "center"); if (near) tip("↑ " + ds, o.x - camX, FLOOR - camY - 52, "#ffe27a"); } }
+  }
+  if (talk) { talk.t += 1 / 60; if (Math.abs(talk.x - p.x) > 60 || state !== "play") talk = null; }
+  if (talk) {                                                   // 아래 대화창: 이름표 + 한 글자씩 나오는 말
+    const [who, lines] = TALK[talk.nm], line = lines[talk.i], n = Math.min(line.length, Math.floor(talk.t * 40)), bx = 150, by = 418, bw = 660, bh = 92;
+    c.fillStyle = "rgba(14,10,22,0.92)"; c.fillRect(bx, by, bw, bh); c.strokeStyle = "#8a5cc0"; c.lineWidth = 2; c.strokeRect(bx + 1, by + 1, bw - 2, bh - 2);
+    pan("nameplate", bx + 8, by - 22, 150, 32); txt(who, (bx + 83) / S, (by - 1) / S, 11, "#ffe27a", "center");
+    const shown = line.slice(0, n); c.font = `12px ${FONT}`; let ln = "", yy = by + 30;
+    for (const ch of shown) { if (c.measureText(ln + ch).width > bw - 40) { txt(ln, (bx + 20) / S, yy / S, 12, "#e4def0"); ln = ""; yy += 22; } ln += ch; } txt(ln, (bx + 20) / S, yy / S, 12, "#e4def0");
+    if (n >= line.length && ((time * 3) | 0) % 2) txt(talk.i + 1 < lines.length ? "↑ 다음" : "↑ 닫기", (bx + bw - 14) / S, (by + bh - 10) / S, 10, "#9be8ff", "right");
   }
   const alive = enemies.filter((e) => !e.dead).length, boss = enemies.find((e) => e.type.boss && !e.dead && e.born <= 0);
   if (boss) {                                                     // 보스 체력바: 화면 아래 가운데
@@ -2160,7 +2188,10 @@ function render() {
   camY = Math.round(Math.min(0, Math.max(rowTop(0) - TS, player.y - 175)));
   const layer = (img, w, h, k, y) => { const off = camX * k; for (let i = Math.floor(off / w); i * w < off + W; i++) { g.save(); g.translate(Math.round(i * w - off + (i % 2 ? w : 0)), Math.round(y)); g.scale(i % 2 ? -1 : 1, 1); g.drawImage(img, 0, 0, w, h); g.restore(); } };   // 좌우로 뒤집어 이어 붙인다
   const bk = room % 2 ? "bg_b" : "bg_a", bgi = ch1Img[bk], BGFIT = { bg_a: [0.75, "#55afc0"], bg_b: [0.676, "#106260"] };   // [풍경이 끝나는 높이 비율, 하늘 색]
-  if (inLobby && ready(castleImg.bg)) {                          // 성채 홀 그림 한 장 (숲과 같은 방식: 바닥 띠가 바닥 바로 위에 오게)
+  if (!inLobby && ROOMS[room] === "shop" && ready(marketImg)) {   // 암시장 밤 배경 한 장 (바닥 띠가 바닥 바로 위에 오게)
+    const bh = 380, bw = Math.ceil(marketImg.naturalWidth * bh / marketImg.naturalHeight), by = Math.round(242 - 0.8 * bh - camY * 0.5);
+    if (by > 0) { g.fillStyle = "#141a3a"; g.fillRect(0, 0, W, by); } g.drawImage(marketImg, Math.round(-camX * 0.3), by, bw, bh);
+  } else if (inLobby && ready(castleImg.bg)) {                          // 성채 홀 그림 한 장 (숲과 같은 방식: 바닥 띠가 바닥 바로 위에 오게)
     const bh = 380, bw = Math.ceil(castleImg.bg.naturalWidth * bh / castleImg.bg.naturalHeight), by = Math.round(242 - 0.8 * bh - camY * 0.5);
     if (by > 0) { g.fillStyle = CASTLE.sky; g.fillRect(0, 0, W, by); } g.drawImage(castleImg.bg, Math.round(-camX * 0.25), by, bw, bh);
   } else if (inLobby) {                                                 // 그림을 불러오는 동안: 어두운 돌벽, 기둥, 푸른 창
@@ -2174,6 +2205,7 @@ function render() {
     g.drawImage(bgi, Math.round(-camX * k), by, bw, bh);
     g.fillStyle = "rgba(10,20,40,0.12)"; g.fillRect(0, 0, W, H);
   } else { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "#55afc0"); gr.addColorStop(1, "#1d4a48"); g.fillStyle = gr; g.fillRect(0, 0, W, H); }   // 숲 그림을 불러오는 동안은 숲 색만 (옛 불타는 마을 배경은 뺐다)
+  if (ROOMS[room] === "shop" && !inLobby && !ready(marketImg)) { g.fillStyle = "rgba(12,14,44,0.62)"; g.fillRect(0, 0, W, H); g.fillStyle = "#e8f0c8"; g.beginPath(); g.arc(380 - camX * 0.05, 46, 16, 0, 7); g.fill(); glow(380 - camX * 0.05, 46, 50, "#c8e0ff", 0.4); }   // 암시장은 밤
   for (const m of embers) if (!m.near) { g.fillStyle = Math.sin(time * 5 + m.ph) > 0 ? "#e8ffb0" : "#8fd88a"; g.fillRect(Math.round(m.x), Math.round(m.y), 1, 1); }
   g.save(); g.translate(-camX, -camY); lg.save(); lg.translate(-camX, -camY);   // 여기부터 방 안의 좌표
   g.drawImage(terr, 0, rowTop(0) - terr.oy); for (const [x, y, col, r] of L.lamps) glow(x, y, r + 3 * Math.sin(time * 11 + x), col, 0.45);
