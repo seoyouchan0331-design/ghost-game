@@ -1,7 +1,9 @@
 # 골렘 영상 → 게임 프레임 시트. python3 art/boss1/video_cut.py <영상> <출력 png> <몸통 그림 body|body2> [초당 프레임] [시작 초] [끝 초]
 #   무너짐: art/boss1/collapse_source.mp4 assets/giant_collapse.png body2 10
 #   포효:   art/boss1/roar_source.mp4 assets/giant_roar.png body 10 0.3 4.6
-#   숨쉬기: art/boss1/breath_source.mp4 assets/giant_breath.png body 8 1.7   (1.7초 앞은 팔 끝이 막혀 있어서 뺀다: 반복할 때 구멍이 막혔다 뚫렸다 함)
+#   숨쉬기(1페이즈): art/boss1/breath2_source.mp4 assets/giant_breath.png body 8 0 999 crop=672:768:0:0
+#   숨쉬기(2페이즈): art/boss1/breath2_source.mp4 assets/giant_breath2.png body2 8 0 999 crop=672:768:672:0
+#   (옛 숨쉬기 영상 breath_source.mp4 는 팔 끝이 막혔다 뚫렸다 해서 안 씀)
 # 첫 프레임의 골렘을 게임 몸통과 같은 크기·같은 자리에 맞춘다: 폭을 맞추고 아래 가운데를 맞춘다.
 import sys, json, subprocess, glob, os
 import numpy as np
@@ -9,9 +11,10 @@ from PIL import Image
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "adv")); from keying import key
 SRC, OUT, REF = sys.argv[1], sys.argv[2], sys.argv[3]; FPS = int(sys.argv[4]) if len(sys.argv) > 4 else 10
 T0 = float(sys.argv[5]) if len(sys.argv) > 5 else 0; T1 = float(sys.argv[6]) if len(sys.argv) > 6 else 999
+CROP = (sys.argv[7] + ",") if len(sys.argv) > 7 else ""   # 예: crop=672:768:0:0 (한 영상에 둘이 나란히 있을 때 반쪽만)
 TMP = "/tmp/collapse_frames"; os.makedirs(TMP, exist_ok=True)
 for f in glob.glob(TMP + "/*.png"): os.remove(f)
-subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(T0), "-to", str(T1), "-i", SRC, "-vf", f"fps={FPS}", TMP + "/f%03d.png"], check=True)
+subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(T0), "-to", str(T1), "-i", SRC, "-vf", f"{CROP}fps={FPS}", TMP + "/f%03d.png"], check=True)
 files = sorted(glob.glob(TMP + "/*.png"))
 GI = json.loads(open("index.html").read().split("const GIANT = ")[1].split(";")[0])
 gi = Image.open("assets/giant.png").convert("RGBA"); b2 = GI[REF]; body = gi.crop((b2[0], b2[1], b2[0] + b2[2], b2[1] + b2[3]))
