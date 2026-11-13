@@ -35,6 +35,7 @@
 - 공유 페이지: https://claude.ai/artifact/GnboU78VGVCBAaoneKwqF7 (Artifact 도구로 `url`을 주고 갱신)
 - 만드는 법: `index.html`의 `<canvas`부터 `</body>` 앞까지를 떼어, 공유 페이지용 머리(`<title>`, viewport 메타, 스타일)에 붙인다. 폰트 `url(assets/fonts/Galmuri11-Bold.woff2)`는 base64 data URI로 바꿔 넣는다 (공유 페이지에서 폰트 파일을 못 불러올 수 있음).
 - 그림 파일은 `files`로 `assets/...` 경로 그대로 같이 올린다. 안 쓰게 된 파일은 `null`로 지운다.
+- 검사 시험장: https://claude.ai/artifact/D7KLijKXkojY9d27icGEhw (같은 방식으로 만들고, 끝에 숫자 키 시험 스크립트를 붙임: 1 검사, 2 각성, 3 필살기, 4 포션, 5 그로기, 6 점프, 7 연베기, 0 무적)
 
 ## 코드 지도 (`index.html` 한 파일)
 
