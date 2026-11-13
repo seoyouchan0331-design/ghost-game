@@ -611,6 +611,27 @@ const ITEMS = [
   ["부러진 용사의 검", 3, "공격력 +35%, 치명타 확률 +10%", { atk: 0.35, crit: 0.1 }, ["blood", "powder"], 2],
   ["유령왕의 사슬관", 3, "투구 교체 쿨타임 -40%, 교체 후 3초간 공격력 +30%", { swapCd: 0.4, swapAtk: 0.3 }, ["ghost", "ghost"], 19],
   ["폭풍의 깃털", 3, "이동 속도 +20%, 대시 +1회, 공격 속도 +15%", { speed: 0.2, dashPlus: 1, aspd: 0.15 }, ["gale", "gale"], 6],
+  // 아이템 21~40 (새 각인 6개). 아이콘은 [items_2] 그림이 오기 전까지 비슷한 것을 빌려 쓴다
+  ["독니 단검", 0, "치명타 확률 +5%", { crit: 0.05 }, ["poison", "blood"], 2],
+  ["독약병", 0, "스킬 피해 +10%", { skill: 0.1 }, ["poison", "powder"], 5],
+  ["번개 구리 반지", 0, "공격 속도 +8%", { aspd: 0.08 }, ["thunder", "clock"], 8],
+  ["천둥 북", 1, "스킬 1 쿨타임 -15%", { cd1: 0.15 }, ["thunder", "powder"], 12],
+  ["탑 방패 휘장", 0, "최대 체력 +20", { hp: 20 }, ["iron", "ghost"], 3],
+  ["가시 팔목 보호대", 1, "받는 피해 -10%, 물리 공격력 +10%", { dmgTaken: -0.1, phys: 0.1 }, ["iron", "blood"], 10],
+  ["사냥꾼의 외눈 안경", 1, "치명타 확률 +8%", { crit: 0.08 }, ["hunt", "thunder"], 12],
+  ["숫돌", 0, "기본 공격 피해 +12%", { basic: 0.12 }, ["hunt", "iron"], 0],
+  ["뼈 종", 1, "적 처치 시 체력 1, 마법 공격력 +10%", { killHeal: 1, magic: 0.1 }, ["soul", "ghost"], 9],
+  ["떠도는 영혼 단지", 0, "마법 공격력 +10%", { magic: 0.1 }, ["soul", "frost"], 9],
+  ["금 간 왕관", 1, "공격력 +12%, 획득 골드 -15%", { atk: 0.12, gold: -0.15 }, ["iron", "gold"], 19],
+  ["아홉 검은 동전", 1, "획득 골드 +20%", { gold: 0.2 }, ["gold", "thunder"], 4],
+  ["손바닥 눈 부적", 0, "치명타 확률 +4%, 이동 속도 +5%", { crit: 0.04, speed: 0.05 }, ["hunt", "poison"], 15],
+  ["황금 모래시계", 2, "모든 스킬 쿨타임 -15%", { cdAll: 0.15 }, ["clock", "gale"], 14],
+  ["유령 등불", 1, "투구 교체 쿨타임 -15%", { swapCd: 0.15 }, ["ghost", "clock"], 13],
+  ["흡혈귀 성배", 2, "적 처치 시 체력 3", { killHeal: 3 }, ["blood", "hunt"], 15],
+  ["불사조 깃털", 3, "공격력 +20%, 화상 피해 +100%", { atk: 0.2, burnMult: 1 }, ["powder", "soul"], 16],
+  ["얼어붙은 용 비늘", 3, "최대 체력 +40, 받는 피해 -15%", { hp: 40, dmgTaken: -0.15 }, ["frost", "iron"], 11],
+  ["검은 거울", 4, "스킬 피해 +40%, 최대 체력 -20", { skill: 0.4, hp: -20 }, ["soul", "poison"], 11],
+  ["멈춘 회중시계", 4, "모든 스킬 쿨타임 -30%, 이동 속도 -15%", { cdAll: 0.3, speed: -0.15 }, ["clock", "frost"], 14],
   // 저주 (4): 강하지만 대가가 있다. 암시장 저주 노점에서 싸게 판다
   ["굶주린 칼날", 4, "공격력 +50%, 받는 피해 +40%", { atk: 0.5, dmgTaken: 0.4 }, ["blood", "blood"], 7],
   ["금이 간 해골잔", 4, "공격 속도 +30%, 최대 체력 -30", { aspd: 0.3, hp: -30 }, ["ghost", "frost"], 9],
@@ -622,14 +643,20 @@ const GRADES = [{ name: "녹슨", c: "#c9783a", price: 80, w: 70 }, { name: "단
 const CRESTS = {
   powder: { name: "화약", c: "#f2701f", t2: "적중 10% 작은 폭발 15", t4: "폭발 20%, 폭발에 화상" },
   frost: { name: "서리", c: "#8ec5ff", t2: "적중 8% 빙결 3초 (맞으면 풀림)", t4: "빙결 적 피해 +40%, 파편 20" },
+  poison: { name: "독", c: "#7ad04a", t2: "적중 15% 중독 (3초간 0.5초마다 3)", t4: "중독 피해 2배, 중독된 적이 죽으면 독 구름" },
+  thunder: { name: "번개", c: "#ffe24a", t2: "7번째 적중마다 번개 15 (1명 연쇄)", t4: "번개 25, 3명까지 연쇄" },
+  iron: { name: "철벽", c: "#9aa4b8", t2: "받는 피해 -10%", t4: "15초마다 한 번 피해를 막는 보호막" },
+  hunt: { name: "사냥", c: "#e08a3c", t2: "체력 50% 아래 적에게 피해 +15%", t4: "치명타 피해 +50%" },
+  soul: { name: "영혼", c: "#b08ae0", t2: "처치 시 유령불이 다른 적에게 10", t4: "유령불 2개, 각 20" },
+  clock: { name: "시계", c: "#63c8ea", t2: "모든 스킬 쿨타임 -10%", t4: "스킬을 쓰면 25%로 쿨타임 초기화" },
   blood: { name: "피", c: "#d8423a", t2: "적중 15% 상처, 상처에 또 걸리면 출혈 25", t4: "출혈 2배, 출혈로 처치 시 체력 3" },
   ghost: { name: "유령", c: "#63c8ea", t2: "투구 교체 쿨타임 -25%", t4: "교체 공격 2배, 2초 무적" },
   gale: { name: "질풍", c: "#b5efff", t2: "이동 +10%, 대시 충전 -20%", t4: "대시 경로 20 피해, 대시 +1" },
   gold: { name: "황금", c: "#ffd24a", t2: "획득 골드 +20%", t4: "골드 100당 공격 +3%" },
 };
 const doorImg = new Image(); doorImg.src = "assets/doors.png";           // 문 8종, 한 칸 44x56
-const DOOR_IDX = { gold: 0, chest: 1, helm: 2, scrap: 3, shop: 4, rest: 5, midboss: 6, boss: 7, elite: 6 };
-const DOOR_GLOW = { gold: "#ffd24a", chest: "#ff9a3a", helm: "#63c8ea", scrap: "#b0a8ba", shop: "#ffae35", rest: "#5fe0a0", midboss: "#d8423a", boss: "#ff7a2a", elite: "#ff5a4a" };
+const DOOR_IDX = { gold: 0, chest: 1, helm: 2, scrap: 3, shop: 4, rest: 5, midboss: 6, boss: 7, elite: 6, event: 5 };
+const DOOR_GLOW = { gold: "#ffd24a", chest: "#ff9a3a", helm: "#63c8ea", scrap: "#b0a8ba", shop: "#ffae35", rest: "#5fe0a0", midboss: "#d8423a", boss: "#ff7a2a", elite: "#ff5a4a", event: "#b08ae0" };
 const engImg = new Image(); engImg.src = "assets/engraves.png";          // 각인 6개, 48px, CRESTS 순서
 const panelImg = new Image(); panelImg.src = "assets/panels.png";       // 글씨 판. 좌표는 art/ui2/ui2_cut.py가 뽑아 준 값
 const PANELS = {"window":[0,0,248,379],"header":[250,0,331,49],"nameplate":[583,0,164,43],"banner":[749,0,342,62],"tooltip":[1093,0,233,81],"slot":[1328,0,63,64],"slotOn":[1393,0,75,78],"gradeR":[1470,0,62,64],"gradeT":[1534,0,62,65],"gradeL":[1598,0,62,65]};
@@ -668,7 +695,7 @@ const saveMeta = () => { try { localStorage.setItem("ghostArmorMeta", JSON.strin
 const mlv = (id) => meta.lv[id] ?? 0;
 const metaStat = (k) => TREES.reduce((a, t) => a + t.nodes.reduce((b, n) => b + (n.mod[k] ?? 0) * mlv(n.id), 0), 0);
 // 보상 문 4종과 등장 비중 (휴식은 고정 방 표시용)
-const REWARDS = { gold: { name: "금화", w: 35, c: "#ffd24a" }, chest: { name: "상자", w: 30, c: "#e08a3c" }, helm: { name: "투구", w: 20, c: "#63c8ea" }, scrap: { name: "쇳조각", w: 15, c: "#b0a8ba" }, midboss: { name: "모험가", w: 0, c: "#ff5a4a" }, elite: { name: "정예", w: 0, c: "#ff5a4a" }, boss: { name: "보스", w: 0, c: "#ff7a2a" }, rest: { name: "휴식", w: 0, c: "#8fc05a" }, shop: { name: "상점", w: 0, c: "#ffd24a" } };
+const REWARDS = { gold: { name: "금화", w: 35, c: "#ffd24a" }, chest: { name: "상자", w: 30, c: "#e08a3c" }, helm: { name: "투구", w: 20, c: "#63c8ea" }, scrap: { name: "쇳조각", w: 15, c: "#b0a8ba" }, midboss: { name: "모험가", w: 0, c: "#ff5a4a" }, elite: { name: "정예", w: 0, c: "#ff5a4a" }, event: { name: "이벤트 ?", w: 12, c: "#c79cff" }, boss: { name: "보스", w: 0, c: "#ff7a2a" }, rest: { name: "휴식", w: 0, c: "#8fc05a" }, shop: { name: "상점", w: 0, c: "#ffd24a" } };
 // 방 프리팹: w = 방 너비, plats = 단방향 발판 [x, 바닥에서의 높이, 너비], spawns = 적이 나오는 바닥 자리.
 // 전투 방은 이 목록에서 겹치지 않게 하나씩 뽑아 쓴다. 방 모양을 늘리려면 여기에 추가.
 // 방 지도(프리팹): 위에서 아래로 한 줄씩. 맨 아래 줄이 바닥이고 그 윗면이 FLOOR 높이다. 한 칸 16px.
@@ -868,7 +895,7 @@ const take = (code) => { if (pressed[code] > 0) { pressed[code] = 0; return true
 // ---------- 게임 상태 ----------
 let player, enemies, objs, sparks, puffs, lights, flashes, ghosts, texts, glints, embers;
 let time = 0, hitstop = 0, shakeT = 0, shakeAmp = 0, shakeDur = 1, whiteT = 0, state = "play";
-let eliteRoom = false, pendingReward = null, room = 0, wave = 0, waveT = 0, phase = "fight", banner = null;
+let eventRoom = false, eliteRoom = false, pendingReward = null, room = 0, wave = 0, waveT = 0, phase = "fight", banner = null;
 
 function startRun() {
   player = {
@@ -880,7 +907,7 @@ function startRun() {
   };
   enemies = []; objs = []; sparks = []; puffs = []; lights = []; flashes = []; ghosts = []; texts = []; glints = [];
   embers = Array.from({ length: 46 }, () => ({ x: rnd(0, W), y: rnd(0, H), v: rnd(8, 26), ph: rnd(0, 6), near: Math.random() < 0.3 }));
-  hitstop = 0; shakeT = 0; whiteT = 0; state = "play"; room = 0; pendingReward = null; eliteRoom = false; slowT = 0; layoutPool = LAYOUTS.slice().sort(() => Math.random() - 0.5); player.gold = stat("startGold"); player.hp = maxHp(); startRoom();
+  hitstop = 0; shakeT = 0; whiteT = 0; state = "play"; room = 0; pendingReward = null; eliteRoom = false; eventRoom = false; slowT = 0; layoutPool = LAYOUTS.slice().sort(() => Math.random() - 0.5); player.gold = stat("startGold"); player.hp = maxHp(); startRoom();
 }
 // 성채: 한 판이 끝나면(사망이든 클리어든) 모은 영혼석을 가지고 돌아와 영구 강화를 산다
 let castleSel = [0, 0];
@@ -924,7 +951,8 @@ function drawCastle() {
   t("←→ 갈래  ↑↓ 고르기  X 강화  ·  C 또는 Space 출발", 480, 516, 11, "#d0c8dc", "center");
 }
 const cdsOf = (id) => (player.cds[id] ??= [0, 0]);
-const skillCd = (helm, i) => helm.skills[i].cd * (helm.cdMult ?? 1) * (i === 0 ? 1 - stat("cd1") : 1);
+function clockReset(cd) { if (cr("clock", 4) && Math.random() < 0.25) { const p = player; texts.push({ x: p.x, y: p.y - 50, vy: -30, t: 0.7, s: "쿨타임 초기화", c: "#63c8ea" }); fxRing(p.x, p.y, 14, ["#0c1430", "#2a6ab0", "#63c8ea", "#d8f4ff", "#fff"]); return 0.3; } return cd; }
+const skillCd = (helm, i) => helm.skills[i].cd * (helm.cdMult ?? 1) * (i === 0 ? 1 - stat("cd1") : 1) * Math.max(0.3, 1 - stat("cdAll") - (cr("clock", 2) ? 0.1 : 0));
 const stat = (k) => player.items.reduce((s, it) => s + (it.mod[k] ?? 0), 0) + metaStat(k) + (SOULS[player.soul]?.mod[k] ?? 0);   // 아이템 + 영구 강화 + 영혼
 const crestN = (k) => player.items.reduce((s, it) => s + it.crests.filter((c) => c === k).length, 0);
 const cr = (k, n) => crestN(k) >= n;
@@ -939,7 +967,8 @@ const freeItems = () => ITEMS.filter((it) => !player.items.includes(it));
 const fightNo = () => ROOMS.slice(0, room + 1).filter((r) => typeof r !== "string").length;
 function startRoom() {
   wave = 0; waveT = 0; objs = []; const r = ROOMS[room];
-  L = buildRoom(r === "boss" || r === "midboss" ? BOSS_MAP : r === "shop" ? SHOP_MAP : typeof r === "string" ? FLAT : layoutPool.pop() ?? pick(LAYOUTS)); ROOM_R = L.w - 20; buildTerrain(); player.safe = [40, FLOOR];
+  const ev = eventRoom && typeof r !== "string";
+  L = buildRoom(r === "boss" || r === "midboss" ? BOSS_MAP : r === "shop" || ev ? SHOP_MAP : typeof r === "string" ? FLAT : layoutPool.pop() ?? pick(LAYOUTS)); ROOM_R = L.w - 20; buildTerrain(); player.safe = [40, FLOOR];
   if (r === "midboss") {                                      // 붉은 문: 견습 용사 파티 3명 동시
     phase = "fight"; const n = ADV_COUNT[chapter] || 1, ids = ["adv_sword", "adv_archer", "adv_cleric"].sort(() => Math.random() - 0.5).slice(0, n), xs = [L.w - 120, L.w - 220, L.w - 70];
     const awake = chapter === 4 ? Math.floor(Math.random() * n) : -1;
@@ -960,6 +989,7 @@ function startRoom() {
     spawn({ kind: "smith", x: 444 }); openDoors();
   }
   else if (r === "rest") { phase = "clear"; const n = Math.round(maxHp() * 0.3); player.hp = Math.min(maxHp(), player.hp + n); banner = { s: `휴식 — 체력 +${n}`, t: 2.5 }; openDoors(); }
+  else if (ev) { phase = "clear"; const k = pick(Object.keys(EVENTS)); spawn({ kind: "event", ev: k, x: L.w / 2 - 20, used: false }); banner = { s: EVENTS[k].name, t: 2.5 }; openDoors(); }
   else { phase = "fight"; startWave(); }
 }
 function rollReward(not) {
@@ -986,6 +1016,23 @@ function breakItem(o) { o.gone = true; const n = itemScrapGold(o.item), c0 = GRA
   fxRing(o.x, FLOOR - 40, 14, ["#1a1206", "#8a6a2a", c0, "#fff6c8", "#ffffff"]); for (let i = 0; i < 10; i++) spark(o.x, FLOOR - 40, rnd(-110, 110), rnd(-120, 40), rnd(0.25, 0.5), ["#1a1206", "#8a6a2a", c0, "#fff6c8", "#ffffff"], true);
   banner = { s: `${o.item.name} 분해 — 금화 ${n}`, t: 1.6 }; }
 function giveItem(it) { const p = player; p.items.push(it); if (it.mod.hp) p.hp = clamp(p.hp + it.mod.hp, 1, maxHp()); banner = { s: `${it.name} — ${it.desc}`, t: 3 }; }
+// 이벤트 방 (? 문): 전투 대신 사건 하나. ↑로 한 번 쓴다
+const EVENTS = {
+  altar: { name: "피의 제단", c: "#d8423a", tip: "↑ 최대 체력 20%를 바치고 아이템 받기",
+    use(o, p) { const n = Math.round(maxHp() * 0.2); p.hp = Math.max(1, p.hp - n); texts.push({ x: p.x, y: p.y - 44, vy: -30, t: 0.9, s: "-" + n, c: "#ff5a4a" }); shake(3, 0.2);
+      fxRing(o.x, FLOOR, 26, ["#2a0808", "#8e2a2a", "#d8423a", "#ff7a6a", "#ffd0c8"]); const it = rollChestItem("elite"); if (it) spawn({ kind: "reveal", item: it, x: o.x + 30, t: 0 }); return true; } },
+  gamble: { name: "떠돌이 도박꾼", c: "#ffd24a", tip: "↑ 금화 80을 걸고 뽑기 (전설·저주가 나올 수도)",
+    use(o, p) { if (p.gold < 80) { banner = { s: "금화가 모자라", t: 1.2 }; return false; } p.gold -= 80; const k = Math.random();
+      if (k < 0.35) { dropCoins(o.x, FLOOR - 20, 25, 5); banner = { s: "꽝! 위로금 25", t: 2 }; }
+      else { const gr = k < 0.45 ? 3 : k < 0.6 ? 4 : k < 0.8 ? 2 : 1; let pool = freeItems().filter((x) => x.grade === gr); if (!pool.length) pool = normalItems();
+        if (pool.length) spawn({ kind: "reveal", item: pick(pool), x: o.x + 30, t: 0 }); banner = { s: "당첨!", t: 1.5 }; }
+      fxRing(o.x, FLOOR - 20, 18, COIN); return true; } },
+  spring: { name: "영혼의 샘", c: "#63c8ea", tip: "↑ 마시기: 체력 40% 회복 + 영혼석 5",
+    use(o, p) { const n = Math.round(maxHp() * 0.4); p.hp = Math.min(maxHp(), p.hp + n); p.stones += 5; texts.push({ x: p.x, y: p.y - 44, vy: -30, t: 0.9, s: `+${n} · 영혼석 +5`, c: "#8fe08a" });
+      fxRing(o.x, FLOOR, 24, ["#0c1430", "#2a6ab0", "#63c8ea", "#d8f4ff", "#ffffff"]); light(o.x, FLOOR - 20, 60, "#63c8ea", 0.8, 0.5); return true; } },
+  armor: { name: "버려진 갑옷 더미", c: "#9aa4b8", tip: "↑ 뒤지기: 쇳조각",
+    use(o, p) { dropBits(o.x, FLOOR - 10, 35 + Math.round(rnd(0, 15)), 10, true); if (Math.random() < 0.3 && freeHelms().length) spawn({ kind: "pickup", id: pick(freeHelms()).id, x: o.x + 40, grade: 0, ped: true }); shake(2, 0.15); return true; } },
+};
 function grantReward() {                                      // 방 클리어: 보상을 문 앞에 떨어뜨린다
   const r = pendingReward; pendingReward = null; let x = L.w - 150;
   while (x > 60 && (isSolid(x, FLOOR - 4) || isSolid(x - 12, FLOOR - 4) || isSolid(x + 12, FLOOR - 4) || !isSolid(x, FLOOR + 4))) x -= 8;   // 바닥(FLOOR)이 비어 있는 자리
@@ -1012,7 +1059,8 @@ function startWave() {
     const far = L.spawns.filter((q) => Math.abs(q.x - player.x) > 100 || Math.abs(q.y - player.y) > 40), pool = far.length ? far : L.spawns;
     const ledges = pool.filter((q) => q.ledge), q = id === "torch" && ledges.length ? pick(ledges) : pick(pool.filter((q) => !q.ledge).length ? pool.filter((q) => !q.ledge) : pool);
     const e = newEnemy(id, q.x + rnd(-6, 6), i); e.gy = e.y = q.y;
-    if (eliteRoom) { e.elite = true; e.hp = e.maxHp = Math.round(e.maxHp * 1.8); e.speed *= 1.15; }   // 정예: 체력 1.8배, 조금 빠름 [e.minX, e.maxX] = span(q.x, q.y); e.x = clamp(e.x, e.minX, e.maxX);
+    if (eliteRoom) { e.elite = true; e.hp = e.maxHp = Math.round(e.maxHp * 1.8); e.speed *= 1.15; }   // 정예: 체력 1.8배, 조금 빠름
+    [e.minX, e.maxX] = span(q.x, q.y); e.x = clamp(e.x, e.minX, e.maxX);
     enemies.push(e);
   });
 }
@@ -1055,6 +1103,14 @@ function blast(x, y, r, dmg, ramp) {
 }
 
 // 기획서 피해 공식: 기본 피해 × (1 + 공격력 증가 합) × 치명타 배율
+const POISON = ["#0e1a08", "#2a5a1a", "#5a9a3a", "#9ae06a", "#e0ffc8"], VOLT = ["#1a1406", "#8a6a10", "#ffe24a", "#fff6b0", "#ffffff"];
+function bolt(e0) {                                   // 번개: 맞은 적에게 내리치고 가까운 적에게 옮겨 간다
+  const n = cr("thunder", 4) ? 3 : 1, d = cr("thunder", 4) ? 25 : 15, hit = [e0]; let cur = e0;
+  flashes.push({ kind: "bolt", x1: e0.x + rnd(-10, 10), y1: e0.y - 110, x2: e0.x, y2: e0.y - 14, t: 0 }); light(e0.x, e0.y - 20, 50, "#ffe24a", 0.9, 0.2);
+  for (let i = 0; i < n; i++) { const nx = enemies.filter((t) => live(t) && !hit.includes(t) && Math.hypot(t.x - cur.x, t.y - cur.y) < 90).sort((a, b) => Math.hypot(a.x - cur.x, a.y - cur.y) - Math.hypot(b.x - cur.x, b.y - cur.y))[0];
+    if (!nx) break; flashes.push({ kind: "bolt", x1: cur.x, y1: cur.y - 14, x2: nx.x, y2: nx.y - 14, t: 0 }); hit.push(nx); cur = nx; }
+  for (const t of hit) damage(t, d, { dir: 1, kb: 30, ramp: VOLT, noProc: true, above: true });
+}
 function damage(e, base, o = {}) {
   if (e.dead) return;
   if (e.invuln > 0 && !o.quiet) { texts.push({ x: e.x, y: e.y - 60, vy: -30, t: 0.5, s: "무적", c: "#ff9a7a" }); return; }
@@ -1066,8 +1122,9 @@ function damage(e, base, o = {}) {
   let mult = (o.mult ?? 1) * (p.src === "swap" && cr("ghost", 4) && !o.quiet && !o.noProc ? 2 : 1), shard = 0;
   if (e.frozen > 0 && !o.quiet) { if (cr("frost", 4)) { mult *= 1.4; shard = 20; } e.frozen = 0; fxRing(e.x, e.y - 12, 14, ["#0c1430", "#58b4ec", "#9bdcff", "#d8f4ff", "#fff"]); }   // 맞으면 빙결이 풀린다
   const crit = !o.quiet && Math.random() < BASE.critChance + stat("crit"), dir = o.dir ?? 1;
+  if (cr("hunt", 2) && !o.quiet && e.hp < e.maxHp * 0.5) mult *= 1.15;                    // 사냥 2
   const blocked = !!e.type.shield && !stat("pierce") && e.stun <= 0 && !e.frozen && !o.above && !o.quiet && o.sx != null && (o.sx - e.x) * e.dir > 0;   // 방패 정면
-  const dmg = Math.max(1, Math.round(base * mult * (1 + atkBonus) * (crit ? BASE.critMult : 1) * (blocked ? 0.2 : 1) * (e.st === "potion" ? 1.5 : 1)));
+  const dmg = Math.max(1, Math.round(base * mult * (1 + atkBonus) * (crit ? BASE.critMult + (cr("hunt", 4) ? 0.5 : 0) : 1) * (blocked ? 0.2 : 1) * (e.st === "potion" ? 1.5 : 1)));
   if (e.st === "charge") { e.chargeDmg += dmg; if (e.chargeDmg >= e.maxHp * ULT_CANCEL) { advGroggy(e, GROGGY_CANCEL); fxRing(e.x, e.y - 20, 30, RAMP_GHOST); hitstop = 0.12; shake(4, 0.25); texts.push({ x: e.x, y: e.y - 70, vy: -30, t: 1, s: "캔슬!", c: "#63c8ea" }); } }
   const armor = e.st === "charge" || e.st === "potion" || e.st === "leap";
   const wasFrozen = shard > 0; let bled = false;
@@ -1079,6 +1136,8 @@ function damage(e, base, o = {}) {
       for (const t of enemies) if (live(t) && Math.hypot(t.x - x, t.y - 12 - y) < 30) damage(t, 15, { dir: Math.sign(t.x - x) || 1, kb: 120, ramp: RAMP_FIRE, noProc: true, above: true, burn: cr("powder", 4) ? 3 : 0 });
     }
     if (cr("frost", 2) && e.hp > 0 && !e.type.boss && Math.random() < 0.08) { e.frozen = 3 + stat("freezeDur"); e.st = "walk"; texts.push({ x: e.x, y: e.y - 46, vy: -30, t: 0.6, s: "빙결", c: "#9bdcff" }); }
+    if (cr("poison", 2) && e.hp > 0 && Math.random() < 0.15) { if (!(e.poison > 0)) texts.push({ x: e.x, y: e.y - 46, vy: -30, t: 0.6, s: "중독", c: "#7ad04a" }); e.poison = 3; e.poisonT = e.poisonT > 0 ? e.poisonT : 0.5; }
+    if (cr("thunder", 2) && (p.thunderN = (p.thunderN ?? 0) + 1) % 7 === 0) bolt(e);
     if (cr("blood", 2) && e.hp > 0 && Math.random() < 0.15) {
       if (e.wound > 0) { e.wound = 0; bled = true; const d = 25 * (cr("blood", 4) ? 2 : 1); e.hp -= d; texts.push({ x: e.x, y: e.y - 52, vy: -40, t: 0.8, s: "출혈 " + d, c: "#ff5a4a" }); hitstop = Math.max(hitstop, 0.07);
         for (let i = 0; i < 12; i++) spark(e.x + rnd(-4, 4), e.y - rnd(8, 22), rnd(-90, 90), rnd(-120, -20), 0.45, ["#2a0808", "#8e2a2a", "#d8423a", "#ff7a6a", "#ffd0c8"]); }
@@ -1102,6 +1161,8 @@ function damage(e, base, o = {}) {
     p.hp = Math.min(maxHp(), p.hp + stat("killHeal") + (bled && cr("blood", 4) ? 3 : 0));
     if ((wasFrozen || e.frozen > 0) && stat("frozenChain")) for (const t of enemies) if (t !== e && live(t) && Math.abs(t.x - e.x) < 70) t.frozen = 3 + stat("freezeDur");
   }
+  if (e.hp <= 0 && !e.dead) { if (cr("soul", 2)) for (let i = 0; i < (cr("soul", 4) ? 2 : 1); i++) spawn({ kind: "wisp", x: e.x, y: e.y - 16, vx: rnd(-60, 60), vy: -80, age: 0, dmg: cr("soul", 4) ? 20 : 10 });
+    if (e.poison > 0 && cr("poison", 4)) { fxRing(e.x, e.y - 8, 30, POISON); for (const t of enemies) if (t !== e && live(t) && Math.hypot(t.x - e.x, t.y - e.y) < 44) { t.poison = 3; t.poisonT = 0.5; } for (let i = 0; i < 10; i++) puff(e.x + rnd(-14, 14), e.y - rnd(0, 18), rnd(-20, 20), rnd(-30, -5), rnd(0.5, 0.9), "#5a9a3a", rnd(3, 5)); } }
   if (e.hp <= 0) { e.dead = 0.001; if (!e.noCoin) dropCoins(e.x, e.y, (e.type.boss ? 120 : e.type.mid ? 30 : e.elite ? 12 : rnd(4, 8)) * goldMult(), e.type.boss ? 24 : e.type.mid ? 10 : e.elite ? 4 : 2); if (phase === "fight" && wave + 1 >= ROOMS[room].length && !enemies.some((x) => x !== e && !x.dead)) slowT = 0.5;   // 마지막 적: 슬로우 모션
     for (let i = 0; i < 9; i++) puff(e.x + rnd(-7, 7), e.y - rnd(2, 22), rnd(-30, 30), rnd(-50, -10), rnd(0.3, 0.6), "#cfc6d8", rnd(2, 4)); }
 }
@@ -1111,6 +1172,8 @@ function hurtPlayer(dmg, dir, by) {
   if ((p.invuln > 0 && !(by && p.invulnBy === by)) || state !== "play") return;
   p.invulnBy = by;
   if (p.guardT > 0) dmg = Math.max(1, Math.round(dmg * 0.3));   // 돌거북 영혼
+  if (cr("iron", 4) && !(p.ironCd > 0)) { p.ironCd = 15; p.invuln = 0.5; fxRing(p.x, p.y - 12, 18, ["#1d1c28", "#474658", "#9aa4b8", "#dfe6f0", "#ffffff"]); texts.push({ x: p.x, y: p.y - 46, vy: -30, t: 0.7, s: "막음", c: "#dfe6f0" }); return; }   // 철벽 4
+  if (cr("iron", 2)) dmg *= 0.9;
   dmg = Math.round(dmg * (1 + stat("dmgTaken")));                  // 저주 아이템
   p.hp = Math.max(0, p.hp - dmg); p.invuln = BASE.hurtInvuln + stat("hurtInv"); p.blink = BASE.hurtInvuln; p.flash = 0.1;
   p.vx = dir * 150; p.vy = -140; p.act = null; p.dashing = 0;
@@ -1194,6 +1257,7 @@ function updateFx(dt) {
   for (const q of puffs) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 1 - 3 * dt; q.vy *= 1 - 2 * dt; }
   for (const l of lights) l.life -= dt;
   for (const f of flashes) f.t += dt;
+  if (player.ironCd > 0) player.ironCd -= dt;
   for (const gh of ghosts) gh.t += dt;
   for (const t of texts) { t.t -= dt; t.y += t.vy * dt; t.vy *= 1 - 4 * dt; }
   for (const gl of glints) gl.t += dt;
@@ -1259,6 +1323,10 @@ function drawFxFront() {
         }
       }
       glow(f.x, f.y, 14, f.ramp[2], 0.3 * (1 - u));
+    } else if (f.kind === "bolt") {               // 번개: 지그재그 선, 0.15초
+      if (f.t > 0.15) continue; const n = 7, pts = []; for (let i = 0; i <= n; i++) { const k = i / n; pts.push([f.x1 + (f.x2 - f.x1) * k + (i && i < n ? (((i * 37 + (f.x1 | 0) * 13) % 11) - 5) : 0), f.y1 + (f.y2 - f.y1) * k]); }
+      for (let i = 0; i < n; i++) { const [ax, ay] = pts[i], [bx, by] = pts[i + 1], m = Math.max(Math.abs(bx - ax), Math.abs(by - ay)) | 0; for (let j = 0; j <= m; j++) { const x = Math.round(ax + (bx - ax) * j / m), y = Math.round(ay + (by - ay) * j / m); g.fillStyle = "#ffe24a"; g.fillRect(x - 1, y, 3, 1); g.fillStyle = "#fff"; g.fillRect(x, y, 1, 1); } }
+      glow(f.x2, f.y2, 20, "#ffe24a", 0.6);
     } else if (f.kind === "burst") {              // 폭발: 흰 원이 테두리만 남기고 터져 나간다
       const u = f.t / 0.2; if (u >= 1) continue;
       const r = f.r * (0.35 + 0.65 * (1 - Math.pow(1 - u, 3))), th = u < 0.2 ? r : Math.max(1, 5 * (1 - u));
@@ -1330,9 +1398,9 @@ function updatePlayer(dt) {
     p.vx = ax * speed; if (ax) p.dir = ax;
     if (keys.ArrowDown && p.ground && tileAt(p.x, p.y + 2) === "=" && take("KeyC")) { p.dropT = 0.25; p.ground = false; }   // ↓+점프: 발판 아래로
     else if (take("KeyC") && p.jumps > 0) { p.vy = BASE.jumpV * (p.jumps === BASE.jumps ? 1 : 0.9); if (!p.ground) fxRing(p.x, p.y, 12, RAMP_GHOST); else dust(p.x, p.y, 0, 3); p.jumps--; p.ground = false; }
-    if (take("KeyA") && cds[0] <= 0) { cds[0] = skillCd(helm, 0); p.src = "skill"; helm.skills[0].use(p); }
+    if (take("KeyA") && cds[0] <= 0) { cds[0] = clockReset(skillCd(helm, 0)); p.src = "skill"; helm.skills[0].use(p); }
     else if (take("KeyS") && sLocked(helm.id)) banner = { s: "두 번째 스킬은 명품부터 (대장장이에게 각성)", t: 1.4 };
-    else if (!sLocked(helm.id) && take("KeyS") && cds[1] <= 0) { cds[1] = skillCd(helm, 1); p.src = "skill"; helm.skills[1].use(p); }
+    else if (!sLocked(helm.id) && take("KeyS") && cds[1] <= 0) { cds[1] = clockReset(skillCd(helm, 1)); p.src = "skill"; helm.skills[1].use(p); }
     else if (take("KeyX")) basicAttack(p);
     else if (take("ArrowUp")) interact(p);
     else if (take("ArrowDown")) { const rv = objs.find((o) => o.kind === "reveal" && o.taken == null && o.t > 0.4 && Math.abs(o.x - p.x) < 18); if (rv) breakItem(rv);
@@ -1369,6 +1437,8 @@ function basicAttack(p) {
 function recallHelm() { player.headless = false; objs = objs.filter((o) => o.kind !== "helm"); }
 // ↑키: 떨어진 투구를 지금 쓴 투구와 바꾸거나, 문으로 다음 방에 간다
 function interact(p) {
+  const evo = objs.find((o) => o.kind === "event" && !o.used && Math.abs(o.x - p.x) < 20);
+  if (evo) { if (EVENTS[evo.ev].use(evo, p)) evo.used = true; return; }
   const ch = objs.find((o) => o.kind === "chest" && o.open < 0 && Math.abs(o.x - p.x) < 18);
   if (ch) { ch.open = 0; return; }
   const rv = objs.find((o) => o.kind === "reveal" && o.taken == null && o.t > 0.4 && Math.abs(o.x - p.x) < 18);
@@ -1405,7 +1475,7 @@ function interact(p) {
   if (door) { for (const o of objs) if (o.kind === "pickup") p.scrap += SCRAP_OF[o.grade ?? 0];
     for (const o of objs) if ((o.kind === "reveal" && o.taken == null) || (o.pick && !o.gone)) p.gold += itemScrapGold(o.item);   // 두고 간 아이템은 자동 분해
     for (const o of objs) if (o.kind === "coin" || o.kind === "loot") { if (o.scrap || o.look === "scrap") p.scrap += o.val; else p.gold += o.val; }   // 두고 가는 투구는 자동 분해
-    recallHelm(); pendingReward = REWARDS[door.reward].w || door.reward === "elite" ? door.reward : null; eliteRoom = door.reward === "elite"; p.gold = Math.max(0, p.gold - stat("roomTax")); room++; p.x = 40; p.dir = 1; whiteT = 0.1; startRoom(); }
+    recallHelm(); pendingReward = (REWARDS[door.reward].w && door.reward !== "event") || door.reward === "elite" ? door.reward : null; eliteRoom = door.reward === "elite"; eventRoom = door.reward === "event"; p.gold = Math.max(0, p.gold - stat("roomTax")); room++; p.x = 40; p.dir = 1; whiteT = 0.1; startRoom(); }
 }
 
 function drawPlayerSprite(p) {
@@ -1469,6 +1539,8 @@ function updateEnemy(e, dt) {
       for (const t of enemies) if (t !== e && live(t) && !(t.burn > 0) && Math.hypot(t.x - e.x, t.y - e.y) < 40) { t.burn = 6; t.burnT = 2; spark(t.x, t.y - 14, 0, -40, 0.4, RAMP_FIRE, true); }   // 옆 적에게 옮겨붙는다
       damage(e, Math.round(8 * (1 + stat("burnMult"))), { quiet: true }); if (e.dead) return; }
   }
+  if (e.poison > 0) { e.poison -= dt; e.poisonT -= dt; if (Math.random() < dt * 6) puff(e.x + rnd(-5, 5), e.y - rnd(4, 20), 0, -20, 0.4, "#7ad04a", 1.5);
+    if (e.poisonT <= 0) { e.poisonT += 0.5; damage(e, 3 * (cr("poison", 4) ? 2 : 1), { quiet: true }); if (e.dead) return; } }
   if (e.wound > 0) { e.wound -= dt; if (Math.random() < dt * 4) spark(e.x + rnd(-4, 4), e.y - rnd(6, 20), 0, 20, 0.3, ["#2a0808", "#8e2a2a", "#d8423a", "#ff7a6a", "#ffd0c8"]); }   // 상처: 5초 안에 또 걸리면 출혈
   if (e.frozen > 0) { e.frozen -= dt; return; }                  // 빙결: 행동 정지, 다음 피격 시 해제
   if (e.stun > 0) { e.stun -= dt; return; }
@@ -1551,6 +1623,12 @@ function updateObjs(dt) {
       o.age += dt; o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt;
       if (Math.abs(p.x - o.x) < 9 && o.y > p.y - 28 && o.y < p.y) { hurtPlayer(10, Math.sign(o.vx) || 1); o.gone = true; }
       else if (o.y >= groundAt(o.x, o.y - 8)) { o.gone = true; spawn({ kind: "fire", x: clamp(o.x, ROOM_L, ROOM_R), gy: groundAt(o.x, o.y - 8), life: 2 }); light(o.x, FLOOR - 6, 40, "#ffae35", 0.6, 0.25); }
+    } else if (o.kind === "wisp") {                              // 영혼 각인: 유령불이 가까운 적에게 날아간다
+      o.age += dt; const t = enemies.filter((x) => live(x)).sort((a, b) => Math.hypot(a.x - o.x, a.y - o.y) - Math.hypot(b.x - o.x, b.y - o.y))[0];
+      if (!t || o.age > 3) { o.gone = true; puff(o.x, o.y, 0, -20, 0.4, "#b08ae0", 2); }
+      else { const dx = t.x - o.x, dy = t.y - 14 - o.y, d = Math.hypot(dx, dy) || 1, sp = o.age < 0.25 ? 80 : 260; o.vx += (dx / d * sp - o.vx) * Math.min(1, 6 * dt); o.vy += (dy / d * sp - o.vy) * Math.min(1, 6 * dt); o.x += o.vx * dt; o.y += o.vy * dt;
+        if (Math.random() < 0.6) spark(o.x, o.y, -o.vx * 0.2, -o.vy * 0.2, 0.25, ["#1a0a2a", "#6a28a8", "#b08ae0", "#e0ccff", "#fff"], true);
+        if (d < 9) { o.gone = true; damage(t, o.dmg, { dir: Math.sign(dx) || 1, kb: 40, ramp: ["#1a0a2a", "#6a28a8", "#b08ae0", "#e0ccff", "#fff"], noProc: true, above: true }); } }
     } else if (o.kind === "coin") {                              // 금화·쇳조각: 튀어 오르고 굴러서 멈췄다가 가까우면 빨려 온다
       o.age += dt; const dx = p.x - o.x, dy = p.y - 12 - o.y, d = Math.hypot(dx, dy) || 1;
       if (o.age > 0.45 && (d < 50 || (phase === "clear" && o.age > 1))) { const sp = Math.min(320, 120 + o.age * 160); o.vx += (dx / d * sp - o.vx) * Math.min(1, 10 * dt); o.vy += (dy / d * sp - o.vy) * Math.min(1, 10 * dt); o.x += o.vx * dt; o.y += o.vy * dt; o.mag = true; }
@@ -1649,6 +1727,19 @@ function drawObjs(back) {
     } else if (o.kind === "torch") {
       world(o.x, o.y, () => { const a = o.age * 14; R(Math.cos(a) * -4 - 1, Math.sin(a) * -4 - 1, 3, 3, C.wood2); R(-1, -1, 3, 3, C.wood); flame(Math.cos(a) * 4, Math.sin(a) * 4 + 3, 2, 7, time, FIRE); });
       glow(o.x, o.y, 20, "#ffae35", 0.5);
+    } else if (o.kind === "event") {
+      const E2 = EVENTS[o.ev], dim = o.used; shadow(x, 14);
+      if (o.ev === "altar") { g.fillStyle = "#1d1c28"; g.fillRect(x - 12, FLOOR - 16, 24, 16); g.fillStyle = "#474658"; g.fillRect(x - 11, FLOOR - 15, 22, 14); g.fillStyle = "#6a6a7e"; g.fillRect(x - 12, FLOOR - 18, 24, 3);
+        g.fillStyle = dim ? "#4a1414" : "#8e2a2a"; g.fillRect(x - 8, FLOOR - 19, 16, 2); if (!dim) { g.fillStyle = "#d8423a"; for (let i = 0; i < 3; i++) g.fillRect(x - 6 + i * 6, FLOOR - 17 + ((time * 3 + i) % 3 | 0), 1, 3); } }
+      else if (o.ev === "gamble") { g.fillStyle = "#17131c"; g.fillRect(x - 7, FLOOR - 26, 14, 26); g.fillStyle = "#3a2a4a"; g.fillRect(x - 6, FLOOR - 25, 12, 24); g.fillStyle = "#5a3a6a"; g.fillRect(x - 6, FLOOR - 25, 12, 3);   // 두건 쓴 도박꾼
+        g.fillStyle = "#ffd24a"; g.fillRect(x - 3, FLOOR - 20, 2, 1); g.fillRect(x + 1, FLOOR - 20, 2, 1);
+        g.fillStyle = "#e8e0d0"; g.fillRect(x + 9, FLOOR - 6, 5, 5); g.fillRect(x + 15, FLOOR - 5, 4, 4); g.fillStyle = "#17131c"; g.fillRect(x + 11, FLOOR - 4, 1, 1); g.fillRect(x + 16, FLOOR - 3, 1, 1); }   // 주사위
+      else if (o.ev === "spring") { g.fillStyle = "#1d1c28"; g.fillRect(x - 14, FLOOR - 10, 28, 10); g.fillStyle = "#474658"; g.fillRect(x - 13, FLOOR - 9, 26, 8); g.fillStyle = dim ? "#2a3a5a" : "#2a6ab0"; g.fillRect(x - 11, FLOOR - 9, 22, 3);
+        if (!dim) { g.fillStyle = "#9bdcff"; g.fillRect(x - 9 + ((time * 8) % 18 | 0), FLOOR - 9, 2, 1); if (Math.random() < 0.2) spark(o.x + rnd(-8, 8), FLOOR - 10, 0, -30, 0.5, ["#0c1430", "#2a6ab0", "#63c8ea", "#d8f4ff", "#fff"], true); } }
+      else { for (const [cx, cy, w, h] of [[-12, -6, 9, 6], [-4, -12, 10, 12], [5, -7, 8, 7], [-8, -16, 6, 5]]) { g.fillStyle = "#1d1c28"; g.fillRect(x + cx, FLOOR + cy, w, h); g.fillStyle = dim ? "#3a3a48" : "#6a6a7e"; g.fillRect(x + cx + 1, FLOOR + cy + 1, w - 2, h - 2); } }
+      if (!dim) glow(o.x, FLOOR - 14, 26 + Math.sin(time * 3) * 3, E2.c, 0.4);
+    } else if (o.kind === "wisp") {
+      glow(o.x, o.y, 10, "#b08ae0", 0.7); g.fillStyle = "#6a28a8"; g.fillRect(x - 2, y - 2, 4, 4); g.fillStyle = "#e0ccff"; g.fillRect(x - 1, y - 1, 2, 2);
     } else if (o.kind === "coin") {
       const cy = y - 3;
       if (o.scrap) { const a = ((time * 6 + o.ph) | 0) % 2; g.fillStyle = SCRAPC[0]; g.fillRect(x - 2, cy - 2, 4, 4); g.fillStyle = a ? SCRAPC[3] : SCRAPC[2]; g.fillRect(x - 1, cy - 1, 2, 2); g.fillStyle = SCRAPC[4]; g.fillRect(x - 1 + a, cy - 1, 1, 1); }
@@ -1780,6 +1871,7 @@ function drawHudText() {                          // 글자는 화면 해상도�
   txt("←→ 이동   C 점프(2단)   Z 대시   X 공격   A·S 스킬   Space 투구 교체   ↑ 줍기·문·구매   ↓+C 발판 내려가기   ↓ 투구 분해   D 영혼   Tab 캐릭터 창   R 성채로", W / 2, H - 5, 11, "#d0c8dc", "center");
   for (const t of texts) txt(t.s, t.x - camX, t.y - camY, t.big ? 18 : 13, t.c, "center");
   for (const o of objs) {
+    if (o.kind === "event") { const E2 = EVENTS[o.ev]; txt(E2.name, o.x - camX, FLOOR - camY - 36, 11, o.used ? "#7d7590" : E2.c, "center"); if (!o.used && Math.abs(o.x - p.x) < 20) tip(E2.tip, o.x - camX, FLOOR - camY - 50, "#ffe27a"); }
     if (o.kind === "reveal" && o.taken == null && o.t > 0.4) { const it = o.item, gd = GRADES[it.grade]; txt(`${gd.name} ${it.name}`, o.x - camX, FLOOR - camY - 78, 11, gd.c, "center"); txt(it.desc, o.x - camX, FLOOR - camY - 68, 10, "#d0c8dc", "center");
       txt(it.crests.map((k) => CRESTS[k].name).join(" · "), o.x - camX, FLOOR - camY - 59, 10, CRESTS[it.crests[0]].c, "center");
       if (Math.abs(o.x - p.x) < 18) tip(`↑ 획득 · ↓ 분해(금화 ${itemScrapGold(it)})`, o.x - camX, FLOOR - camY - 92, "#ffe27a"); }
@@ -1939,8 +2031,12 @@ function drawMenu() {
   c.fillStyle = "rgba(14,11,20,0.9)"; c.fillRect(X, Y, PW, PH);
   // 왼쪽: 각인. 가진 개수와 2개·4개 효과(켜지면 밝게)
   col(X + 16, Y + 16, 204, PH - 32); head("각인", X + 118, Y + 40);
-  const emblem = (k, x, y, r) => { const d = r * 2 + 6; c.drawImage(engImg, Object.keys(CRESTS).indexOf(k) * 48, 0, 48, 48, Math.round(x - d / 2), Math.round(y - d / 2), d, d); };
-  Object.keys(CRESTS).forEach((k, i) => {
+  const emblem = (k, x, y, r) => { const ix = ["powder", "frost", "blood", "ghost", "gale", "gold"].indexOf(k), d = r * 2 + 6;
+    if (ix >= 0) c.drawImage(engImg, ix * 48, 0, 48, 48, Math.round(x - d / 2), Math.round(y - d / 2), d, d);
+    else { c.fillStyle = "#17131c"; c.beginPath(); c.arc(x, y, r + 2, 0, 7); c.fill(); c.fillStyle = CRESTS[k].c; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); t(CRESTS[k].name[0], x, y + 4, 11, "#17131c", "center"); } };
+  const shown = Object.keys(CRESTS).filter((k) => crestN(k) > 0).sort((a, b) => crestN(b) - crestN(a)).slice(0, 6);
+  if (!shown.length) t("아이템을 얻으면 각인이 생겨", X + 118, Y + 90, 11, "#7d7590", "center");
+  shown.forEach((k, i) => {
     const C2 = CRESTS[k], n = crestN(k), yy = Y + 66 + i * 56;
     if (n) { c.fillStyle = "rgba(255,255,255,0.04)"; c.fillRect(X + 22, yy - 14, 192, 58); }
     emblem(k, X + 40, yy + 1, 10); t(C2.name, X + 64, yy + 2, 14, n ? "#fff" : "#7d7590");
