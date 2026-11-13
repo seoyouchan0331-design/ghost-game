@@ -310,13 +310,31 @@ function golemAI(e, p, dx, ad) {
   else if (e.st === "stunned" || e.st === "roar") { if (e.t <= 0) setSt(e, "walk", T(1)); }
 }
 // 골렘 그림 (그림 boss1_parts가 오기 전 임시): 돌 덩어리를 쌓고 상태마다 주먹 위치를 바꾼다
+// 골렘 그림 조각 (boss1_parts → art/boss1/golem_cut.py). 지금 골렘 뼈대(다리·몸통·머리·어깨·팔·주먹 위치)에 조각을 끼워 그린다
+const GOLEM = {"head":[0,0,27,24],"towerB":[29,0,41,42],"towerF":[72,0,41,45],"torso":[115,0,68,43],"armB":[185,0,30,33],"armF":[217,0,28,33],"foreF":[247,0,32,56],"foreB":[281,0,34,51],"pelvis":[317,0,44,26],"legB":[363,0,50,51],"legF":[415,0,47,47],"core":[464,0,13,19]};
+const golImg = new Image(); golImg.src = "assets/golem.png";
+const golC = mk(260, 200), golG = golC.getContext("2d"), GOX = 130, GOY = 190;
+function drawGolemArt(e, bob, fx, fy) {
+  const c = golG, P = (k, x, y, ang = 0, sy = 1, ax = 0.5, ay = 0.5) => { const q = GOLEM[k]; c.save(); c.translate(GOX + x, GOY + y); c.rotate(ang); c.scale(1, sy); c.drawImage(golImg, q[0], q[1], q[2], q[3], -Math.round(q[2] * ax), -Math.round(q[3] * ay), q[2], q[3]); c.restore(); };
+  const limb = (k, x0, y0, x1, y1) => { const q = GOLEM[k], L = Math.hypot(x1 - x0, y1 - y0); P(k, x0, y0, Math.atan2(y1 - y0, x1 - x0) - Math.PI / 2, clamp(L / q[3], 0.75, 1.35), 0.5, 0); };
+  c.clearRect(0, 0, 260, 200); c.imageSmoothingEnabled = false;
+  const sB = [-30, -84 + bob], sF = [30, -84 + bob], fist = [fx, fy - bob + bob], eF = [sF[0] + (fist[0] - sF[0]) * 0.4, sF[1] + (fist[1] - sF[1]) * 0.4 + 6];
+  limb("armB", sB[0], sB[1], -38, -58 + bob); limb("foreB", -38, -62 + bob, -40, -14 + bob); P("towerB", -30, -96 + bob);   // 뒷팔과 뒤 어깨 탑
+  P("legB", -16, -24, 0, 1); P("legF", 18, -22, 0, 1); P("pelvis", 0, -46 + bob);                                       // 다리·골반
+  P("torso", 0, -72 + bob); P("head", 4, -104 + bob);                                                                    // 몸통·머리
+  limb("armF", sF[0], sF[1], eF[0], eF[1]); limb("foreF", eF[0], eF[1] - 4, fist[0], fist[1] + 14); P("towerF", 32, -96 + bob);   // 앞팔(주먹이 공격 위치로)
+  if (e.phase === 2) { c.globalCompositeOperation = "source-atop"; c.fillStyle = `rgba(255,70,30,${0.22 + 0.08 * Math.sin(time * 9)})`; c.fillRect(0, 0, 260, 200); c.globalCompositeOperation = "source-over"; }
+  if (e.flash > 0) { c.globalCompositeOperation = "source-atop"; c.fillStyle = "#fff"; c.fillRect(0, 0, 260, 200); c.globalCompositeOperation = "source-over"; }
+  g.save(); g.translate(Math.round(e.x), Math.round(e.y)); g.scale(e.dir, 1); g.drawImage(golC, -GOX, -GOY); g.restore();
+}
 function drawGolem(e) {
   const d = e.dir, fl = e.flash > 0, ph2 = e.phase === 2, st = e.st, tt = time;
   const col = (c) => (fl ? "#ffffff" : c), S = ["#3b3646", "#565063", "#736c80", "#938ba0"], MOSS = ["#3f6630", "#5f8a42"], CORE = "#ffae35";
   const rr = (x, y, w, h, c) => R(d > 0 ? x : -x - w, y, w, h, col(c)), ee = (x, y, rx, ry, c) => E(d * x, y, rx, ry, col(c));
   const bob = st === "stomp" || st === "stompWind" ? -3 + Math.round(Math.sin(tt * 30)) : st === "chargeWind" ? 8 : st === "stunned" ? 6 : st === "roar" ? Math.round(Math.sin(tt * 40) * 2) : Math.round(Math.sin(e.walkT * 6));
   const [fx, fy] = { slamWind: [24, -134], slam: [58, -14], fistRest: [58, -14], throwWind: [-26, -124], throw: [34, -100], chargeWind: [50, -34], charge: [52, -50], stunned: [44, -20] }[st] ?? [42, -40];
-  world(e.x, e.y, () => {
+  if (ready(golImg)) { drawGolemArt(e, bob, fx, fy); if (ph2) for (const sx of [-30, 32]) world(e.x, e.y, () => flame(d * sx, -112 + bob, 4, 12, tt + sx, FIRE)); }
+  else world(e.x, e.y, () => {
     rr(-28, -32, 22, 32, S[1]); rr(-28, -32, 22, 4, S[2]); rr(6, -32, 22, 32, S[0]); rr(6, -32, 22, 4, S[1]); rr(-30, -6, 26, 6, S[0]); rr(4, -6, 26, 6, S[0]);   // 다리
     at(0, bob, () => {
       ee(-34, -86, 15, 13, S[0]); for (let i = 0; i < 4; i++) ee(-40, -74 + i * 10, 9, 7, S[0]); ee(-40, -34, 15, 12, S[1]);   // 뒷팔
