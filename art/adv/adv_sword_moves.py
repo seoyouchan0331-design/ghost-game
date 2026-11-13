@@ -1,6 +1,7 @@
 # 검사 영상 3개(달리기·그로기+포션·점프 내려찍기)에서 프레임을 골라 assets/adv_sword_moves.png 로 만든다.
 # 베기 영상(adv_sword_anim.py)과 같은 크기(K=0.073, 70x70 칸, 발 34,58)로 맞춘다. 실행: python3 art/adv/adv_sword_moves.py (ffmpeg 필요)
-import subprocess, tempfile, json
+import subprocess, tempfile, json, sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from keying import key
 import numpy as np
 from PIL import Image
 K = 0.073; S = round(960 * K)
@@ -19,7 +20,7 @@ tmp = tempfile.mkdtemp(); out = Image.new("RGBA", (S * len(PICK), S)); anims = {
 for v, path in SRC.items(): subprocess.run(["ffmpeg", "-v", "error", "-i", path, f"{tmp}/{v}_%03d.png"], check=True)
 for j, (name, v, i, mode) in enumerate(PICK):
     a = np.asarray(Image.open(f"{tmp}/{v}_{i + 1:03d}.png").convert("RGB")).astype(int); bg = a[5, 5]
-    al = (np.abs(a - bg).sum(2) > 45).astype(np.uint8) * 255
+    al = key(a).astype(np.uint8) * 255
     dy = 796 - FEET[v]
     if mode == "head": hy = np.where((a[..., 0] > 150) & (a[..., 1] < 90) & (a[..., 2] < 90))[0]; dy = 250 - int(hy.min())
     dx = 523 - HAIRX[v]

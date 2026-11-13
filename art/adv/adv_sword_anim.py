@@ -1,6 +1,7 @@
 # 검사 베기 영상(art/adv/sword_slash_source.mp4, 960x960 24fps)에서 프레임 10장을 골라 assets/adv_sword_anim.png 로 만든다.
 # 실행: python3 art/adv/adv_sword_anim.py   (ffmpeg 필요)
-import subprocess, tempfile, os, json
+import subprocess, tempfile, os, json, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from keying import key
 import numpy as np
 from PIL import Image
 SRC = "art/adv/sword_slash_source.mp4"
@@ -12,7 +13,7 @@ subprocess.run(["ffmpeg", "-v", "error", "-i", SRC, f"{tmp}/a%03d.png"], check=T
 S = round(960 * K); out = Image.new("RGBA", (S * len(PICK), S))
 for j, i in enumerate(PICK):
     a = np.asarray(Image.open(f"{tmp}/a{i + 1:03d}.png").convert("RGB")).astype(int)
-    al = (np.abs(a - BG).sum(2) > 45).astype(np.uint8) * 255
+    al = key(a).astype(np.uint8) * 255
     im = Image.fromarray(np.dstack([a.astype(np.uint8), al]), "RGBA").resize((S, S), Image.BOX)
     s = np.asarray(im).copy(); s[..., 3] = np.where(s[..., 3] > 120, 255, 0)
     out.paste(Image.fromarray(s), (j * S, 0))

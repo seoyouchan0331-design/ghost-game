@@ -1636,7 +1636,7 @@ function updateEnemy(e, dt) {
   e.type.ai(e, player, dx, Math.abs(dx));
 }
 // 1챕터 적 그림 (Higgsfield → art/enemies/enemies_cut.py): 줄마다 대기·걷기·준비·공격 4자세, 기준점 = 발 가운데
-const ENSPR = {"militia":{"w":42,"h":32,"ax":16,"ay":32,"y":0},"torch":{"w":42,"h":37,"ax":14,"ay":37,"y":32},"shield":{"w":39,"h":32,"ax":18,"ay":32,"y":69},"hound":{"w":38,"h":18,"ax":14,"ay":18,"y":101}};
+const ENSPR = {"militia":{"w":42,"h":32,"ax":16,"ay":32,"y":0},"torch":{"w":43,"h":37,"ax":14,"ay":37,"y":32},"shield":{"w":39,"h":32,"ax":18,"ay":32,"y":69},"hound":{"w":38,"h":18,"ax":14,"ay":18,"y":101}};
 const enImg = new Image(); enImg.src = "assets/enemies.png";
 const enC = mk(SP, SP), enG = enC.getContext("2d");
 function drawEnemyArt(e) {
