@@ -645,35 +645,35 @@ const ITEMS = [
   ["용병 계약서", 2, "공격력 +25%, 방에 들어갈 때마다 골드 -10", { atk: 0.25, roomTax: 10 }, ["gold", "powder"]],
   ["얼어붙은 심장", 2, "빙결된 적 처치 시 주변 적도 빙결", { frozenChain: 1 }, ["frost", "frost"]],
   ["망령의 왕관", 2, "투구 교체 후 3초간 공격력 +30%", { swapAtk: 0.3 }, ["ghost", "blood"]],
-  // 전설 (3): 붉은 문 보상·상자에서 드물게. 아이콘은 전용 그림이 오기 전까지 비슷한 것을 빌려 쓴다
-  ["부러진 용사의 검", 3, "공격력 +35%, 치명타 확률 +10%", { atk: 0.35, crit: 0.1 }, ["blood", "powder"], 2],
-  ["유령왕의 사슬관", 3, "투구 교체 쿨타임 -40%, 교체 후 3초간 공격력 +30%", { swapCd: 0.4, swapAtk: 0.3 }, ["ghost", "ghost"], 19],
-  ["폭풍의 깃털", 3, "이동 속도 +20%, 대시 +1회, 공격 속도 +15%", { speed: 0.2, dashPlus: 1, aspd: 0.15 }, ["gale", "gale"], 6],
-  // 아이템 21~40 (새 각인 6개). 아이콘은 [items_2] 그림이 오기 전까지 비슷한 것을 빌려 쓴다
-  ["독니 단검", 0, "치명타 확률 +5%", { crit: 0.05 }, ["poison", "blood"], 2],
-  ["독약병", 0, "스킬 피해 +10%", { skill: 0.1 }, ["poison", "powder"], 5],
-  ["번개 구리 반지", 0, "공격 속도 +8%", { aspd: 0.08 }, ["thunder", "clock"], 8],
-  ["천둥 북", 1, "스킬 1 쿨타임 -15%", { cd1: 0.15 }, ["thunder", "powder"], 12],
-  ["탑 방패 휘장", 0, "최대 체력 +20", { hp: 20 }, ["iron", "ghost"], 3],
-  ["가시 팔목 보호대", 1, "받는 피해 -10%, 물리 공격력 +10%", { dmgTaken: -0.1, phys: 0.1 }, ["iron", "blood"], 10],
-  ["사냥꾼의 외눈 안경", 1, "치명타 확률 +8%", { crit: 0.08 }, ["hunt", "thunder"], 12],
-  ["숫돌", 0, "기본 공격 피해 +12%", { basic: 0.12 }, ["hunt", "iron"], 0],
-  ["뼈 종", 1, "적 처치 시 체력 1, 마법 공격력 +10%", { killHeal: 1, magic: 0.1 }, ["soul", "ghost"], 9],
-  ["떠도는 영혼 단지", 0, "마법 공격력 +10%", { magic: 0.1 }, ["soul", "frost"], 9],
-  ["금 간 왕관", 1, "공격력 +12%, 획득 골드 -15%", { atk: 0.12, gold: -0.15 }, ["iron", "gold"], 19],
-  ["아홉 검은 동전", 1, "획득 골드 +20%", { gold: 0.2 }, ["gold", "thunder"], 4],
-  ["손바닥 눈 부적", 0, "치명타 확률 +4%, 이동 속도 +5%", { crit: 0.04, speed: 0.05 }, ["hunt", "poison"], 15],
-  ["황금 모래시계", 2, "모든 스킬 쿨타임 -15%", { cdAll: 0.15 }, ["clock", "gale"], 14],
-  ["유령 등불", 1, "투구 교체 쿨타임 -15%", { swapCd: 0.15 }, ["ghost", "clock"], 13],
-  ["흡혈귀 성배", 2, "적 처치 시 체력 3", { killHeal: 3 }, ["blood", "hunt"], 15],
-  ["불사조 깃털", 3, "공격력 +20%, 화상 피해 +100%", { atk: 0.2, burnMult: 1 }, ["powder", "soul"], 16],
-  ["얼어붙은 용 비늘", 3, "최대 체력 +40, 받는 피해 -15%", { hp: 40, dmgTaken: -0.15 }, ["frost", "iron"], 11],
-  ["검은 거울", 4, "스킬 피해 +40%, 최대 체력 -20", { skill: 0.4, hp: -20 }, ["soul", "poison"], 11],
-  ["멈춘 회중시계", 4, "모든 스킬 쿨타임 -30%, 이동 속도 -15%", { cdAll: 0.3, speed: -0.15 }, ["clock", "frost"], 14],
+  // 전설 (3): 붉은 문 보상·상자에서 드물게. 아이콘 40~45 = [items_lc]
+  ["부러진 용사의 검", 3, "공격력 +35%, 치명타 확률 +10%", { atk: 0.35, crit: 0.1 }, ["blood", "powder"], 40],
+  ["유령왕의 사슬관", 3, "투구 교체 쿨타임 -40%, 교체 후 3초간 공격력 +30%", { swapCd: 0.4, swapAtk: 0.3 }, ["ghost", "ghost"], 41],
+  ["폭풍의 깃털", 3, "이동 속도 +20%, 대시 +1회, 공격 속도 +15%", { speed: 0.2, dashPlus: 1, aspd: 0.15 }, ["gale", "gale"], 42],
+  // 아이템 21~40 (새 각인 6개). 아이콘 20~39 = [items_2] 시트 순서
+  ["독니 단검", 0, "치명타 확률 +5%", { crit: 0.05 }, ["poison", "blood"], 20],
+  ["독약병", 0, "스킬 피해 +10%", { skill: 0.1 }, ["poison", "powder"], 21],
+  ["번개 구리 반지", 0, "공격 속도 +8%", { aspd: 0.08 }, ["thunder", "clock"], 22],
+  ["천둥 북", 1, "스킬 1 쿨타임 -15%", { cd1: 0.15 }, ["thunder", "powder"], 23],
+  ["탑 방패 휘장", 0, "최대 체력 +20", { hp: 20 }, ["iron", "ghost"], 24],
+  ["가시 팔목 보호대", 1, "받는 피해 -10%, 물리 공격력 +10%", { dmgTaken: -0.1, phys: 0.1 }, ["iron", "blood"], 25],
+  ["사냥꾼의 외눈 안경", 1, "치명타 확률 +8%", { crit: 0.08 }, ["hunt", "thunder"], 26],
+  ["숫돌", 0, "기본 공격 피해 +12%", { basic: 0.12 }, ["hunt", "iron"], 27],
+  ["뼈 종", 1, "적 처치 시 체력 1, 마법 공격력 +10%", { killHeal: 1, magic: 0.1 }, ["soul", "ghost"], 28],
+  ["떠도는 영혼 단지", 0, "마법 공격력 +10%", { magic: 0.1 }, ["soul", "frost"], 29],
+  ["금 간 왕관", 1, "공격력 +12%, 획득 골드 -15%", { atk: 0.12, gold: -0.15 }, ["iron", "gold"], 31],
+  ["아홉 검은 동전", 1, "획득 골드 +20%", { gold: 0.2 }, ["gold", "thunder"], 32],
+  ["손바닥 눈 부적", 0, "치명타 확률 +4%, 이동 속도 +5%", { crit: 0.04, speed: 0.05 }, ["hunt", "poison"], 33],
+  ["황금 모래시계", 2, "모든 스킬 쿨타임 -15%", { cdAll: 0.15 }, ["clock", "gale"], 38],
+  ["유령 등불", 1, "투구 교체 쿨타임 -15%", { swapCd: 0.15 }, ["ghost", "clock"], 39],
+  ["흡혈귀 성배", 2, "적 처치 시 체력 3", { killHeal: 3 }, ["blood", "hunt"], 37],
+  ["불사조 깃털", 3, "공격력 +20%, 화상 피해 +100%", { atk: 0.2, burnMult: 1 }, ["powder", "soul"], 35],
+  ["얼어붙은 용 비늘", 3, "최대 체력 +40, 받는 피해 -15%", { hp: 40, dmgTaken: -0.15 }, ["frost", "iron"], 36],
+  ["검은 거울", 4, "스킬 피해 +40%, 최대 체력 -20", { skill: 0.4, hp: -20 }, ["soul", "poison"], 30],
+  ["멈춘 회중시계", 4, "모든 스킬 쿨타임 -30%, 이동 속도 -15%", { cdAll: 0.3, speed: -0.15 }, ["clock", "frost"], 34],
   // 저주 (4): 강하지만 대가가 있다. 암시장 저주 노점에서 싸게 판다
-  ["굶주린 칼날", 4, "공격력 +50%, 받는 피해 +40%", { atk: 0.5, dmgTaken: 0.4 }, ["blood", "blood"], 7],
-  ["금이 간 해골잔", 4, "공격 속도 +30%, 최대 체력 -30", { aspd: 0.3, hp: -30 }, ["ghost", "frost"], 9],
-  ["탐욕의 금니", 4, "획득 골드 +60%, 상점 가격 +25%", { gold: 0.6, shopDisc: -0.25 }, ["gold", "gold"], 4],
+  ["굶주린 칼날", 4, "공격력 +50%, 받는 피해 +40%", { atk: 0.5, dmgTaken: 0.4 }, ["blood", "blood"], 43],
+  ["금이 간 해골잔", 4, "공격 속도 +30%, 최대 체력 -30", { aspd: 0.3, hp: -30 }, ["ghost", "frost"], 44],
+  ["탐욕의 금니", 4, "획득 골드 +60%, 상점 가격 +25%", { gold: 0.6, shopDisc: -0.25 }, ["gold", "gold"], 45],
 ].map(([name, grade, desc, mod, crests, icon], i) => ({ name, grade, desc, mod, crests, icon: icon ?? i }));
 const normalItems = () => freeItems().filter((x) => x.grade <= 2);
 const GRADES = [{ name: "녹슨", c: "#c9783a", price: 80, w: 70 }, { name: "단련된", c: "#8ec5ff", price: 150, w: 25 }, { name: "명품", c: "#ffd24a", price: 250, w: 5 }, { name: "전설", c: "#ff6a3a", price: 400, w: 0 }, { name: "저주", c: "#b45ae8", price: 90, w: 0 }];
@@ -695,7 +695,7 @@ const CRESTS = {
 const doorImg = new Image(); doorImg.src = "assets/doors.png";           // 문 8종, 한 칸 44x56
 const DOOR_IDX = { gold: 0, chest: 1, helm: 2, scrap: 3, shop: 4, rest: 5, midboss: 6, boss: 7, elite: 6, event: 5 };
 const DOOR_GLOW = { gold: "#ffd24a", chest: "#ff9a3a", helm: "#63c8ea", scrap: "#b0a8ba", shop: "#ffae35", rest: "#5fe0a0", midboss: "#d8423a", boss: "#ff7a2a", elite: "#ff5a4a", event: "#b08ae0" };
-const engImg = new Image(); engImg.src = "assets/engraves.png";          // 각인 6개, 48px, CRESTS 순서
+const engImg = new Image(); engImg.src = "assets/engraves.png";          // 각인 12개, 48px (순서는 emblem()의 목록)
 const panelImg = new Image(); panelImg.src = "assets/panels.png";       // 글씨 판. 좌표는 art/ui2/ui2_cut.py가 뽑아 준 값
 const PANELS = {"window":[0,0,248,379],"header":[250,0,331,49],"nameplate":[583,0,164,43],"banner":[749,0,342,62],"tooltip":[1093,0,233,81],"slot":[1328,0,63,64],"slotOn":[1393,0,75,78],"gradeR":[1470,0,62,64],"gradeT":[1534,0,62,65],"gradeL":[1598,0,62,65]};
 // 한글 도트 폰트: 갈무리11 굵은체 (OFL, assets/fonts). 11의 배수 크기에서 가장 또렷하다
@@ -849,6 +849,7 @@ const CH1 = {"bg_a":[601,340],"bg_b":[601,340],"front":[480,270],"terrain":{"fil
 const ch1Img = {}; for (const k of ["bg_a", "bg_b", "front", "terrain", "props"]) { ch1Img[k] = new Image(); ch1Img[k].onload = () => { if (L) buildTerrain(); }; ch1Img[k].src = `assets/ch1_${k}.png`; }
 // 성채 로비 그림 (Higgsfield → art/castle/castle_cut.py)
 const CASTLE = {"bg":[609,340],"sky":"#312f56","front":[480,270],"terrain":{"fill":[0,0,64,64],"back":[66,0,64,64],"top":[132,0,100,22],"under":[234,0,57,18],"plank":[293,0,52,12],"side":[347,0,12,46]},"props":{"gate":[0,0,50,60],"altar":[52,0,27,18],"helmrack":[81,0,34,26],"dummy":[117,0,25,36],"armor":[144,0,19,36],"helmpile":[165,0,20,16],"candles":[187,0,18,20],"statue":[207,0,22,30],"banner":[231,0,27,48],"chandelier":[260,0,30,36],"bench":[292,0,18,12],"pedestal":[312,0,12,16]}};
+const elderImg = new Image(); elderImg.src = "assets/elder.png"; const elderPortrait = new Image(); elderPortrait.src = "assets/elder_portrait.png";
 const castleImg = {}; for (const k of ["bg", "front", "terrain", "props"]) { castleImg[k] = new Image(); castleImg[k].onload = () => { if (L && inLobby) buildTerrain(); }; castleImg[k].src = `assets/castle_${k}.png`; }
 const ready = (im) => im.complete && im.naturalWidth > 0;
 // 방에 들어갈 때 지형을 한 번 그려 둔다: 질감으로 땅을 채우고, 드러난 윗면·아랫면·옆면에 띠를 두르고, 소품을 놓는다
@@ -963,6 +964,7 @@ function drawCastle() {
   c.fillStyle = "rgba(8,10,20,0.62)"; c.fillRect(0, 0, 960, 540);
   const t = (s2, x, y, size = 11, col = "#e4def0", al = "left") => { c.font = `${fs(size)}px ${FONT}`; c.textAlign = al; c.lineWidth = 3; c.lineJoin = "round"; c.strokeStyle = "#0e0b14"; c.strokeText(s2, x, y); c.fillStyle = col; c.fillText(s2, x, y); };
   pan("banner", 480 - 200, 18, 400, 62); t("성채", 480, 58, 22, "#ffe27a", "center");
+  if (ready(elderPortrait)) { c.drawImage(elderPortrait, 24, 6, Math.round(elderPortrait.width * 1.4), Math.round(elderPortrait.height * 1.4)); }   // 늙은 망령 초상
   t(`영혼석 ${meta.stones}`, 930, 50, 22, "#9be8ff", "right");
   t("늙은 망령: 영혼석을 바치면 갑옷이 기억을 되찾지. 갈래마다 앞 칸부터 열린다네.", 480, 106, 11, "#b8d8e0", "center");
   TREES.forEach((tr, ti) => {
@@ -1607,7 +1609,24 @@ function updateEnemy(e, dt) {
   if (e.type.mid && advCommon(e, dx)) return;
   e.type.ai(e, player, dx, Math.abs(dx));
 }
+// 1챕터 적 그림 (Higgsfield → art/enemies/enemies_cut.py): 줄마다 대기·걷기·준비·공격 4자세, 기준점 = 발 가운데
+const ENSPR = {"militia":{"w":42,"h":32,"ax":16,"ay":32,"y":0},"torch":{"w":42,"h":37,"ax":14,"ay":37,"y":32},"shield":{"w":39,"h":32,"ax":18,"ay":32,"y":69},"hound":{"w":38,"h":18,"ax":14,"ay":18,"y":101}};
+const enImg = new Image(); enImg.src = "assets/enemies.png";
+const enC = mk(SP, SP), enG = enC.getContext("2d");
+function drawEnemyArt(e) {
+  const q = ENSPR[e.id]; if (!q || !ready(enImg)) return false;
+  if (e.walkT !== e.lastWT) { e.lastWT = e.walkT; e.movedAt = time; }
+  const moving = time - (e.movedAt ?? -9) < 0.1, f = e.st === "windup" ? 2 : e.st === "attack" ? 3 : moving ? (Math.floor(e.walkT * 6) % 2 ? 1 : 0) : 0;
+  const bob = moving && f === 0 ? -1 : 0, c = enG; c.clearRect(0, 0, SP, SP); c.imageSmoothingEnabled = false;
+  c.drawImage(enImg, f * q.w, q.y, q.w, q.h, SX - q.ax, SY - q.ay + bob, q.w, q.h);
+  const t0 = T; T = c; if (e.st === "windup") exclaim(0, -q.ay - 6);
+  if (e.stun > 0) for (let i = 0; i < 3; i++) { const a = time * 7 + i * 2.1; R(Math.cos(a) * 7, -q.ay - 4 + Math.sin(a) * 2, 2, 2, "#ffe27a"); } T = t0;
+  if (e.frozen > 0) { c.globalCompositeOperation = "source-atop"; c.fillStyle = "rgba(150,215,255,0.55)"; c.fillRect(0, 0, SP, SP); c.globalCompositeOperation = "source-over"; }
+  if (e.flash > 0 || e.dead) { c.globalCompositeOperation = "source-atop"; c.fillStyle = "#fff"; c.fillRect(0, 0, SP, SP); c.globalCompositeOperation = "source-over"; }
+  return true;
+}
 function drawEnemySprite(e) {
+  if (ENSPR[e.id] && drawEnemyArt(e)) return enC;
   if (e.type.spr && drawAdvSprite(e)) return advC;
   begin(); e.type.draw(e); outline();
   if (e.stun > 0) for (let i = 0; i < 3; i++) { const a = time * 7 + i * 2.1; R(Math.cos(a) * 7, (e.type.low ? -22 : -38) + Math.sin(a) * 2, 2, 2, "#ffe27a"); }
@@ -1799,7 +1818,10 @@ function drawObjs(back) {
         if (!dim) { g.fillStyle = "#9bdcff"; g.fillRect(x - 9 + ((time * 8) % 18 | 0), FLOOR - 9, 2, 1); if (Math.random() < 0.2) spark(o.x + rnd(-8, 8), FLOOR - 10, 0, -30, 0.5, ["#0c1430", "#2a6ab0", "#63c8ea", "#d8f4ff", "#fff"], true); } }
       else { for (const [cx, cy, w, h] of [[-12, -6, 9, 6], [-4, -12, 10, 12], [5, -7, 8, 7], [-8, -16, 6, 5]]) { g.fillStyle = "#1d1c28"; g.fillRect(x + cx, FLOOR + cy, w, h); g.fillStyle = dim ? "#3a3a48" : "#6a6a7e"; g.fillRect(x + cx + 1, FLOOR + cy + 1, w - 2, h - 2); } }
       if (!dim) glow(o.x, FLOOR - 14, 26 + Math.sin(time * 3) * 3, E2.c, 0.4);
-    } else if (o.kind === "elder") {                            // 늙은 망령 (그림 castle_*이 오면 교체)
+    } else if (o.kind === "elder" && ready(elderImg)) {         // 늙은 망령 (castle_npc): 둥실 떠 있다
+      const b = Math.round(Math.sin(time * 2) * 2); glow(o.x, FLOOR - 24 + b, 28, "#63e8d0", 0.45); g.fillStyle = "rgba(8,4,14,0.3)"; g.fillRect(x - 8, FLOOR, 16, 2);
+      g.drawImage(elderImg, x - Math.round(elderImg.width / 2), FLOOR - elderImg.height - 4 + b); glow(o.x + 8, FLOOR - 22 + b, 10, "#63e8d0", 0.6);
+    } else if (o.kind === "elder") {                            // 늙은 망령 (그림을 불러오는 동안)
       const b = Math.round(Math.sin(time * 2) * 2); shadow(x, 8); glow(o.x, FLOOR - 24 + b, 26, "#63c8ea", 0.45);
       g.fillStyle = "#0c1430"; g.fillRect(x - 8, FLOOR - 34 + b, 16, 30); g.fillStyle = "#1d3a6a"; g.fillRect(x - 7, FLOOR - 33 + b, 14, 26); g.fillStyle = "#2a58aa"; g.fillRect(x - 7, FLOOR - 33 + b, 14, 4);   // 두건 쓴 망토
       for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? "#1d3a6a" : "#2a58aa"; g.fillRect(x - 7 + i * 4, FLOOR - 7 + b + ((time * 4 + i) % 2 | 0), 3, 3); }   // 흩날리는 끝자락
@@ -2136,7 +2158,7 @@ function drawMenu() {
   c.fillStyle = "rgba(14,11,20,0.9)"; c.fillRect(X, Y, PW, PH);
   // 왼쪽: 각인. 가진 개수와 2개·4개 효과(켜지면 밝게)
   col(X + 16, Y + 16, 204, PH - 32); head("각인", X + 118, Y + 40);
-  const emblem = (k, x, y, r) => { const ix = ["powder", "frost", "blood", "ghost", "gale", "gold"].indexOf(k), d = r * 2 + 6;
+  const emblem = (k, x, y, r) => { const ix = ["powder", "frost", "blood", "ghost", "gale", "gold", "poison", "thunder", "iron", "hunt", "soul", "clock"].indexOf(k), d = r * 2 + 6;
     if (ix >= 0) c.drawImage(engImg, ix * 48, 0, 48, 48, Math.round(x - d / 2), Math.round(y - d / 2), d, d);
     else { c.fillStyle = "#17131c"; c.beginPath(); c.arc(x, y, r + 2, 0, 7); c.fill(); c.fillStyle = CRESTS[k].c; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); t(CRESTS[k].name[0], x, y + 4, 11, "#17131c", "center"); } };
   const shown = Object.keys(CRESTS).filter((k) => crestN(k) > 0).sort((a, b) => crestN(b) - crestN(a)).slice(0, 6);

@@ -20,7 +20,7 @@ def strip(ps, name, cw, ch):
     for i, p in enumerate(ps): im.paste(p, (i * cw + (cw - p.width) // 2, ch - p.height))
     im.save(f"../../assets/{name}.png")
 strip(grid("doors_source.png", 4, 2, (44, 56)), "doors", 44, 56)
-strip(grid("engraves_source.png", 3, 2, (48, 48)), "engraves", 48, 48)
+strip(grid("engraves_source.png", 3, 2, (48, 48)) + grid("engraves2_source.png", 3, 2, (48, 48)), "engraves", 48, 48)   # 각인 12개: 화약·서리·피·유령·질풍·황금 + 독·번개·철벽·사냥·영혼·시계
 a, m = load("panels_source.png")
 lab, n = ndimage.label(ndimage.binary_dilation(m, iterations=6))
 boxes = [s for s in ndimage.find_objects(lab) if (s[0].stop - s[0].start) * (s[1].stop - s[1].start) > 5000]
