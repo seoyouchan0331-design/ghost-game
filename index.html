@@ -363,13 +363,14 @@ function swordFrame(e) {
   else { if (h < 0.05) return 5; if (h < 0.09) return 6; if (h < 0.14) return 7; }
   if (/Wind$/.test(S) || S === "charge") return 1 + Math.min(3, Math.floor((1 - e.t / (e.tMax || 1)) * 4));
   if (S === "mirror" || S === "jumpAtk" || S === "u_beam") return 4;
+  if (S === "u_dash" && h > 0.2) return h > 0.32 ? 3 : 2;
   if (S === "dash" || S === "thrust" || S === "u_dash" || S === "combo" || S === "waves" || S === "vacuum") return 8;
   if (S === "walk") return h < 0.4 ? 8 : h < 0.7 ? 9 : 0;
   return 0;
 }
 function drawAdvSprite(e) {
   const q = ADV_SPR[e.id]; if (!q || !ready(advImg)) return false;
-  const wind = /Wind$/.test(e.st) || e.st === "aim" || e.st === "cast" || e.st === "charge", atk = /^(combo|dash|shoot|thrust|waves|u_dash|jumpAtk|vacuum)$/.test(e.st);
+  const wind = /Wind$/.test(e.st) || e.st === "aim" || e.st === "cast" || e.st === "charge" || (e.st === "u_dash" && time - (e.hitAt ?? -9) > 0.2 && e.n < 4), atk = /^(combo|dash|shoot|thrust|waves|u_dash|jumpAtk|vacuum)$/.test(e.st);
   const ang = wind ? -0.13 : atk ? 0.15 : e.st === "flip" ? -0.45 : 0, bob = e.st === "walk" && Math.abs(Math.sin(e.walkT * 9)) > 0.5 ? -1 : 0;
   const sq = e.st === "walk" ? 1 + Math.sin(e.walkT * 18) * 0.03 : wind ? 0.96 : 1;
   const c = advG; c.clearRect(0, 0, SP, SP); c.imageSmoothingEnabled = false;
@@ -451,7 +452,7 @@ function slam(x, r, dmg) {
 }
 const ADV = {
   adv_sword: { name: "견습 검사", hp: 220, speed: 62, mid: true, spr: true, ultName: "용사의 검기",
-    ult(e) { e.n = 0; e.dashing = false; if (e.awake) setSt(e, "u_dash", 0.3); else setSt(e, "u_wave", 0.5); },
+    ult(e) { e.n = 0; e.hitAt = time; if (e.awake) setSt(e, "u_dash", 0.5); else setSt(e, "u_wave", 0.5); },
     ai(e, p, dx, ad) {
       const A = e.awake, S = e.st;
       if (S === "walk") { advFace(e, dx); if (ad > 36) walkTo(e, dx, 0.8); if (e.t <= 0) { e.pat = swordPick(e, ad); e.n = 0; setSt(e, e.pat + "Wind", A && e.pat === "orb" ? 0.8 : SWORD_WIND[e.pat]); } return; }
@@ -490,11 +491,9 @@ const ADV = {
         if (e.airT > 0.1 && e.vy >= 0 && e.y >= (e.gy ?? FLOOR) - 0.5) { e.slamAt = time; slam(e.x, 40, 16); [-60, -30, 30, 60].forEach((o, i) => strike(clamp(e.x + o, ROOM_L, ROOM_R), 0.3 + (Math.abs(o) > 30 ? 0.25 : 0), 10, 14, "#63c8ea")); setSt(e, "walk", 1.2); } }
       else if (S === "vacuum") { if (e.t <= 0) { swave(e, true, 6, "#d8f4ff"); setSt(e, "walk", 1.3); } }
       else if (S === "u_wave") { if (e.t <= 0) { advFace(e, dx); swave(e, true, 9); hitstop = 0.06; advGroggy(e, GROGGY); } }
-      else if (S === "u_dash") {                                  // 각성 필살기: 양 끝에서 번갈아 돌진 베기 4번 → 푸른 광선
-        if (!e.dashing) { if (e.t <= 0) { const L2 = e.n % 2 === 0; e.x = L2 ? e.minX : e.maxX; e.dir = L2 ? 1 : -1; e.dashing = true; e.did = false; fxRing(e.x, e.y - 14, 16, BLUE); } }
-        else { e.x = clamp(e.x + e.dir * 560 * STEP, e.minX, e.maxX); spark(e.x - e.dir * 10, e.y - rnd(4, 26), -e.dir * 120, 0, 0.25, BLUE, true);
-          if (!e.did && hitsPlayer(e, -10, 20)) { e.did = true; hurtPlayer(14, e.dir); }
-          if (e.dir > 0 ? e.x >= e.maxX - 1 : e.x <= e.minX + 1) { e.dashing = false; e.n++; e.t = 0.3; if (e.n >= 4) setSt(e, "u_beam", 0.4); } } }
+      else if (S === "u_dash") {                                  // 각성 필살기: 순간이동 베기 4번 (매번 플레이어 너머로, 방향을 바꿔 가며) → 푸른 광선
+        riftHit(e);
+        if (e.t <= 0) { if (e.n >= 4) setSt(e, "u_beam", 0.4); else { advFace(e, dx); blink(e, 14); e.n++; e.t = e.n >= 4 ? 0.5 : 0.42; } } }
       else if (S === "u_beam") { if (e.t <= 0) { slam(e.x, 30, 10); strike(clamp(p.x, ROOM_L, ROOM_R), 0.9, 30, 40, "#63c8ea", { big: true }); advGroggy(e, GROGGY); } }
       else setSt(e, "walk", 0.5);
     },
