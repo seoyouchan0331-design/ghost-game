@@ -1526,7 +1526,7 @@ function updatePlayer(dt) {
     if (keys.ArrowDown && p.ground && tileAt(p.x, p.y + 2) === "=" && take("KeyC")) { p.dropT = 0.25; p.ground = false; }   // ↓+점프: 발판 아래로
     else if (take("KeyC") && p.jumps > 0) { p.vy = BASE.jumpV * (p.jumps === BASE.jumps ? 1 : 0.9); if (!p.ground) fxRing(p.x, p.y, 12, RAMP_GHOST); else dust(p.x, p.y, 0, 3); p.jumps--; p.ground = false; }
     if (take("KeyA") && cds[0] <= 0) { cds[0] = clockReset(skillCd(helm, 0)); p.src = "skill"; helm.skills[0].use(p); }
-    else if (take("KeyS") && sLocked(helm.id)) banner = { s: "두 번째 스킬은 명품부터 (대장장이에게 각성)", t: 1.4 };
+    else if (sLocked(helm.id) && take("KeyS")) banner = { s: "두 번째 스킬은 명품부터 (대장장이에게 각성)", t: 1.4 };
     else if (!sLocked(helm.id) && take("KeyS") && cds[1] <= 0) { cds[1] = clockReset(skillCd(helm, 1)); p.src = "skill"; helm.skills[1].use(p); }
     else if (take("KeyX")) basicAttack(p);
     else if (take("ArrowUp")) interact(p);
