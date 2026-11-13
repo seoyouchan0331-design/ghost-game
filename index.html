@@ -288,9 +288,13 @@ function giantHand(e, i, x, y, pose) { const h = e.hands[i]; h.tx = x; h.ty = y;
 // 포효 영상 프레임 (art/boss1/video_cut.py, 기본 몸통 기준). 등장 때와 2페이즈로 바뀔 때 튼다
 const ROARV = {"w": 387, "h": 221, "cols": 5, "n": 44, "fps": 10, "ax": 193, "ay": 213}, ROAR_LEN = ROARV.n / ROARV.fps, ROAR2_RATE = 1.4;
 const roarImg = new Image(); roarImg.src = "assets/giant_roar.png";
+// 효과음 (영상에서 뽑은 소리: assets/sfx). M 키로 끄고 켠다
+const SFX = {}; for (const k of ["golem_roar", "golem_collapse"]) { try { SFX[k] = new Audio(`assets/sfx/${k}.mp3`); SFX[k].preload = "auto"; } catch (err) {} }
+let muted = false;
+function sfx(k, rate = 1, vol = 0.8) { const a = SFX[k]; if (!a || muted) return; try { a.pause(); a.currentTime = 0; a.playbackRate = rate; a.volume = vol; const pr = a.play(); if (pr) pr.catch(() => {}); } catch (err) {} }
 function giantAI(e, p) {
   const ph2 = e.phase === 2, k = ph2 ? 1.3 : 1, H = e.hands, cx = e.cx;
-  if (e.st === "intro" && !e.introVid && e.t <= ROAR_LEN && ready(roarImg)) { e.introVid = true; e.vid = { t: 0, rate: 1 }; }
+  if (e.st === "intro" && !e.introVid && e.t <= ROAR_LEN && ready(roarImg)) { e.introVid = true; e.vid = { t: 0, rate: 1 }; sfx("golem_roar"); }
   if (e.vid) { e.vid.t += STEP * e.vid.rate; const vf = e.vid.t * ROARV.fps;
     if (!e.vid.boom && vf > 14) { e.vid.boom = true; shake(7, 1.2); const c0 = giantCore(e); fxShock(c0.x, FLOOR, 160, RAMP_FIRE); light(c0.x, c0.y, 140, "#ffae35", 0.9, 0.8); }   // 영상 속 충격파와 맞춰 화면 흔들림
     if (vf >= ROARV.n) { e.vid = null; if (ph2) { whiteT = Math.max(whiteT, 0.15); const c0 = giantCore(e); flashes.push({ kind: "burst", x: c0.x, y: c0.y, r: 40, t: 0, ramp: RAMP_FIRE }); fxRing(c0.x, c0.y, 60, RAMP_FIRE); shake(6, 0.4); } } }
@@ -298,7 +302,7 @@ function giantAI(e, p) {
   e.sink += ((e.st === "groggy" ? 78 : e.lean > 0 ? 42 : e.st === "roar" && !e.vid ? -6 : 0) - e.sink) * Math.min(1, STEP * 4); if (e.lean > 0) e.lean -= STEP;
   const c = giantCore(e); e.x = c.x; e.gy = e.y = c.y + 28; e.minX = e.maxX = c.x; e.groggy = e.st === "groggy";
   e.fist = null; for (const h of H) if (h.rest > 0) { h.rest -= STEP; e.fist = { x0: h.x - 46, x1: h.x + 46, y: FLOOR - 74 }; }   // 박힌 손은 발판
-  if (e.phase === 1 && e.hp <= e.maxHp / 2) { const vd = ready(roarImg) ? ROAR_LEN / ROAR2_RATE : 1.6; if (ready(roarImg)) e.vid = { t: 0, rate: ROAR2_RATE }; e.phase = 2; setSt(e, "roar", vd); e.invuln = vd; shake(6, 1); banner = { s: "골렘이 불타오른다!", t: 2 }; for (const h of H) { h.fast = false; h.rest = 0; } }
+  if (e.phase === 1 && e.hp <= e.maxHp / 2) { const vd = ready(roarImg) ? ROAR_LEN / ROAR2_RATE : 1.6; if (ready(roarImg)) { e.vid = { t: 0, rate: ROAR2_RATE }; sfx("golem_roar", ROAR2_RATE, 0.9); } e.phase = 2; setSt(e, "roar", vd); e.invuln = vd; shake(6, 1); banner = { s: "골렘이 불타오른다!", t: 2 }; for (const h of H) { h.fast = false; h.rest = 0; } }
   if (e.invuln > 0) e.invuln -= STEP;
   const home = () => { giantHand(e, 0, cx - 150, FLOOR - 128 + Math.sin(time * 2) * 4, "fist"); giantHand(e, 1, cx + 150, FLOOR - 128 + Math.sin(time * 2 + 1) * 4, "fist"); for (const h of H) { h.fast = false; h.lerp = 5; } };
   const near = Math.abs(H[0].x - p.x) < Math.abs(H[1].x - p.x) ? 0 : 1;
@@ -1077,6 +1081,7 @@ const keys = {}, pressed = {};
 addEventListener("keydown", (e) => {
   if (["Space", "Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.code)) e.preventDefault();
   if (!e.repeat) pressed[e.code] = 0.12;        // 눌림을 잠깐 기억해 둔다 (선입력)
+  if (e.code === "KeyM" && !e.repeat) { muted = !muted; if (muted) for (const k in SFX) SFX[k].pause(); banner = { s: muted ? "소리 끔 (M)" : "소리 켬 (M)", t: 1 }; }
   keys[e.code] = true;
 });
 addEventListener("keyup", (e) => { keys[e.code] = false; });
@@ -1955,7 +1960,7 @@ function updateObjs(dt) {
       o.t += dt; const base = FLOOR + 16 + o.sink, core = { x: o.cx - GIANT.body[2] / 2 + GIANT.core[0], y: base - GIANT.body[3] + GIANT.core[1] };
       o.hands.forEach((h, i) => { if (h.gone || o.t < 0.4 + i * 0.25) return; h.vy += 900 * dt; h.y += h.vy * dt;
         if (h.y >= FLOOR) { h.gone = true; shake(5, 0.3); fxShock(h.x, FLOOR, 80, RAMP_FIRE); for (let k = 0; k < 24; k++) { spark(h.x + rnd(-44, 44), FLOOR - rnd(4, 30), rnd(-140, 140), -rnd(60, 220), rnd(0.4, 0.9), ["#2a1e14", "#5a4a3a", "#8a7a68", "#b9a995", "#e8dcc0"], false); puff(h.x + rnd(-26, 26), FLOOR - rnd(0, 16), rnd(-40, 40), -rnd(10, 50), rnd(0.5, 1), "#8a7a68", rnd(3, 6)); } } });
-      const vid = ready(collapseImg);
+      const vid = ready(collapseImg); if (!o.snd && o.t >= COLLAPSE_T0) { o.snd = true; sfx("golem_collapse"); }
       if (o.t > 1.2 && o.t < 4) { if (!vid) o.sink += dt * 46; if (Math.random() < 0.5) puff(o.cx + rnd(-110, 110), FLOOR - rnd(0, 8), rnd(-30, 30), -rnd(20, 60), rnd(0.6, 1.1), "#7a6a58", rnd(4, 7)); if (Math.random() < 0.15) shake(3, 0.15); }
       if (vid && o.t > 4.2 && o.t < 4.9 && Math.random() < 0.6) { puff(o.cx + rnd(-150, 150), FLOOR - rnd(0, 6), rnd(-60, 60), -rnd(5, 30), rnd(0.7, 1.3), "#8a7a68", rnd(5, 9)); if (Math.random() < 0.2) shake(4, 0.2); }   // 무너져 내릴 때 흙먼지
       if (o.stage === 0 && o.t > (vid ? 2.4 : 3)) { o.stage = 1; o.core = { x: core.x, y: core.y }; }
