@@ -292,8 +292,10 @@ const roarImg = new Image(); roarImg.src = "assets/giant_roar.png";
 const BREATHV = {"w": 249, "h": 234, "cols": 8, "n": 41, "fps": 8, "ax": 125, "ay": 234}, BREATH2V = {"w": 250, "h": 244, "cols": 8, "n": 41, "fps": 8, "ax": 125, "ay": 244};
 const breathImg = new Image(); breathImg.src = "assets/giant_breath.png"; const breath2Img = new Image(); breath2Img.src = "assets/giant_breath2.png";
 // 효과음 (영상에서 뽑은 소리: assets/sfx). M 키로 끄고 켠다
-const SFX = {}; for (const k of ["golem_roar", "golem_collapse"]) { try { SFX[k] = new Audio(`assets/sfx/${k}.mp3`); SFX[k].preload = "auto"; } catch (err) {} }
+const SFX = {}; for (const k of ["golem_roar", "golem_collapse", "golem_breath"]) { try { SFX[k] = new Audio(`assets/sfx/${k}.mp3`); SFX[k].preload = "auto"; } catch (err) {} }
 let muted = false;
+// 숨쉬기 소리: 골렘이 살아 있고 영상(포효)이 안 나올 때만 반복. 다른 때는 멈춤
+function breathSound(on) { const a = SFX.golem_breath; if (!a) return; try { if (on && !muted) { a.loop = true; a.volume = 0.55; if (a.paused) { const pr = a.play(); if (pr) pr.catch(() => {}); } } else if (!a.paused) a.pause(); } catch (err) {} }
 function sfx(k, rate = 1, vol = 0.8) { const a = SFX[k]; if (!a || muted) return; try { a.pause(); a.currentTime = 0; a.playbackRate = rate; a.volume = vol; const pr = a.play(); if (pr) pr.catch(() => {}); } catch (err) {} }
 function giantAI(e, p) {
   const ph2 = e.phase === 2, k = ph2 ? 1.3 : 1, H = e.hands, cx = e.cx;
@@ -2358,6 +2360,7 @@ function drawHudText() {                          // 글자는 화면 해상도�
 //  메인 루프
 // =====================================================================================
 function update(dt) {
+  { const gi = enemies.find((e) => e.type.giant && !(e.dead > 0) && e.hp > 0); breathSound(!!gi && !gi.vid && gi.st !== "intro" && !menuOpen && state !== "castle"); }
   for (const k in pressed) pressed[k] -= dt;
   if (state === "castle") { castleFlash = Math.max(0, castleFlash - dt); updateCastle(); return; }
   updateMenu(dt); if (menuOpen) return;                          // 캐릭터 창이 열려 있으면 게임은 멈춘다
