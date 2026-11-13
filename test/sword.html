@@ -287,6 +287,8 @@ function giantHand(e, i, x, y, pose) { const h = e.hands[i]; h.tx = x; h.ty = y;
 // 포효 영상 프레임 (art/boss1/video_cut.py, 기본 몸통 기준). 등장 때와 2페이즈로 바뀔 때 튼다
 const ROARV = {"w": 387, "h": 221, "cols": 5, "n": 44, "fps": 10, "ax": 193, "ay": 213}, ROAR_LEN = ROARV.n / ROARV.fps, ROAR2_RATE = 1.4;
 const roarImg = new Image(); roarImg.src = "../assets/giant_roar.png";
+const BREATHV = {"w": 267, "h": 208, "cols": 7, "n": 41, "fps": 8, "ax": 134, "ay": 207};   // 1페이즈 숨쉬기 반복 영상
+const breathImg = new Image(); breathImg.src = "../assets/giant_breath.png";
 // 효과음 (영상에서 뽑은 소리: assets/sfx). M 키로 끄고 켠다
 const SFX = {}; for (const k of ["golem_roar", "golem_collapse"]) { try { SFX[k] = new Audio(`../assets/sfx/${k}.mp3`); SFX[k].preload = "auto"; } catch (err) {} }
 let muted = false;
@@ -377,7 +379,8 @@ function drawGiantBody(e, sinkExtra = 0, img2) {                  // 지형보�
   if (!ready(giantImg)) return; const ph2 = img2 ?? e.phase === 2, br = Math.sin(time * 1.6), shk = e.st === "roar" ? Math.round(Math.sin(time * 50) * 2) : 0;
   g.save(); g.beginPath(); g.rect(-1000, -1000, 4000, FLOOR + 1000 + 2); g.clip();
   if (e.vid && ready(roarImg)) { const V = ROARV, f = Math.min(V.n - 1, Math.floor(e.vid.t * V.fps)); g.drawImage(roarImg, (f % V.cols) * V.w, Math.floor(f / V.cols) * V.h, V.w, V.h, Math.round(e.cx - V.ax), Math.round(giantBase(e) + sinkExtra - V.ay), V.w, V.h); g.restore(); return; }
-  GPART(ph2 ? "body2" : "body", e.cx + shk, giantBase(e) + sinkExtra + br * 1.5, 1);
+  if (!ph2 && ready(breathImg)) { const V = BREATHV, f = Math.floor(time * V.fps) % V.n; g.drawImage(breathImg, (f % V.cols) * V.w, Math.floor(f / V.cols) * V.h, V.w, V.h, Math.round(e.cx + shk - V.ax), Math.round(giantBase(e) + sinkExtra - V.ay), V.w, V.h); }
+  else GPART(ph2 ? "body2" : "body", e.cx + shk, giantBase(e) + sinkExtra + br * 1.5, 1);
   g.restore();
   const c = giantCore(e); glow(c.x, c.y + sinkExtra, 34 + br * 4, "#ffae35", e.groggy ? 0.9 : 0.5); if (ph2) glow(e.cx, giantBase(e) - 120, 120, "#ff5a2a", 0.15 + 0.05 * Math.sin(time * 9));
   if (e.groggy) for (let i = 0; i < 4; i++) { const a = time * 5 + i * 1.57; g.fillStyle = "#ffe27a"; g.fillRect(Math.round(c.x + Math.cos(a) * 26), Math.round(c.y - 60 + Math.sin(a) * 6), 3, 3); }   // 그로기 별
