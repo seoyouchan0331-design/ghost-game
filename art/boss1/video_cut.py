@@ -16,9 +16,23 @@ files = sorted(glob.glob(TMP + "/*.png"))
 GI = json.loads(open("index.html").read().split("const GIANT = ")[1].split(";")[0])
 gi = Image.open("assets/giant.png").convert("RGBA"); b2 = GI[REF]; body = gi.crop((b2[0], b2[1], b2[0] + b2[2], b2[1] + b2[3]))
 bx0, by0, bx1, by1 = body.getbbox()
+from scipy import ndimage
+def key2(a, hole=600):
+    # 바탕: 회색 바탕과 거의 같은 색 + 핵 빛을 받아 밝아진 바탕(밝고 색이 옅은 곳). 테두리와 이어진 것과, 몸 사이에 갇힌 덩어리(hole 이상)를 지운다
+    bg = np.median(np.concatenate([a[:6].reshape(-1, 3), a[-6:].reshape(-1, 3), a[:, :6].reshape(-1, 3), a[:, -6:].reshape(-1, 3)]), axis=0)
+    lum = a.mean(axis=2); sat = a.max(axis=2) - a.min(axis=2)
+    strict = np.abs(a - bg).max(axis=2) <= 16
+    back = ndimage.binary_opening(strict | ((lum >= bg.mean() - 8) & (sat <= 48)), iterations=1)
+    lab, n = ndimage.label(back)                              # 넓은 기준: 테두리와 이어진 것만 (빛 번진 바탕)
+    edge = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
+    m = ~np.isin(lab, list(edge))
+    ls, ns = ndimage.label(strict & m); ss = ndimage.sum(strict, ls, range(1, ns + 1))   # 좁은 기준(진짜 회색)만 갇힌 구멍으로 지운다
+    m &= ~np.isin(ls, [i + 1 for i in range(ns) if ss[i] > hole])
+    # 남은 조각 중 아주 작은 것(빛줄기 부스러기)은 버린다
+    l2, n2 = ndimage.label(m); s2 = ndimage.sum(m, l2, range(1, n2 + 1)); return np.isin(l2, [i + 1 for i in range(n2) if s2[i] >= 40])
 masks = []
 for f in files:
-    a = np.asarray(Image.open(f).convert("RGB")).astype(int); m = key(a, thr=14, hole=4000); masks.append((a, m))
+    a = np.asarray(Image.open(f).convert("RGB")).astype(int); m = key2(a); masks.append((a, m))
 ys, xs = np.nonzero(masks[0][1]); vx0, vx1, vy1 = xs.min(), xs.max() + 1, ys.max() + 1
 s = (bx1 - bx0) / (vx1 - vx0)                              # 영상 px → 게임 px
 # 모든 프레임의 공통 상자 (영상 좌표)
