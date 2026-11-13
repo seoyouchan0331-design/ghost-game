@@ -275,6 +275,11 @@ function exclaim(x, y) { R(x, y - 6, 2, 5, C.red); R(x, y, 2, 2, C.red); R(x, y 
 // 몸통은 방 가운데 뒤에 버티고(지형보다 뒤), 떨어진 양손이 공격한다. 약점은 가슴 핵: 손을 내려찍은 뒤 몸을 숙이고, 박수·연타 뒤에는 그로기로 핵이 바닥 가까이 내려온다(피해 2배)
 const GIANT = {"body":[0,0,246,212],"body2":[248,0,246,212],"R_open":[496,0,122,104],"R_fist":[620,0,73,82],"R_side":[695,0,95,70],"L_open":[792,0,126,104],"L_fist":[920,0,74,82],"L_side":[996,0,95,70],"rubble":[1093,0,230,112],"core":[123,101]};
 const giantImg = new Image(); giantImg.src = "assets/giant.png";
+// 골렘 이펙트 시트 (pixelfx로 만든 것: fire/golem-meteor, nature/lava-crater, nature/lava-spire → art/golemfx/golemfx_pack.py). px, py = 착지점
+const GFX = {"meteor": {"w": 238, "h": 300, "cols": 8, "n": 64, "fps": 15, "px": 130, "py": 270}, "crater": {"w": 232, "h": 132, "cols": 8, "n": 47, "fps": 15, "px": 116, "py": 104}, "spire": {"w": 176, "h": 114, "cols": 11, "n": 40, "fps": 15, "px": 88, "py": 98}};
+const gfxImg = {}; for (const k in GFX) { gfxImg[k] = new Image(); gfxImg[k].src = `assets/gfx_${k}.png`; }
+const GFX_METEOR_HIT = 0.8, GFX_SPIRE_UP = 0.2;            // 시트 안에서 운석이 닿는 때, 돌기둥이 솟는 때
+function gfx(key, x, rate = 1) { if (!ready(gfxImg[key])) return false; spawn({ kind: "gfx", key, x, t: 0, rate }); return true; }
 const GPART = (k, x, y, sc = 1, ax = 0.5, ay = 1, rot = 0) => { const q = GIANT[k]; g.save(); g.translate(Math.round(x), Math.round(y)); if (rot) g.rotate(rot); g.drawImage(giantImg, q[0], q[1], q[2], q[3], -Math.round(q[2] * ax * sc), -Math.round(q[3] * ay * sc), Math.round(q[2] * sc), Math.round(q[3] * sc)); g.restore(); };
 const giantBase = (e) => FLOOR + 16 + e.sink;                      // 몸통 그림의 아래 끝 (땅속에 묻힌다)
 function giantCore(e) { return { x: e.cx - GIANT.body[2] / 2 + GIANT.core[0], y: giantBase(e) - GIANT.body[3] + GIANT.core[1] + Math.sin(time * 1.6) * 1.5 }; }
@@ -345,7 +350,8 @@ const ROCK = ["#1a1410", "#3a2e24", "#5a4a3a", "#8a7a68", "#b9a995"], LAVA = ["#
 function debris(x, y, vx, vy, sz) { spawn({ kind: "debris", x, y, vx, vy, sz, rot: rnd(0, 6), vr: rnd(-12, 12), age: 0, life: rnd(0.8, 1.4), bounced: false }); }
 function crackRays(x, n, len) { const rays = []; for (let i = 0; i < n; i++) { const a0 = (i / n) * Math.PI + rnd(-0.3, 0.3), pts = [[x, FLOOR]]; let px = x, ang = a0 > Math.PI / 2 ? Math.PI : 0;
     for (let k = 0; k < 5; k++) { const L2 = len / 5 * rnd(0.7, 1.3); px += Math.cos(ang) * L2; pts.push([px, FLOOR + rnd(-1, 1)]); ang += rnd(-0.6, 0.6) * 0.2; } rays.push(pts); } return rays; }
-function groundSlamFx(x, big) {                                      // 손 내려찍기: 흰 번쩍 → 주황 충격 고리, 사방으로 갈라지는 용암 균열, 굴러 튀는 돌 파편, 짙은 먼지
+function groundSlamFx(x, big) {                                      // 손 내려찍기: 용암 크레이터 시트 (흰 번쩍, 용암 균열, 솟는 바위, 불·파편·먼지) + 충격 고리
+  if (gfx("crater", x, big > 1.2 ? 1 : 1.25)) { fxShock(x, FLOOR, 90 * big, LAVA); light(x, FLOOR - 16, 90 * big, "#ffae35", 0.8, 0.35); return; }
   flashes.push({ kind: "burst", x, y: FLOOR - 10, r: 22 * big, t: 0, ramp: LAVA }); fxShock(x, FLOOR, 90 * big, LAVA); fxRing(x, FLOOR - 4, 40 * big, LAVA);
   flashes.push({ kind: "crack", x, y: FLOOR, t: 0, life: 1.8, rays: crackRays(x, 6, 70 * big) }); light(x, FLOOR - 16, 90 * big, "#ffae35", 0.8, 0.35);
   for (let i = 0; i < 14 * big; i++) debris(x + rnd(-30, 30), FLOOR - rnd(4, 20), rnd(-220, 220), -rnd(120, 340), rnd(2, 5));
@@ -1916,13 +1922,17 @@ function updateObjs(dt) {
     } else if (o.kind === "grave") {                             // 투구 무덤: ↑로 부수면 쇳조각
     } else if (o.kind === "meteor") {                            // 운석: 경고 원이 커지다가 꼬리 불을 끌며 천천히 떨어져 큰 폭발
       o.t += dt; const u = (o.t - o.delay) / o.fall;
-      if (u > 0 && u < 1 && Math.random() < 0.8) { const my = -160 + (FLOOR - 10 + 160) * u * u; puff(o.x + rnd(-8, 8), my - rnd(6, 16), rnd(-10, 10), -rnd(20, 50), rnd(0.5, 0.9), "#4a3a30", rnd(4, 7)); spark(o.x + rnd(-10, 10), my - 10, rnd(-30, 30), -rnd(40, 100), 0.35, LAVA.slice(1), true); }
+      if (!o.fx && o.t >= o.delay + o.fall - GFX_METEOR_HIT) o.fx = gfx("meteor", o.x);
+      if (!o.fx && u > 0 && u < 1 && Math.random() < 0.8) { const my = -160 + (FLOOR - 10 + 160) * u * u; puff(o.x + rnd(-8, 8), my - rnd(6, 16), rnd(-10, 10), -rnd(20, 50), rnd(0.5, 0.9), "#4a3a30", rnd(4, 7)); spark(o.x + rnd(-10, 10), my - 10, rnd(-30, 30), -rnd(40, 100), 0.35, LAVA.slice(1), true); }
       if (u >= 1 && !o.hit) { o.hit = true; o.gone = true; if (Math.abs(p.x - o.x) < o.r && p.y > FLOOR - 60) hurtPlayer(o.dmg, Math.sign(p.x - o.x) || 1); shake(7, 0.4); hitstop = Math.max(hitstop, 0.04);
-        groundSlamFx(o.x, 1.3); spawn({ kind: "fire", x: o.x, gy: FLOOR, life: 1.6 }); }
+        if (o.fx) { fxShock(o.x, FLOOR, 120, LAVA); light(o.x, FLOOR - 20, 120, "#ffae35", 0.9, 0.4); } else groundSlamFx(o.x, 1.3); spawn({ kind: "fire", x: o.x, gy: FLOOR, life: 1.6 }); }
     } else if (o.kind === "spike") {                             // 돌기둥: 균열 → 솟음 → 잠시 → 들어감
-      o.t += dt; const u = o.t - o.delay; if (u > 0 && !o.up) { o.up = true; debris(o.x, FLOOR - 6, rnd(-80, 80), -rnd(120, 240), rnd(2, 3)); puff(o.x, FLOOR - 4, rnd(-20, 20), -30, 0.6, "#7a6a58", 5); shake(1.5, 0.06); }
+      o.t += dt; const u = o.t - o.delay; if (!o.fx && u > -GFX_SPIRE_UP / 1.5) o.fx = gfx("spire", o.x, 1.5);
+      if (u > 0 && !o.up) { o.up = true; if (!o.fx) debris(o.x, FLOOR - 6, rnd(-80, 80), -rnd(120, 240), rnd(2, 3)); puff(o.x, FLOOR - 4, rnd(-20, 20), -30, 0.6, "#7a6a58", 5); shake(1.5, 0.06); }
       if (u > 0 && u < 0.45 && !o.hit && Math.abs(p.x - o.x) < 11 && p.y > FLOOR - 44) { o.hit = true; hurtPlayer(o.dmg, Math.sign(p.x - o.x) || 1); }
       if (u > 0.8) o.gone = true;
+    } else if (o.kind === "gfx") {                               // pixelfx 시트 재생
+      o.t += dt * o.rate; if (o.t * GFX[o.key].fps >= GFX[o.key].n) o.gone = true;
     } else if (o.kind === "debris") {                            // 돌 파편: 굴러 튀고 사라짐
       o.age += dt; o.vy += 900 * dt; o.x += o.vx * dt; o.y += o.vy * dt; o.rot += o.vr * dt; if (o.y > FLOOR - 1 && o.vy > 0) { o.y = FLOOR - 1; if (!o.bounced) { o.bounced = true; o.vy *= -0.35; o.vx *= 0.5; } else { o.vy = 0; o.vx *= 0.8; } }
       if (o.age > o.life) o.gone = true;
@@ -2087,13 +2097,16 @@ function drawObjs(back) {
       const u = (o.t - o.delay) / o.fall, w = Math.round(o.r * Math.min(1, Math.max(0.15, (o.t + 0.3) / (o.delay + o.fall))));
       g.fillStyle = `rgba(255,70,30,${0.18 + 0.12 * Math.sin(time * 18)})`; g.beginPath(); g.ellipse(o.x, FLOOR - 1, w, 5, 0, 0, 7); g.fill();   // 커지는 경고 원
       g.strokeStyle = "#ff5a2a"; g.lineWidth = 1; g.beginPath(); g.ellipse(o.x, FLOOR - 1, o.r, 6, 0, 0, 7); g.stroke();
-      if (u > 0 && u < 1) { const my = Math.round(-160 + (FLOOR - 24 + 160) * u * u), R = 24, rot = o.t * 3;
+      if (!o.fx && u > 0 && u < 1) { const my = Math.round(-160 + (FLOOR - 24 + 160) * u * u), R = 24, rot = o.t * 3;
         for (let k = 1; k <= 8; k++) { g.fillStyle = LAVA[Math.max(1, 5 - (k >> 1))]; const rr = Math.max(3, R * 1.6 - k * 4); g.fillRect(Math.round(o.x - rr / 2 + Math.sin(time * 20 + k) * 2), my - k * 9 - rr / 2, rr, rr); }   // 불꼬리
         g.fillStyle = ROCK[0]; g.beginPath(); g.arc(o.x, my, R + 1, 0, 7); g.fill(); g.fillStyle = ROCK[2]; g.beginPath(); g.arc(o.x, my, R, 0, 7); g.fill(); g.fillStyle = ROCK[3]; g.beginPath(); g.arc(o.x - 4, my - 4, R * 0.55, 0, 7); g.fill();
         g.fillStyle = LAVA[3]; for (let k = 0; k < 4; k++) { const a = rot + k * 1.57; g.fillRect(Math.round(o.x + Math.cos(a) * 13), Math.round(my + Math.sin(a) * 13), 4, 3); }
         glow(o.x, my, 50, "#ff7a2a", 0.7); }
+    } else if (o.kind === "gfx") {
+      const G2 = GFX[o.key], f = Math.min(G2.n - 1, Math.floor(o.t * G2.fps));
+      g.drawImage(gfxImg[o.key], (f % G2.cols) * G2.w, Math.floor(f / G2.cols) * G2.h, G2.w, G2.h, Math.round(o.x - G2.px), FLOOR - G2.py, G2.w, G2.h);
     } else if (o.kind === "spike") {
-      const u = o.t - o.delay; if (u < 0) { if (u > -0.25) { g.fillStyle = LAVA[2]; g.fillRect(x - 5, FLOOR - 1, 10, 1); glow(o.x, FLOOR - 2, 10, "#ff7a2a", 0.5); } }
+      const u = o.t - o.delay; if (o.fx) {} else if (u < 0) { if (u > -0.25) { g.fillStyle = LAVA[2]; g.fillRect(x - 5, FLOOR - 1, 10, 1); glow(o.x, FLOOR - 2, 10, "#ff7a2a", 0.5); } }
       else { const hgt = Math.round(44 * (u < 0.1 ? u / 0.1 : u < 0.5 ? 1 : Math.max(0, 1 - (u - 0.5) / 0.3)));
         for (let k = 0; k < hgt; k++) { const w2 = Math.max(1, Math.round(9 * (1 - k / 48))); g.fillStyle = k > hgt - 3 ? ROCK[4] : k % 6 < 2 ? ROCK[3] : ROCK[2]; g.fillRect(x - w2, FLOOR - k, w2 * 2, 1); g.fillStyle = ROCK[0]; g.fillRect(x + w2 - 1, FLOOR - k, 1, 1); if (k % 9 === 4) { g.fillStyle = LAVA[2]; g.fillRect(x - 1, FLOOR - k, 2, 1); } } }
     } else if (o.kind === "debris") {
