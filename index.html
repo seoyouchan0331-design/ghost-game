@@ -607,8 +607,17 @@ const ITEMS = [
   ["용병 계약서", 2, "공격력 +25%, 방에 들어갈 때마다 골드 -10", { atk: 0.25, roomTax: 10 }, ["gold", "powder"]],
   ["얼어붙은 심장", 2, "빙결된 적 처치 시 주변 적도 빙결", { frozenChain: 1 }, ["frost", "frost"]],
   ["망령의 왕관", 2, "투구 교체 후 3초간 공격력 +30%", { swapAtk: 0.3 }, ["ghost", "blood"]],
-].map(([name, grade, desc, mod, crests], icon) => ({ name, grade, desc, mod, crests, icon }));
-const GRADES = [{ name: "녹슨", c: "#c9783a", price: 80, w: 70 }, { name: "단련된", c: "#8ec5ff", price: 150, w: 25 }, { name: "명품", c: "#ffd24a", price: 250, w: 5 }];
+  // 전설 (3): 붉은 문 보상·상자에서 드물게. 아이콘은 전용 그림이 오기 전까지 비슷한 것을 빌려 쓴다
+  ["부러진 용사의 검", 3, "공격력 +35%, 치명타 확률 +10%", { atk: 0.35, crit: 0.1 }, ["blood", "powder"], 2],
+  ["유령왕의 사슬관", 3, "투구 교체 쿨타임 -40%, 교체 후 3초간 공격력 +30%", { swapCd: 0.4, swapAtk: 0.3 }, ["ghost", "ghost"], 19],
+  ["폭풍의 깃털", 3, "이동 속도 +20%, 대시 +1회, 공격 속도 +15%", { speed: 0.2, dashPlus: 1, aspd: 0.15 }, ["gale", "gale"], 6],
+  // 저주 (4): 강하지만 대가가 있다. 암시장 저주 노점에서 싸게 판다
+  ["굶주린 칼날", 4, "공격력 +50%, 받는 피해 +40%", { atk: 0.5, dmgTaken: 0.4 }, ["blood", "blood"], 7],
+  ["금이 간 해골잔", 4, "공격 속도 +30%, 최대 체력 -30", { aspd: 0.3, hp: -30 }, ["ghost", "frost"], 9],
+  ["탐욕의 금니", 4, "획득 골드 +60%, 상점 가격 +25%", { gold: 0.6, shopDisc: -0.25 }, ["gold", "gold"], 4],
+].map(([name, grade, desc, mod, crests, icon], i) => ({ name, grade, desc, mod, crests, icon: icon ?? i }));
+const normalItems = () => freeItems().filter((x) => x.grade <= 2);
+const GRADES = [{ name: "녹슨", c: "#c9783a", price: 80, w: 70 }, { name: "단련된", c: "#8ec5ff", price: 150, w: 25 }, { name: "명품", c: "#ffd24a", price: 250, w: 5 }, { name: "전설", c: "#ff6a3a", price: 400, w: 0 }, { name: "저주", c: "#b45ae8", price: 90, w: 0 }];
 // 각인 6개: 가진 아이템의 각인 개수가 2개 / 4개면 효과가 켜진다
 const CRESTS = {
   powder: { name: "화약", c: "#f2701f", t2: "적중 10% 작은 폭발 15", t4: "폭발 20%, 폭발에 화상" },
@@ -619,8 +628,8 @@ const CRESTS = {
   gold: { name: "황금", c: "#ffd24a", t2: "획득 골드 +20%", t4: "골드 100당 공격 +3%" },
 };
 const doorImg = new Image(); doorImg.src = "assets/doors.png";           // 문 8종, 한 칸 44x56
-const DOOR_IDX = { gold: 0, chest: 1, helm: 2, scrap: 3, shop: 4, rest: 5, midboss: 6, boss: 7 };
-const DOOR_GLOW = { gold: "#ffd24a", chest: "#ff9a3a", helm: "#63c8ea", scrap: "#b0a8ba", shop: "#ffae35", rest: "#5fe0a0", midboss: "#d8423a", boss: "#ff7a2a" };
+const DOOR_IDX = { gold: 0, chest: 1, helm: 2, scrap: 3, shop: 4, rest: 5, midboss: 6, boss: 7, elite: 6 };
+const DOOR_GLOW = { gold: "#ffd24a", chest: "#ff9a3a", helm: "#63c8ea", scrap: "#b0a8ba", shop: "#ffae35", rest: "#5fe0a0", midboss: "#d8423a", boss: "#ff7a2a", elite: "#ff5a4a" };
 const engImg = new Image(); engImg.src = "assets/engraves.png";          // 각인 6개, 48px, CRESTS 순서
 const panelImg = new Image(); panelImg.src = "assets/panels.png";       // 글씨 판. 좌표는 art/ui2/ui2_cut.py가 뽑아 준 값
 const PANELS = {"window":[0,0,248,379],"header":[250,0,331,49],"nameplate":[583,0,164,43],"banner":[749,0,342,62],"tooltip":[1093,0,233,81],"slot":[1328,0,63,64],"slotOn":[1393,0,75,78],"gradeR":[1470,0,62,64],"gradeT":[1534,0,62,65],"gradeL":[1598,0,62,65]};
@@ -659,7 +668,7 @@ const saveMeta = () => { try { localStorage.setItem("ghostArmorMeta", JSON.strin
 const mlv = (id) => meta.lv[id] ?? 0;
 const metaStat = (k) => TREES.reduce((a, t) => a + t.nodes.reduce((b, n) => b + (n.mod[k] ?? 0) * mlv(n.id), 0), 0);
 // 보상 문 4종과 등장 비중 (휴식은 고정 방 표시용)
-const REWARDS = { gold: { name: "금화", w: 35, c: "#ffd24a" }, chest: { name: "상자", w: 30, c: "#e08a3c" }, helm: { name: "투구", w: 20, c: "#63c8ea" }, scrap: { name: "쇳조각", w: 15, c: "#b0a8ba" }, midboss: { name: "모험가", w: 0, c: "#ff5a4a" }, boss: { name: "보스", w: 0, c: "#ff7a2a" }, rest: { name: "휴식", w: 0, c: "#8fc05a" }, shop: { name: "상점", w: 0, c: "#ffd24a" } };
+const REWARDS = { gold: { name: "금화", w: 35, c: "#ffd24a" }, chest: { name: "상자", w: 30, c: "#e08a3c" }, helm: { name: "투구", w: 20, c: "#63c8ea" }, scrap: { name: "쇳조각", w: 15, c: "#b0a8ba" }, midboss: { name: "모험가", w: 0, c: "#ff5a4a" }, elite: { name: "정예", w: 0, c: "#ff5a4a" }, boss: { name: "보스", w: 0, c: "#ff7a2a" }, rest: { name: "휴식", w: 0, c: "#8fc05a" }, shop: { name: "상점", w: 0, c: "#ffd24a" } };
 // 방 프리팹: w = 방 너비, plats = 단방향 발판 [x, 바닥에서의 높이, 너비], spawns = 적이 나오는 바닥 자리.
 // 전투 방은 이 목록에서 겹치지 않게 하나씩 뽑아 쓴다. 방 모양을 늘리려면 여기에 추가.
 // 방 지도(프리팹): 위에서 아래로 한 줄씩. 맨 아래 줄이 바닥이고 그 윗면이 FLOOR 높이다. 한 칸 16px.
@@ -859,7 +868,7 @@ const take = (code) => { if (pressed[code] > 0) { pressed[code] = 0; return true
 // ---------- 게임 상태 ----------
 let player, enemies, objs, sparks, puffs, lights, flashes, ghosts, texts, glints, embers;
 let time = 0, hitstop = 0, shakeT = 0, shakeAmp = 0, shakeDur = 1, whiteT = 0, state = "play";
-let pendingReward = null, room = 0, wave = 0, waveT = 0, phase = "fight", banner = null;
+let eliteRoom = false, pendingReward = null, room = 0, wave = 0, waveT = 0, phase = "fight", banner = null;
 
 function startRun() {
   player = {
@@ -871,7 +880,7 @@ function startRun() {
   };
   enemies = []; objs = []; sparks = []; puffs = []; lights = []; flashes = []; ghosts = []; texts = []; glints = [];
   embers = Array.from({ length: 46 }, () => ({ x: rnd(0, W), y: rnd(0, H), v: rnd(8, 26), ph: rnd(0, 6), near: Math.random() < 0.3 }));
-  hitstop = 0; shakeT = 0; whiteT = 0; state = "play"; room = 0; pendingReward = null; slowT = 0; layoutPool = LAYOUTS.slice().sort(() => Math.random() - 0.5); player.gold = stat("startGold"); player.hp = maxHp(); startRoom();
+  hitstop = 0; shakeT = 0; whiteT = 0; state = "play"; room = 0; pendingReward = null; eliteRoom = false; slowT = 0; layoutPool = LAYOUTS.slice().sort(() => Math.random() - 0.5); player.gold = stat("startGold"); player.hp = maxHp(); startRoom();
 }
 // 성채: 한 판이 끝나면(사망이든 클리어든) 모은 영혼석을 가지고 돌아와 영구 강화를 산다
 let castleSel = [0, 0];
@@ -945,7 +954,8 @@ function startRoom() {
   else if (r === "shop") {                                     // 암시장: 음식 2 · 아이템 3 · 영혼 1 · 대장장이
     phase = "clear"; banner = { s: "암시장 — ↑로 구매", t: 2.5 }; const d = 1 - stat("shopDisc");
     spawn({ kind: "shop", x: 80, food: "soup", price: Math.round(50 * d) }); spawn({ kind: "shop", x: 124, food: "meat", price: Math.round(90 * d) });
-    freeItems().sort(() => Math.random() - 0.5).slice(0, 3).forEach((it, i) => spawn({ kind: "shop", x: 196 + i * 48, item: it, price: priceOf(it) }));
+    normalItems().sort(() => Math.random() - 0.5).slice(0, 3).forEach((it, i) => spawn({ kind: "shop", x: 196 + i * 48, item: it, price: priceOf(it) }));
+    const cu = freeItems().filter((x) => x.grade === 4); if (cu.length) spawn({ kind: "shop", x: 334, item: pick(cu), price: priceOf(pick(cu)) });   // 저주 노점
     const sl = Object.keys(SOULS).filter((k) => k !== player.soul); if (sl.length) spawn({ kind: "shop", x: 376, soul: pick(sl), price: Math.round(120 * d) });
     spawn({ kind: "smith", x: 444 }); openDoors();
   }
@@ -963,9 +973,13 @@ function grantReward() {
   const r = pendingReward, p = player; pendingReward = null;
   if (r === "gold") { const n = Math.round(rnd(60, 90) * goldMult()); p.gold += n; banner = { s: `금화 +${n}`, t: 2 }; }
   else if (r === "scrap") { const n = Math.round(rnd(15, 25)); p.scrap += n; banner = { s: `쇳조각 +${n}`, t: 2 }; }
-  else if (r === "chest") {                                   // 등급: 녹슨 70% / 단련된 25% / 명품 5%
-    let k = rnd(0, 100), gr = k < 70 ? 0 : k < 95 ? 1 : 2, pool = freeItems().filter((x) => x.grade === gr); if (!pool.length) pool = freeItems();
-    const it = pick(pool); p.items.push(it); if (it.mod.hp) p.hp += it.mod.hp; banner = { s: `${it.name} — ${it.desc}`, t: 3 }; }
+  else if (r === "chest") {                                   // 등급: 녹슨 68% / 단련된 25% / 명품 5% / 전설 2%
+    let k = rnd(0, 100), gr = k < 68 ? 0 : k < 93 ? 1 : k < 98 ? 2 : 3, pool = freeItems().filter((x) => x.grade === gr); if (!pool.length) pool = normalItems(); if (!pool.length) pool = freeItems();
+    const it = pick(pool); p.items.push(it); if (it.mod.hp) p.hp = clamp(p.hp + it.mod.hp, 1, maxHp()); banner = { s: `${it.name} — ${it.desc}`, t: 3 }; }
+  else if (r === "elite") {                                   // 정예 보상: 단련된 이상 아이템 + 금화
+    const gr = Math.random() < 0.4 ? 2 : 1; let pool = freeItems().filter((x) => x.grade === gr); if (!pool.length) pool = normalItems();
+    const n = Math.round(60 * goldMult()); p.gold += n;
+    if (pool.length) { const it = pick(pool); p.items.push(it); if (it.mod.hp) p.hp = clamp(p.hp + it.mod.hp, 1, maxHp()); banner = { s: `정예 격파! ${it.name} · 금화 +${n}`, t: 3 }; } }
   else if (r === "helm") { spawn({ kind: "pickup", id: pick(freeHelms()).id, x: L.w / 2, grade: Math.random() < 0.25 ? 1 : 0 }); banner = { s: "투구가 떨어졌다!", t: 2 }; }
   else banner = { s: "방 클리어!", t: 1.8 };
   light(L.w / 2, FLOOR - 16, 60, "#fff", 0.7, 0.4);
@@ -973,7 +987,7 @@ function grantReward() {
 function openDoors() {
   if (room + 1 >= ROOMS.length) { state = "clear"; return; }
   if (typeof ROOMS[room + 1] === "string") { spawn({ kind: "door", x: L.w - 56, reward: ROOMS[room + 1] }); return; }
-  const a = rollReward(), b = rollReward(a);
+  const a = rollReward(), b = room + 1 > ROOMS.indexOf("midboss") && Math.random() < 0.35 ? "elite" : rollReward(a);   // 후반에는 정예 문이 섞인다
   spawn({ kind: "door", x: L.w - 104, reward: a }); spawn({ kind: "door", x: L.w - 50, reward: b });
 }
 function newEnemy(id, x, i = 0) {
@@ -981,11 +995,12 @@ function newEnemy(id, x, i = 0) {
   return { id, type: ty, x, y: FLOOR, vx: 0, vy: 0, dir: Math.sign(player.x - x) || -1, hp: ty.hp, maxHp: ty.hp, st: "walk", t: rnd(0.3, 1), stun: 0, flash: 0, walkT: i, dead: 0, burn: 0, burnT: 0, born: 0.45 + i * 0.12, speed: ty.speed * rnd(0.9, 1.1) };
 }
 function startWave() {
-  banner = { s: `전투 방 ${fightNo()} · 웨이브 ${wave + 1} / ${ROOMS[room].length}`, t: 1.6 };
+  banner = { s: `${eliteRoom ? "정예 방" : "전투 방 " + fightNo()} · 웨이브 ${wave + 1} / ${ROOMS[room].length}`, t: 1.6 };
   ROOMS[room][wave].forEach((id, i) => {                       // 프리팹의 스폰 자리에서 나온다. 횃불병은 발판 위에도 선다
     const far = L.spawns.filter((q) => Math.abs(q.x - player.x) > 100 || Math.abs(q.y - player.y) > 40), pool = far.length ? far : L.spawns;
     const ledges = pool.filter((q) => q.ledge), q = id === "torch" && ledges.length ? pick(ledges) : pick(pool.filter((q) => !q.ledge).length ? pool.filter((q) => !q.ledge) : pool);
-    const e = newEnemy(id, q.x + rnd(-6, 6), i); e.gy = e.y = q.y; [e.minX, e.maxX] = span(q.x, q.y); e.x = clamp(e.x, e.minX, e.maxX);
+    const e = newEnemy(id, q.x + rnd(-6, 6), i); e.gy = e.y = q.y;
+    if (eliteRoom) { e.elite = true; e.hp = e.maxHp = Math.round(e.maxHp * 1.8); e.speed *= 1.15; }   // 정예: 체력 1.8배, 조금 빠름 [e.minX, e.maxX] = span(q.x, q.y); e.x = clamp(e.x, e.minX, e.maxX);
     enemies.push(e);
   });
 }
@@ -1084,6 +1099,7 @@ function hurtPlayer(dmg, dir, by) {
   if ((p.invuln > 0 && !(by && p.invulnBy === by)) || state !== "play") return;
   p.invulnBy = by;
   if (p.guardT > 0) dmg = Math.max(1, Math.round(dmg * 0.3));   // 돌거북 영혼
+  dmg = Math.round(dmg * (1 + stat("dmgTaken")));                  // 저주 아이템
   p.hp = Math.max(0, p.hp - dmg); p.invuln = BASE.hurtInvuln + stat("hurtInv"); p.blink = BASE.hurtInvuln; p.flash = 0.1;
   p.vx = dir * 150; p.vy = -140; p.act = null; p.dashing = 0;
   fxHit(p.x, p.y - 12, dir, ["#4a1218", "#d8423a", "#ff7a6a", "#ffd0c8", "#ffffff"], false);
@@ -1364,12 +1380,12 @@ function interact(p) {
     if (sh.potion || sh.food === "soup") { p.hp = Math.min(maxHp(), p.hp + 40); banner = { s: "체력 +40", t: 1.5 }; }
     else if (sh.food === "meat") { p.bonusHp += 10; p.hp += 10; banner = { s: "이번 판 최대 체력 +10", t: 1.5 }; }
     else if (sh.soul) { const was = p.soul; p.soul = sh.soul; p.soulCd = 0; if (SOULS[sh.soul].mod.hp) p.hp += SOULS[sh.soul].mod.hp; banner = { s: `${SOULS[sh.soul].name} 장착!`, t: 2 }; if (was) { sh.gone = false; sh.soul = was; sh.price = 0; } }
-    else { p.items.push(sh.item); if (sh.item.mod.hp) p.hp += sh.item.mod.hp; banner = { s: `${sh.item.name} — ${sh.item.desc}`, t: 3 }; }
+    else { p.items.push(sh.item); if (sh.item.mod.hp) p.hp = clamp(p.hp + sh.item.mod.hp, 1, maxHp()); banner = { s: `${sh.item.name} — ${sh.item.desc}`, t: 3 }; }
     return;
   }
   const door = objs.find((o) => o.kind === "door" && Math.abs(o.x - p.x) < 18);
   if (door) { for (const o of objs) if (o.kind === "pickup") p.scrap += SCRAP_OF[o.grade ?? 0];   // 두고 가는 투구는 자동 분해
-    recallHelm(); pendingReward = REWARDS[door.reward].w ? door.reward : null; p.gold = Math.max(0, p.gold - stat("roomTax")); room++; p.x = 40; p.dir = 1; whiteT = 0.1; startRoom(); }
+    recallHelm(); pendingReward = REWARDS[door.reward].w || door.reward === "elite" ? door.reward : null; eliteRoom = door.reward === "elite"; p.gold = Math.max(0, p.gold - stat("roomTax")); room++; p.x = 40; p.dir = 1; whiteT = 0.1; startRoom(); }
 }
 
 function drawPlayerSprite(p) {
@@ -1742,7 +1758,9 @@ function update(dt) {
       if (ROOMS[room] === "midboss") {                            // 파티를 깨면: 명품 3개 중 하나 + 금화 100 + 영혼석 10
         phase = "clear"; player.gold += 100; player.stones += 10; banner = { s: "파티 격파! 명품 하나를 골라", t: 2.5 };
         let pool = freeItems().filter((x) => x.grade === 2); if (pool.length < 3) pool = pool.concat(freeItems().filter((x) => x.grade === 1));
-        pool.sort(() => Math.random() - 0.5).slice(0, 3).forEach((it, i) => spawn({ kind: "shop", x: L.w / 2 - 60 + i * 60, item: it, price: 0, pick: true }));
+        pool = pool.sort(() => Math.random() - 0.5).slice(0, 3); const lg = freeItems().filter((x) => x.grade === 3);
+        if (lg.length && (chapter === 4 || Math.random() < 0.25)) pool[0] = pick(lg);
+        pool.forEach((it, i) => spawn({ kind: "shop", x: L.w / 2 - 60 + i * 60, item: it, price: 0, pick: true }));
         openDoors();
       } else if (wave + 1 < ROOMS[room].length) { wave++; startWave(); }
       else { phase = "clear"; player.stones += 3; grantReward(); openDoors(); }   // 전투 방 클리어: 영혼석 3
@@ -1778,7 +1796,7 @@ function render() {
     if (e.burn > 0) glow(e.x, e.y - 12, 18, "#ff8a2a", 0.35);
     if (e.type.mid && e.st === "cast") glow(e.x, e.y - 30, 26, "#ffe27a", 0.5);
     if (e.st === "charge") glow(e.x, e.y - 20, 30 + Math.sin(time * 20) * 4, "#63c8ea", 0.6);
-    if (e.awake && !e.dead) glow(e.x, e.y - 20, 24, "#d8423a", 0.35);
+    if ((e.awake || e.elite) && !e.dead) glow(e.x, e.y - 16, e.elite ? 16 : 24, "#d8423a", 0.35);
     if (!e.dead && e.hp < e.maxHp) { const yy = Math.round(e.y) - (e.type.low ? 26 : 44), xx = Math.round(e.x); g.fillStyle = C.line; g.fillRect(xx - 10, yy, 20, 4); g.fillStyle = "#c9342c"; g.fillRect(xx - 9, yy + 1, Math.round(18 * e.hp / e.maxHp), 2); }
   }
   drawObjs(false);
@@ -1856,7 +1874,8 @@ function drawMenu() {
   cells.forEach((cl, i) => {
     const [x, y, sz] = pos(i), on = i === menuSel; c.fillStyle = on ? "#2c2538" : "#16121e"; c.fillRect(x, y, sz, sz); pan(on ? "slotOn" : "slot", x - 6, y - 6, sz + 12, sz + 12);
     if (cl.helm) { c.save(); c.beginPath(); c.rect(x, y, sz, sz); c.clip(); helmIcon(cl.helm, x + sz / 2, y + sz / 2 + 24, 2); c.restore(); if (i === p.active) t("착용", x + sz - 3, y + 13, 11, "#ffe27a", "right"); }
-    else if (cl.item) { if (!on) pan(["gradeR", "gradeT", "gradeL"][cl.item.grade], x - 5, y - 5, sz + 10, sz + 10); c.drawImage(itemImg.big, cl.item.icon * 48, 0, 48, 48, x + 2, y + 2, sz - 4, sz - 4); }
+    else if (cl.item) { if (!on) pan(["gradeR", "gradeT", "gradeL"][Math.min(2, cl.item.grade)], x - 5, y - 5, sz + 10, sz + 10); c.drawImage(itemImg.big, cl.item.icon * 48, 0, 48, 48, x + 2, y + 2, sz - 4, sz - 4);
+      if (cl.item.grade >= 3) { c.strokeStyle = GRADES[cl.item.grade].c; c.lineWidth = 2; c.strokeRect(x + 1, y + 1, sz - 2, sz - 2); } }
   });
   // 오른쪽: 고른 칸의 설명
   const DX = MX + 240, DW = X + PW - 16 - DX, cx = DX + DW / 2, cl = cells[menuSel]; col(DX, Y + 16, DW, PH - 32);
