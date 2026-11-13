@@ -287,7 +287,7 @@ function giantHand(e, i, x, y, pose) { const h = e.hands[i]; h.tx = x; h.ty = y;
 // 포효 영상 프레임 (art/boss1/video_cut.py, 기본 몸통 기준). 등장 때와 2페이즈로 바뀔 때 튼다
 const ROARV = {"w": 387, "h": 221, "cols": 5, "n": 44, "fps": 10, "ax": 193, "ay": 213}, ROAR_LEN = ROARV.n / ROARV.fps, ROAR2_RATE = 1.4;
 const roarImg = new Image(); roarImg.src = "../assets/giant_roar.png";
-const BREATHV = {"w": 267, "h": 208, "cols": 7, "n": 41, "fps": 8, "ax": 134, "ay": 207};   // 1페이즈 숨쉬기 반복 영상
+const BREATHV = {"w": 266, "h": 207, "cols": 7, "n": 28, "fps": 8, "ax": 134, "ay": 206};   // 1페이즈 숨쉬기 반복 영상
 const breathImg = new Image(); breathImg.src = "../assets/giant_breath.png";
 // 효과음 (영상에서 뽑은 소리: assets/sfx). M 키로 끄고 켠다
 const SFX = {}; for (const k of ["golem_roar", "golem_collapse"]) { try { SFX[k] = new Audio(`../assets/sfx/${k}.mp3`); SFX[k].preload = "auto"; } catch (err) {} }

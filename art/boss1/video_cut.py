@@ -1,7 +1,7 @@
 # 골렘 영상 → 게임 프레임 시트. python3 art/boss1/video_cut.py <영상> <출력 png> <몸통 그림 body|body2> [초당 프레임] [시작 초] [끝 초]
 #   무너짐: art/boss1/collapse_source.mp4 assets/giant_collapse.png body2 10
 #   포효:   art/boss1/roar_source.mp4 assets/giant_roar.png body 10 0.3 4.6
-#   숨쉬기: art/boss1/breath_source.mp4 assets/giant_breath.png body 8
+#   숨쉬기: art/boss1/breath_source.mp4 assets/giant_breath.png body 8 1.7   (1.7초 앞은 팔 끝이 막혀 있어서 뺀다: 반복할 때 구멍이 막혔다 뚫렸다 함)
 # 첫 프레임의 골렘을 게임 몸통과 같은 크기·같은 자리에 맞춘다: 폭을 맞추고 아래 가운데를 맞춘다.
 import sys, json, subprocess, glob, os
 import numpy as np
