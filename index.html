@@ -956,9 +956,9 @@ function updateCastle() {
 }
 let castleFlash = 0;
 function drawCastle() {
-  const c = sctx, bgi = ch1Img.bg_b; c.imageSmoothingEnabled = false;
-  c.fillStyle = "#0d1a22"; c.fillRect(0, 0, 960, 540);
-  if (ready(bgi)) c.drawImage(bgi, 0, -60, Math.round(bgi.naturalWidth * 640 / bgi.naturalHeight), 640);
+  const c = sctx, bgi = castleImg.bg; c.imageSmoothingEnabled = false;   // 강화 창 뒤는 성채 홀 (숲 그림을 쓰지 않는다)
+  c.fillStyle = CASTLE.sky; c.fillRect(0, 0, 960, 540);
+  if (ready(bgi)) c.drawImage(bgi, 0, -20, Math.round(bgi.naturalWidth * 600 / bgi.naturalHeight), 600);
   c.fillStyle = "rgba(8,10,20,0.62)"; c.fillRect(0, 0, 960, 540);
   const t = (s2, x, y, size = 11, col = "#e4def0", al = "left") => { c.font = `${fs(size)}px ${FONT}`; c.textAlign = al; c.lineWidth = 3; c.lineJoin = "round"; c.strokeStyle = "#0e0b14"; c.strokeText(s2, x, y); c.fillStyle = col; c.fillText(s2, x, y); };
   pan("banner", 480 - 200, 18, 400, 62); t("성채", 480, 58, 22, "#ffe27a", "center");
