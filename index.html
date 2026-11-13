@@ -397,6 +397,23 @@ function orb(e, ang, sp) { spawn({ kind: "orb", x: e.x + e.dir * 10, y: e.y - 20
 function swave(e, big, dmg, c) { e.hitAt = time; e.hk = 0; spawn({ kind: "swave", x: e.x + e.dir * 14, y: e.y, vx: e.dir * (big ? 240 : 360), w: big ? 12 : 7, h: big ? 44 : 22, dmg, hits: big ? 4 : 1, hitT: 0, age: 0, c: c || "#9bdcff" }); fxSwoosh(e.x + e.dir * 20, e.y - 16, e.dir, big ? 18 : 12, BLUE, big); }
 function burst(e, r, dmg) { e.hitAt = time; e.hk = 0; fxRing(e.x, e.y - 14, r, BLUE); flashes.push({ kind: "burst", x: e.x, y: e.y - 14, r: r * 0.6, t: 0, ramp: BLUE }); light(e.x, e.y - 14, r + 20, "#63c8ea", 0.7, 0.3); shake(3, 0.2);
   if (Math.hypot(player.x - e.x, player.y - 12 - (e.y - 14)) < r) hurtPlayer(dmg, Math.sign(player.x - e.x) || 1); }
+// 순간이동 베기 (pixelfx slash 기법: 흰 칼날 선 → 램프로 식으며 두 줄로 갈라짐 → 점선 흔적, 끝에 반짝임과 불꽃, 선에서 튀는 부스러기, 바닥 균열)
+const RIFT = ["#0c1430", "#2a58aa", "#3a8bd8", "#62c8f4", "#b8c9e8", "#e8f1ff", "#ffffff"];
+function blink(e, dmg) {
+  const p = player, x1 = e.x, x2 = clamp(p.x + e.dir * 30, e.minX, e.maxX), y = e.y - 15;
+  e.x = x2; e.rift = { kind: "rift", x1, x2, y, gy: e.gy ?? FLOOR, t: 0, life: 0.9, dmg, hit: false, seed: (x1 * 7) | 0 }; flashes.push(e.rift);
+  e.hitAt = time; e.hk = 0; hitstop = Math.max(hitstop, 0.05); shake(2, 0.1); light((x1 + x2) / 2, y, Math.abs(x2 - x1) / 2 + 20, "#62c8f4", 0.8, 0.2);
+  const d = Math.sign(x2 - x1) || e.dir;
+  for (let i = 0; i < 10; i++) spark(x2 + d * 4, y + rnd(-2, 2), d * rnd(150, 380), rnd(-120, 60), rnd(0.12, 0.35), RIFT.slice(2), true);          // 끝에서 튀는 불꽃
+  for (let i = 0; i < 14; i++) { const k = Math.random(), x = x1 + (x2 - x1) * k, s2 = Math.random() < 0.5 ? -1 : 1; spark(x, y, d * 20 + rnd(-10, 10), s2 * rnd(30, 100) - 10, rnd(0.25, 0.55), RIFT.slice(1, 6), true); }   // 선에서 떨어지는 부스러기
+  for (let i = 0; i < 4; i++) puff(x1 + (x2 - x1) * (i / 4), e.gy ?? FLOOR, 0, -10, 0.4, "#b9a995", 2);
+}
+function riftHit(e) {                                 // 순간이동 0.12초 뒤 선이 갈라질 때 피해
+  const r = e.rift, p = player; if (!r || r.hit || r.t < 0.12) return; r.hit = true;
+  const a = Math.min(r.x1, r.x2) - 8, b = Math.max(r.x1, r.x2) + 8;
+  if (p.x > a && p.x < b && p.y > r.y - 6 && p.y - 26 < r.y + 10) hurtPlayer(r.dmg, Math.sign(r.x2 - r.x1) || 1);
+  shake(3, 0.12); light((r.x1 + r.x2) / 2, r.y, 50, "#ffffff", 0.6, 0.12);
+}
 // 검사 패턴. 기본: 3연베기·추적 에너지볼·기폭발·연속 폭발(플레이어 자리 3번)·검 꽂기 폭발·거리 좁히는 대시. 각성: 빠른 연베기+검기, 에너지볼 3개, 도트 기폭발, 돌진 찌르기→베기, 검기 2연발, 점프 내려찍기, 검기+진공파
 function swordPick(e, ad) {
   const n = ad < 70, P = e.awake
@@ -449,8 +466,8 @@ const ADV = {
         else if (k === "aburst") { burst(e, 70, 20); setSt(e, "walk", 1.0); }
         else if (k === "mirror") setSt(e, "mirror", 0);
         else if (k === "plant") { strike(clamp(p.x, ROOM_L, ROOM_R), 1.0, 14, 34, "#63c8ea", { sword: true }); setSt(e, "walk", 1.0); }
-        else if (k === "dash") { setSt(e, "dash", 0.35); e.did = false; }
-        else if (k === "thrust") { setSt(e, "thrust", 0.28); e.did = false; }
+        else if (k === "dash") { blink(e, 15); setSt(e, "dash", 0.45); }
+        else if (k === "thrust") { blink(e, 12); setSt(e, "thrust", 0.3); }
         else if (k === "waves") setSt(e, "waves", 0);
         else if (k === "jump") { if (e.hp < e.maxHp * 0.5) { fxSwoosh(e.x + e.dir * 16, e.y - 20, e.dir, 14, BLUE, true); if (hitsPlayer(e, -4, 36)) hurtPlayer(10, e.dir); }
           e.vy = -400; e.tx = clamp(p.x, e.minX, e.maxX); e.airT = 0; setSt(e, "jumpAtk", 0); }
@@ -465,8 +482,8 @@ const ADV = {
           e.n++; e.t = A ? 0.15 : 0.32;
           if (e.n >= 3) { if (A) { swave(e, false, 9); e.hk = 3; } setSt(e, "walk", A ? 0.7 : 1.1); } } }
       else if (S === "mirror") { if (e.t <= 0) { strike(clamp(p.x, ROOM_L, ROOM_R), 0.6, 12, 22, "#63c8ea"); e.n++; e.t = 0.5; if (e.n >= 3) setSt(e, "walk", 1.0); } }
-      else if (S === "dash") { e.x = clamp(e.x + e.dir * 320 * STEP, e.minX, e.maxX); if (!e.did && hitsPlayer(e, -6, 18)) { e.did = true; hurtPlayer(15, e.dir); } if (Math.random() < 0.3) spark(e.x - e.dir * 8, e.y - 14, -e.dir * 80, rnd(-20, 20), 0.2, RAMP_GHOST, true); if (e.t <= 0) setSt(e, "walk", 1.2); }
-      else if (S === "thrust") { e.x = clamp(e.x + e.dir * 400 * STEP, e.minX, e.maxX); if (!e.did && hitsPlayer(e, -6, 22)) { e.did = true; hurtPlayer(12, e.dir); } spark(e.x - e.dir * 8, e.y - 14, -e.dir * 80, rnd(-20, 20), 0.2, BLUE, true);
+      else if (S === "dash") { riftHit(e); if (e.t <= 0) setSt(e, "walk", 1.2); }
+      else if (S === "thrust") { riftHit(e);
         if (e.t <= 0) { e.hitAt = time; e.hk = 0; fxSwoosh(e.x + e.dir * 26, e.y - 16, e.dir, 22, BLUE, true); if (hitsPlayer(e, -10, 54)) hurtPlayer(16, e.dir); shake(3, 0.15); setSt(e, "walk", 1.1); } }
       else if (S === "waves") { if (e.t <= 0) { advFace(e, dx); swave(e, false, 10); e.n++; e.t = 0.22; if (e.n >= 2) setSt(e, "walk", 1.0); } }
       else if (S === "jumpAtk") { e.airT += STEP; e.x = clamp(e.x + (e.tx - e.x) * Math.min(1, STEP * 4), e.minX, e.maxX);
@@ -1284,7 +1301,7 @@ function updateFx(dt) {
   for (const gl of glints) gl.t += dt;
   for (const m of embers) { m.y -= m.v * dt * (m.near ? 1.8 : 1); m.x += Math.sin(time * 1.3 + m.ph) * 8 * dt + 4 * dt; if (m.y < -4) { m.y = H - rnd(20, 60); m.x = rnd(0, W); } if (m.x > W) m.x = 0; }
   sparks = sparks.filter((s) => s.life > 0); puffs = puffs.filter((q) => q.life > 0); lights = lights.filter((l) => l.life > 0);
-  flashes = flashes.filter((f) => f.t < 0.5); ghosts = ghosts.filter((gh) => gh.t < gh.life); texts = texts.filter((t) => t.t > 0);
+  flashes = flashes.filter((f) => f.t < (f.life ?? 0.5)); ghosts = ghosts.filter((gh) => gh.t < gh.life); texts = texts.filter((t) => t.t > 0);
   glints = glints.filter((gl) => gl.t < 0.5);
 }
 
@@ -1344,6 +1361,21 @@ function drawFxFront() {
         }
       }
       glow(f.x, f.y, 14, f.ramp[2], 0.3 * (1 - u));
+    } else if (f.kind === "rift") {               // 갈라진 칼자국
+      const x1 = Math.round(Math.min(f.x1, f.x2)), x2 = Math.round(Math.max(f.x1, f.x2)), L2 = x2 - x1, y = Math.round(f.y), t = f.t;
+      const gap = t < 0.12 ? 0 : Math.round(4 * (1 - Math.pow(1 - Math.min(1, (t - 0.12) / 0.25), 3)));   // 0.12초에 두 줄로 갈라진다
+      const heat = t < 0.06 ? 6 : Math.max(0, 6 - Math.floor((t - 0.06) / 0.07));                           // 흰색에서 파랑으로 식는다
+      for (let x = x1; x <= x2; x++) {
+        const k = L2 ? (x - x1) / L2 : 0.5, taper = Math.sin(Math.PI * Math.min(1, Math.max(0, k))), th = Math.max(1, Math.round((t < 0.12 ? 3 : 2) * taper));
+        if (t > 0.6 && ((x * 5 + f.seed) % 7) < (t - 0.6) * 25) continue;                                  // 흩어지며 사라짐
+        if (heat <= 2) { if ((x + f.seed) % 3) continue; g.fillStyle = heat ? RIFT[4] : RIFT[3]; g.fillRect(x, y - gap, 1, 1); g.fillRect(x, y + gap, 1, 1); continue; }   // 식으면 연한 점선 흔적
+        if (!gap) { g.fillStyle = RIFT[Math.max(1, heat - 1)]; g.fillRect(x, y - th, 1, th * 2 + 1); g.fillStyle = RIFT[heat]; g.fillRect(x, y, 1, 1); }
+        else for (const s2 of [-1, 1]) { const yy = y + s2 * gap; g.fillStyle = RIFT[Math.max(0, heat - 2)]; g.fillRect(x, yy - (th > 1 ? 1 : 0), 1, th); g.fillStyle = RIFT[heat]; g.fillRect(x, s2 < 0 ? yy - (th > 1 ? 1 : 0) : yy + th - 1, 1, 1); }
+      }
+      if (t < 0.2) { const gx = f.x2 > f.x1 ? x2 : x1, r = Math.round(6 * (1 - t / 0.2)); g.fillStyle = "#fff"; g.fillRect(gx - r, y, r * 2 + 1, 1); g.fillRect(gx, y - r, 1, r * 2 + 1); }   // 끝 반짝임
+      if (t < 0.4) glow((x1 + x2) / 2, y, L2 / 2 + 14, "#62c8f4", 0.5 * (1 - t / 0.4));
+      const cy = Math.round(f.gy); for (let x = x1; x <= x2; x += 1) { const j = ((x * 13 + f.seed) % 5) - 2; if (Math.abs(j) > 1 && x % 2) continue;   // 바닥 균열
+        if (t > 0.5 && ((x * 3 + f.seed) % 9) < (t - 0.5) * 22) continue; g.fillStyle = "#0c1430"; g.fillRect(x, cy - 1 + (j > 0 ? 1 : 0), 1, 1); if (t < 0.45 && x % 3 === 0) { g.fillStyle = "#62c8f4"; g.fillRect(x, cy - 1, 1, 1); } }
     } else if (f.kind === "bolt") {               // 번개: 지그재그 선, 0.15초
       if (f.t > 0.15) continue; const n = 7, pts = []; for (let i = 0; i <= n; i++) { const k = i / n; pts.push([f.x1 + (f.x2 - f.x1) * k + (i && i < n ? (((i * 37 + (f.x1 | 0) * 13) % 11) - 5) : 0), f.y1 + (f.y2 - f.y1) * k]); }
       for (let i = 0; i < n; i++) { const [ax, ay] = pts[i], [bx, by] = pts[i + 1], m = Math.max(Math.abs(bx - ax), Math.abs(by - ay)) | 0; for (let j = 0; j <= m; j++) { const x = Math.round(ax + (bx - ax) * j / m), y = Math.round(ay + (by - ay) * j / m); g.fillStyle = "#ffe24a"; g.fillRect(x - 1, y, 3, 1); g.fillStyle = "#fff"; g.fillRect(x, y, 1, 1); } }
