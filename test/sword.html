@@ -280,7 +280,7 @@ const gfxImg = {}; for (const k in GFX) { gfxImg[k] = new Image(); gfxImg[k].src
 const GFX_METEOR_HIT = 0.8, GFX_SPIRE_UP = 0.2;            // 시트 안에서 운석이 닿는 때, 돌기둥이 솟는 때
 function gfx(key, x, rate = 1) { if (!ready(gfxImg[key])) return false; spawn({ kind: "gfx", key, x, t: 0, rate }); return true; }
 const GPART = (k, x, y, sc = 1, ax = 0.5, ay = 1, rot = 0) => { const q = GIANT[k]; g.save(); g.translate(Math.round(x), Math.round(y)); if (rot) g.rotate(rot); g.drawImage(giantImg, q[0], q[1], q[2], q[3], -Math.round(q[2] * ax * sc), -Math.round(q[3] * ay * sc), Math.round(q[2] * sc), Math.round(q[3] * sc)); g.restore(); };
-const HSC = (pose) => pose.includes("open") ? 0.74 : pose.includes("side") ? 0.88 : 1;   // 손 크기를 내려찍기 주먹에 맞춤
+const HSC = (pose) => pose.includes("open") ? 0.74 : pose.includes("side") ? 1.0 : 1;   // 손 크기를 내려찍기 주먹에 맞춤
 const giantBase = (e) => FLOOR + 16 + e.sink;                      // 몸통 그림의 아래 끝 (땅속에 묻힌다)
 function giantCore(e) { return { x: e.cx - GIANT.body[2] / 2 + GIANT.core[0], y: giantBase(e) - GIANT.body[3] + GIANT.core[1] + Math.sin(time * 1.6) * 1.5 }; }
 function giantHand(e, i, x, y, pose) { const h = e.hands[i]; h.tx = x; h.ty = y; if (pose) h.pose = pose; }
