@@ -284,13 +284,20 @@ const HSC = (pose) => pose.includes("open") ? 0.74 : pose.includes("side") ? 1.0
 const giantBase = (e) => FLOOR + 16 + e.sink;                      // 몸통 그림의 아래 끝 (땅속에 묻힌다)
 function giantCore(e) { return { x: e.cx - GIANT.body[2] / 2 + GIANT.core[0], y: giantBase(e) - GIANT.body[3] + GIANT.core[1] + Math.sin(time * 1.6) * 1.5 }; }
 function giantHand(e, i, x, y, pose) { const h = e.hands[i]; h.tx = x; h.ty = y; if (pose) h.pose = pose; }
+// 포효 영상 프레임 (art/boss1/video_cut.py, 기본 몸통 기준). 등장 때와 2페이즈로 바뀔 때 튼다
+const ROARV = {"w": 387, "h": 221, "cols": 5, "n": 44, "fps": 10, "ax": 193, "ay": 213}, ROAR_LEN = ROARV.n / ROARV.fps, ROAR2_RATE = 1.4;
+const roarImg = new Image(); roarImg.src = "../assets/giant_roar.png";
 function giantAI(e, p) {
   const ph2 = e.phase === 2, k = ph2 ? 1.3 : 1, H = e.hands, cx = e.cx;
+  if (e.st === "intro" && !e.introVid && e.t <= ROAR_LEN && ready(roarImg)) { e.introVid = true; e.vid = { t: 0, rate: 1 }; }
+  if (e.vid) { e.vid.t += STEP * e.vid.rate; const vf = e.vid.t * ROARV.fps;
+    if (!e.vid.boom && vf > 14) { e.vid.boom = true; shake(7, 1.2); const c0 = giantCore(e); fxShock(c0.x, FLOOR, 160, RAMP_FIRE); light(c0.x, c0.y, 140, "#ffae35", 0.9, 0.8); }   // 영상 속 충격파와 맞춰 화면 흔들림
+    if (vf >= ROARV.n) { e.vid = null; if (ph2) { whiteT = Math.max(whiteT, 0.15); const c0 = giantCore(e); flashes.push({ kind: "burst", x: c0.x, y: c0.y, r: 40, t: 0, ramp: RAMP_FIRE }); fxRing(c0.x, c0.y, 60, RAMP_FIRE); shake(6, 0.4); } } }
   for (const h of H) { const sp = h.fast ? 1 : Math.min(1, STEP * (h.lerp ?? 5)); if (!h.fast) { h.x += (h.tx - h.x) * sp; h.y += (h.ty - h.y) * sp; } }
-  e.sink += ((e.st === "groggy" ? 78 : e.lean > 0 ? 42 : e.st === "roar" ? -6 : 0) - e.sink) * Math.min(1, STEP * 4); if (e.lean > 0) e.lean -= STEP;
+  e.sink += ((e.st === "groggy" ? 78 : e.lean > 0 ? 42 : e.st === "roar" && !e.vid ? -6 : 0) - e.sink) * Math.min(1, STEP * 4); if (e.lean > 0) e.lean -= STEP;
   const c = giantCore(e); e.x = c.x; e.gy = e.y = c.y + 28; e.minX = e.maxX = c.x; e.groggy = e.st === "groggy";
   e.fist = null; for (const h of H) if (h.rest > 0) { h.rest -= STEP; e.fist = { x0: h.x - 46, x1: h.x + 46, y: FLOOR - 74 }; }   // 박힌 손은 발판
-  if (e.phase === 1 && e.hp <= e.maxHp / 2) { e.phase = 2; setSt(e, "roar", 1.6); e.invuln = 1.6; shake(6, 1); banner = { s: "골렘이 불타오른다!", t: 2 }; for (const h of H) { h.fast = false; h.rest = 0; } }
+  if (e.phase === 1 && e.hp <= e.maxHp / 2) { const vd = ready(roarImg) ? ROAR_LEN / ROAR2_RATE : 1.6; if (ready(roarImg)) e.vid = { t: 0, rate: ROAR2_RATE }; e.phase = 2; setSt(e, "roar", vd); e.invuln = vd; shake(6, 1); banner = { s: "골렘이 불타오른다!", t: 2 }; for (const h of H) { h.fast = false; h.rest = 0; } }
   if (e.invuln > 0) e.invuln -= STEP;
   const home = () => { giantHand(e, 0, cx - 150, FLOOR - 128 + Math.sin(time * 2) * 4, "fist"); giantHand(e, 1, cx + 150, FLOOR - 128 + Math.sin(time * 2 + 1) * 4, "fist"); for (const h of H) { h.fast = false; h.lerp = 5; } };
   const near = Math.abs(H[0].x - p.x) < Math.abs(H[1].x - p.x) ? 0 : 1;
@@ -365,6 +372,7 @@ function clapFx(x) {                                                 // 박수: 
 function drawGiantBody(e, sinkExtra = 0, img2) {                  // 지형보다 먼저 (몸통은 뒤). 바닥 아래는 잘라서 땅에 묻힌 것처럼
   if (!ready(giantImg)) return; const ph2 = img2 ?? e.phase === 2, br = Math.sin(time * 1.6), shk = e.st === "roar" ? Math.round(Math.sin(time * 50) * 2) : 0;
   g.save(); g.beginPath(); g.rect(-1000, -1000, 4000, FLOOR + 1000 + 2); g.clip();
+  if (e.vid && ready(roarImg)) { const V = ROARV, f = Math.min(V.n - 1, Math.floor(e.vid.t * V.fps)); g.drawImage(roarImg, (f % V.cols) * V.w, Math.floor(f / V.cols) * V.h, V.w, V.h, Math.round(e.cx - V.ax), Math.round(giantBase(e) + sinkExtra - V.ay), V.w, V.h); g.restore(); return; }
   GPART(ph2 ? "body2" : "body", e.cx + shk, giantBase(e) + sinkExtra + br * 1.5, 1);
   g.restore();
   const c = giantCore(e); glow(c.x, c.y + sinkExtra, 34 + br * 4, "#ffae35", e.groggy ? 0.9 : 0.5); if (ph2) glow(e.cx, giantBase(e) - 120, 120, "#ff5a2a", 0.15 + 0.05 * Math.sin(time * 9));
@@ -1168,7 +1176,7 @@ function startRoom() {
     banner = { s: n === 1 ? ENEMIES[ids[0]].name : awake >= 0 ? `각성한 ${ENEMIES[ids[awake]].name}와 일행` : "견습 용사 파티", t: 2.5 };
   } else if (r === "boss") {                                         // 보스 방: 골렘이 땅에서 솟아오른다
     phase = "fight"; banner = { s: "마을 수호 골렘", t: 2.5 };
-    const g = newEnemy("golem", L.w / 2); g.born = 0; g.dir = -1; g.cx = L.w / 2; g.sink = 90; g.lean = 0; g.phase = 1; setSt(g, "intro", 2.2); g.invuln = 2.2;
+    const g = newEnemy("golem", L.w / 2); g.born = 0; g.dir = -1; g.cx = L.w / 2; g.sink = 90; g.lean = 0; g.phase = 1; { const it = ready(roarImg) ? 1.2 + ROAR_LEN : 2.2; setSt(g, "intro", it); g.invuln = it; }
     g.hands = [{ x: g.cx - 150, y: FLOOR + 80, tx: 0, ty: 0, pose: "fist", rest: 0 }, { x: g.cx + 150, y: FLOOR + 80, tx: 0, ty: 0, pose: "fist", rest: 0 }];
     const c0 = giantCore(g); g.x = c0.x; g.gy = g.y = c0.y + 28; enemies.push(g); shake(5, 2);
   } else if (r === "start") { phase = "clear"; banner = { s: "투구를 줍고(↑) 문을 고르자", t: 3 }; { const hs = freeHelms().sort(() => Math.random() - 0.5); spawn({ kind: "pickup", id: hs[0].id, x: 240, grade: 0 }); if (stat("vault") && hs[1]) spawn({ kind: "pickup", id: hs[1].id, x: 300, grade: 0 }); } openDoors(); }
