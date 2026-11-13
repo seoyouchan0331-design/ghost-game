@@ -390,7 +390,8 @@ const advFace = (e, dx) => { e.dir = Math.sign(dx) || e.dir; };
 // 모험가 공통 규칙: 체력 50%에서 기를 모아 필살기 (모으는 동안 최대 체력 12%를 깎으면 캔슬) → 쓰든 캔슬되든 그로기.
 // 체력 30%에서 포션을 마신다 (멈춰 서서 받는 피해 1.5배). 챕터별 인원: 1명, 2명, 3명, 4챕터는 3명 중 1명 각성, 5챕터는 없음.
 let chapter = 1;
-const ADV_COUNT = [0, 1, 2, 3, 3, 0];
+const ADV_COUNT = [0, 1, 2, 2, 1, 0];
+const MIDBOSS = [[], ["adv_sword"], ["adv_thief", "adv_cleric"], ["adv_archer", "adv_mage"], ["adv_sword"], []];   // 챕터별 고정 모험가 (4챕터는 각성 검사 혼자)
 const ULT_CANCEL = 0.12, GROGGY = 3, GROGGY_CANCEL = 4;
 function strike(x, delay, dmg, r, c, opt) { spawn({ kind: "strike", x, gy: groundAt(x, FLOOR - 2), t: delay, max: delay, dmg, r, c, ...opt }); }
 const BLUE = ["#0c1430", "#2a6ab0", "#63c8ea", "#d8f4ff", "#ffffff"];
@@ -999,7 +1000,7 @@ function startRoom() {
   const ev = eventRoom && typeof r !== "string";
   L = buildRoom(r === "boss" || r === "midboss" ? BOSS_MAP : r === "shop" || ev ? SHOP_MAP : typeof r === "string" ? FLAT : layoutPool.pop() ?? pick(LAYOUTS)); ROOM_R = L.w - 20; buildTerrain(); player.safe = [40, FLOOR];
   if (r === "midboss") {                                      // 붉은 문: 견습 용사 파티 3명 동시
-    phase = "fight"; const n = ADV_COUNT[chapter] || 1, ids = ["adv_sword", "adv_archer", "adv_cleric"].slice(0, n)   // 고정: 1챕터 검사, 2챕터 + 궁수, 3챕터 + 사제, xs = [L.w - 120, L.w - 220, L.w - 70];
+    phase = "fight"; const ids = (MIDBOSS[chapter] || MIDBOSS[1]).filter((id) => ENEMIES[id]), n = ids.length   // 아직 AI가 없는 직업(도적·마법사)은 빠진다, xs = [L.w - 120, L.w - 220, L.w - 70];
     const awake = chapter === 4 ? 0 : -1;   // 4챕터는 검사가 각성
     ids.forEach((id, i) => { const e = newEnemy(id, xs[i], i); e.gy = e.y = FLOOR; e.minX = ROOM_L + 10; e.maxX = ROOM_R - 10; e.dir = -1; e.healT = 3; e.ultAt = [0.5]; e.potionDone = false;
       if (i === awake) { e.awake = true; e.hp = e.maxHp = Math.round(e.maxHp * 2.5); e.speed *= 1.25; e.ultAt = [0.6, 0.25]; }
