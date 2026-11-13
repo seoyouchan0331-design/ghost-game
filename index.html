@@ -339,14 +339,29 @@ function drawGolem(e) {
 const ADV_SPR = {"adv_sword":{"r":[0,0,27,38],"face":-1},"adv_archer":{"r":[29,0,27,36],"face":-1},"adv_cleric":{"r":[58,0,26,38],"face":1},"adv_mage":{"r":[86,0,31,38],"face":1},"adv_thief":{"r":[119,0,31,34],"face":-1},"adv_warrior":{"r":[152,0,43,42],"face":-1}};
 const advImg = new Image(); advImg.src = "assets/adv.png";
 const advC = mk(SP, SP), advG = advC.getContext("2d");
+// 검사 베기 애니메이션 (영상에서 뽑은 10프레임, art/adv/adv_sword_anim.py): 0 대기, 1~4 준비, 5~7 휘두름, 8 뻗은 끝, 9 돌아오기
+const SWA = { size: 70, footX: 34, footY: 58 }, swaImg = new Image(); swaImg.src = "assets/adv_sword_anim.png";
+function swordFrame(e) {
+  const S = e.st, h = time - (e.hitAt ?? -9);
+  if (e.stun > 0) return 9;
+  if (h < 0.05) return 5; if (h < 0.09) return 6; if (h < 0.14) return 7;
+  if (/Wind$/.test(S) || S === "charge") return 1 + Math.min(3, Math.floor((1 - e.t / (e.tMax || 1)) * 4));
+  if (S === "mirror" || S === "jumpAtk" || S === "u_beam") return 4;
+  if (S === "dash" || S === "thrust" || S === "u_dash" || S === "combo" || S === "waves" || S === "vacuum") return 8;
+  if (S === "walk") return h < 0.4 ? 8 : h < 0.7 ? 9 : 0;
+  return 0;
+}
 function drawAdvSprite(e) {
   const q = ADV_SPR[e.id]; if (!q || !ready(advImg)) return false;
   const wind = /Wind$/.test(e.st) || e.st === "aim" || e.st === "cast" || e.st === "charge", atk = /^(combo|dash|shoot|thrust|waves|u_dash|jumpAtk|vacuum)$/.test(e.st);
   const ang = wind ? -0.13 : atk ? 0.15 : e.st === "flip" ? -0.45 : 0, bob = e.st === "walk" && Math.abs(Math.sin(e.walkT * 9)) > 0.5 ? -1 : 0;
   const sq = e.st === "walk" ? 1 + Math.sin(e.walkT * 18) * 0.03 : wind ? 0.96 : 1;
-  const c = advG; c.clearRect(0, 0, SP, SP); c.imageSmoothingEnabled = false;   // 그림은 따로 캔버스에 (로컬 파일로 열면 그림 그린 캔버스는 픽셀을 못 읽는다)
+  const c = advG; c.clearRect(0, 0, SP, SP); c.imageSmoothingEnabled = false;
+  if (e.id === "adv_sword" && ready(swaImg)) { const f = swordFrame(e);
+    c.drawImage(swaImg, f * SWA.size, 0, SWA.size, SWA.size, SX - SWA.footX, SY + (f === 0 ? bob : 0) - SWA.footY, SWA.size, SWA.size); }
+  else {   // 그림은 따로 캔버스에 (로컬 파일로 열면 그림 그린 캔버스는 픽셀을 못 읽는다)
   c.save(); c.translate(SX + (atk ? 2 : 0), SY + bob); c.rotate(ang); c.scale(q.face, sq);   // 그림이 보는 방향을 오른쪽으로 맞춘다
-  c.drawImage(advImg, q.r[0], q.r[1], q.r[2], q.r[3], -Math.round(q.r[2] / 2), -q.r[3], q.r[2], q.r[3]); c.restore();
+  c.drawImage(advImg, q.r[0], q.r[1], q.r[2], q.r[3], -Math.round(q.r[2] / 2), -q.r[3], q.r[2], q.r[3]); c.restore(); }
   const t0 = T; T = c; if (wind) exclaim(0, -46);
   if (e.st === "potion") { R(4, -26, 4, 6, "#d8423a"); R(5, -28, 2, 2, "#c8ccd6"); R(4, -25, 1, 3, "#ff9aa0"); }
   if (e.st === "charge") { const f = 1 - Math.min(1, e.chargeDmg / (e.maxHp * ULT_CANCEL)); R(-12, -54, 24, 3, "#17131c"); R(-11, -53, Math.round(22 * f), 1, "#63c8ea"); } if (e.stun > 0) for (let i = 0; i < 3; i++) { const a = time * 7 + i * 2.1; R(Math.cos(a) * 7, -44 + Math.sin(a) * 2, 2, 2, "#ffe27a"); } T = t0;
@@ -363,8 +378,8 @@ const ULT_CANCEL = 0.12, GROGGY = 3, GROGGY_CANCEL = 4;
 function strike(x, delay, dmg, r, c, opt) { spawn({ kind: "strike", x, gy: groundAt(x, FLOOR - 2), t: delay, max: delay, dmg, r, c, ...opt }); }
 const BLUE = ["#0c1430", "#2a6ab0", "#63c8ea", "#d8f4ff", "#ffffff"];
 function orb(e, ang, sp) { spawn({ kind: "orb", x: e.x + e.dir * 10, y: e.y - 20, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, sp, age: 0, home: 2.2, dmg: 10 }); }
-function swave(e, big, dmg, c) { spawn({ kind: "swave", x: e.x + e.dir * 14, y: e.y, vx: e.dir * (big ? 240 : 360), w: big ? 12 : 7, h: big ? 44 : 22, dmg, hits: big ? 4 : 1, hitT: 0, age: 0, c: c || "#9bdcff" }); fxSwoosh(e.x + e.dir * 20, e.y - 16, e.dir, big ? 18 : 12, BLUE, big); }
-function burst(e, r, dmg) { fxRing(e.x, e.y - 14, r, BLUE); flashes.push({ kind: "burst", x: e.x, y: e.y - 14, r: r * 0.6, t: 0, ramp: BLUE }); light(e.x, e.y - 14, r + 20, "#63c8ea", 0.7, 0.3); shake(3, 0.2);
+function swave(e, big, dmg, c) { e.hitAt = time; spawn({ kind: "swave", x: e.x + e.dir * 14, y: e.y, vx: e.dir * (big ? 240 : 360), w: big ? 12 : 7, h: big ? 44 : 22, dmg, hits: big ? 4 : 1, hitT: 0, age: 0, c: c || "#9bdcff" }); fxSwoosh(e.x + e.dir * 20, e.y - 16, e.dir, big ? 18 : 12, BLUE, big); }
+function burst(e, r, dmg) { e.hitAt = time; fxRing(e.x, e.y - 14, r, BLUE); flashes.push({ kind: "burst", x: e.x, y: e.y - 14, r: r * 0.6, t: 0, ramp: BLUE }); light(e.x, e.y - 14, r + 20, "#63c8ea", 0.7, 0.3); shake(3, 0.2);
   if (Math.hypot(player.x - e.x, player.y - 12 - (e.y - 14)) < r) hurtPlayer(dmg, Math.sign(player.x - e.x) || 1); }
 // 검사 패턴. 기본: 3연베기·추적 에너지볼·기폭발·연속 폭발(플레이어 자리 3번)·검 꽂기 폭발·거리 좁히는 대시. 각성: 빠른 연베기+검기, 에너지볼 3개, 도트 기폭발, 돌진 찌르기→베기, 검기 2연발, 점프 내려찍기, 검기+진공파
 function swordPick(e, ad) {
@@ -426,12 +441,12 @@ const ADV = {
         else if (k === "bigwave") { swave(e, true, 7); setSt(e, "vacuum", 0.45); }
         return;
       }
-      if (S === "combo") { if (e.t <= 0) { if (hitsPlayer(e, -8, 46)) hurtPlayer(11, e.dir); fxSwoosh(e.x + e.dir * 26, e.y - 14, e.dir, 16, RAMP_IRON, e.n === 2); e.x = clamp(e.x + e.dir * 5, e.minX, e.maxX); e.n++; e.t = A ? 0.13 : 0.3;
+      if (S === "combo") { if (e.t <= 0) { e.hitAt = time; if (hitsPlayer(e, -8, 46)) hurtPlayer(11, e.dir); fxSwoosh(e.x + e.dir * 26, e.y - 14, e.dir, 16, RAMP_IRON, e.n === 2); e.x = clamp(e.x + e.dir * 5, e.minX, e.maxX); e.n++; e.t = A ? 0.13 : 0.3;
           if (e.n >= 3) { if (A) swave(e, false, 9); setSt(e, "walk", A ? 0.7 : 1.1); } } }
       else if (S === "mirror") { if (e.t <= 0) { strike(clamp(p.x, ROOM_L, ROOM_R), 0.6, 12, 22, "#63c8ea"); e.n++; e.t = 0.5; if (e.n >= 3) setSt(e, "walk", 1.0); } }
       else if (S === "dash") { e.x = clamp(e.x + e.dir * 320 * STEP, e.minX, e.maxX); if (!e.did && hitsPlayer(e, -6, 18)) { e.did = true; hurtPlayer(15, e.dir); } if (Math.random() < 0.3) spark(e.x - e.dir * 8, e.y - 14, -e.dir * 80, rnd(-20, 20), 0.2, RAMP_GHOST, true); if (e.t <= 0) setSt(e, "walk", 1.2); }
       else if (S === "thrust") { e.x = clamp(e.x + e.dir * 400 * STEP, e.minX, e.maxX); if (!e.did && hitsPlayer(e, -6, 22)) { e.did = true; hurtPlayer(12, e.dir); } spark(e.x - e.dir * 8, e.y - 14, -e.dir * 80, rnd(-20, 20), 0.2, BLUE, true);
-        if (e.t <= 0) { fxSwoosh(e.x + e.dir * 26, e.y - 16, e.dir, 22, BLUE, true); if (hitsPlayer(e, -10, 54)) hurtPlayer(16, e.dir); shake(3, 0.15); setSt(e, "walk", 1.1); } }
+        if (e.t <= 0) { e.hitAt = time; fxSwoosh(e.x + e.dir * 26, e.y - 16, e.dir, 22, BLUE, true); if (hitsPlayer(e, -10, 54)) hurtPlayer(16, e.dir); shake(3, 0.15); setSt(e, "walk", 1.1); } }
       else if (S === "waves") { if (e.t <= 0) { advFace(e, dx); swave(e, false, 10); e.n++; e.t = 0.22; if (e.n >= 2) setSt(e, "walk", 1.0); } }
       else if (S === "jumpAtk") { e.airT += STEP; e.x = clamp(e.x + (e.tx - e.x) * Math.min(1, STEP * 4), e.minX, e.maxX);
         if (e.airT > 0.1 && e.vy >= 0 && e.y >= (e.gy ?? FLOOR) - 0.5) { slam(e.x, 40, 16); [-60, -30, 30, 60].forEach((o, i) => strike(clamp(e.x + o, ROOM_L, ROOM_R), 0.3 + (Math.abs(o) > 30 ? 0.25 : 0), 10, 14, "#63c8ea")); setSt(e, "walk", 1.2); } }
@@ -975,7 +990,7 @@ function startWave() {
   });
 }
 const spawn = (o) => { objs.push(o); return o; };
-const setSt = (e, st, t) => { e.st = st; e.t = t; };
+const setSt = (e, st, t) => { e.st = st; e.t = t; e.tMax = t; };
 function walkTo(e, dx, k = 1, face) { const d = Math.sign(dx) || 1; e.dir = face || d; e.x += d * e.speed * k * STEP; e.walkT += STEP * k; }
 const hitsPlayer = (e, a, b) => { const p = player, x0 = Math.min(e.x + e.dir * a, e.x + e.dir * b), x1 = Math.max(e.x + e.dir * a, e.x + e.dir * b); return p.x + 6 > x0 && p.x - 6 < x1 && p.y > e.y - 28 && p.y - 26 < e.y; };
 const live = (e) => !e.dead && e.born <= 0;
