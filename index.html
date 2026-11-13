@@ -1393,7 +1393,8 @@ function interact(p) {
     if (p.gold < sh.price) { banner = { s: "금화가 모자라", t: 1.2 }; return; }
     if (sh.item && p.items.length >= 9) { banner = { s: "아이템 칸이 가득 찼어", t: 1.2 }; return; }
     p.gold -= sh.price; sh.gone = true; light(sh.x, FLOOR - 18, 40, "#ffd27a", 0.7, 0.3);
-    if (sh.pick) for (const o of objs) if (o.pick) o.gone = true;   // 하나만 고른다
+    if (sh.pick) { const keep = banner; let n = 0; for (const o of objs) if (o.pick && !o.gone) { if (o !== sh) { breakItem(o); n += itemScrapGold(o.item); } else o.gone = true; }   // 하나만 고르고 나머지는 분해
+      banner = keep; if (n) texts.push({ x: player.x, y: player.y - 56, vy: -20, t: 1.4, s: `나머지 분해 — 금화 ${n}`, c: "#ffd24a" }); }
     if (sh.potion || sh.food === "soup") { p.hp = Math.min(maxHp(), p.hp + 40); banner = { s: "체력 +40", t: 1.5 }; }
     else if (sh.food === "meat") { p.bonusHp += 10; p.hp += 10; banner = { s: "이번 판 최대 체력 +10", t: 1.5 }; }
     else if (sh.soul) { const was = p.soul; p.soul = sh.soul; p.soulCd = 0; if (SOULS[sh.soul].mod.hp) p.hp += SOULS[sh.soul].mod.hp; banner = { s: `${SOULS[sh.soul].name} 장착!`, t: 2 }; if (was) { sh.gone = false; sh.soul = was; sh.price = 0; } }
@@ -1402,7 +1403,7 @@ function interact(p) {
   }
   const door = objs.find((o) => o.kind === "door" && Math.abs(o.x - p.x) < 18);
   if (door) { for (const o of objs) if (o.kind === "pickup") p.scrap += SCRAP_OF[o.grade ?? 0];
-    for (const o of objs) if (o.kind === "reveal" && o.taken == null) p.gold += itemScrapGold(o.item);   // 두고 간 아이템은 자동 분해
+    for (const o of objs) if ((o.kind === "reveal" && o.taken == null) || (o.pick && !o.gone)) p.gold += itemScrapGold(o.item);   // 두고 간 아이템은 자동 분해
     for (const o of objs) if (o.kind === "coin" || o.kind === "loot") { if (o.scrap || o.look === "scrap") p.scrap += o.val; else p.gold += o.val; }   // 두고 가는 투구는 자동 분해
     recallHelm(); pendingReward = REWARDS[door.reward].w || door.reward === "elite" ? door.reward : null; eliteRoom = door.reward === "elite"; p.gold = Math.max(0, p.gold - stat("roomTax")); room++; p.x = 40; p.dir = 1; whiteT = 0.1; startRoom(); }
 }
