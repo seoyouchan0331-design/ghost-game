@@ -795,13 +795,13 @@ const ENEMIES = {
 // 스테이지 1 앞부분: 시작 방 → 전투 3 → 휴식 → 전투 2. 전투 방은 웨이브 목록.
 const ROOMS = [                         // 스컬식 고정 순서: 전반 전투 3 → 모험가 → (보상 후 바로) 후반 전투 3 → 암시장 1번 → 보스
   "start",
-  [["militia", "militia", "militia"], ["militia", "militia", "hound", "hound"]],
-  [["militia", "torch", "hound", "hound"], ["shield", "militia", "torch"], ["hound", "hound", "hound", "torch"]],
-  [["shield", "torch", "militia", "militia"], ["shield", "shield", "hound", "hound"], ["shield", "torch", "torch", "militia", "hound"]],
+  [["militia", "militia", "militia", "militia", "militia", "militia"], ["militia", "militia", "hound", "hound", "militia", "militia", "hound", "hound"]],
+  [["militia", "torch", "hound", "hound", "militia", "torch", "hound", "hound"], ["shield", "militia", "torch", "shield", "militia", "torch"], ["hound", "hound", "hound", "torch", "hound", "hound", "hound", "torch"]],
+  [["shield", "torch", "militia", "militia", "shield", "torch", "militia", "militia"], ["shield", "shield", "hound", "hound", "shield", "shield", "hound", "hound"], ["shield", "torch", "torch", "militia", "hound", "shield", "torch", "torch", "militia"]],
   "midboss",
-  [["shield", "torch", "hound", "hound"], ["militia", "militia", "torch", "torch"], ["shield", "shield", "torch", "hound", "hound"]],
-  [["hound", "hound", "hound", "hound"], ["shield", "torch", "torch", "militia"], ["shield", "shield", "torch", "torch", "militia"]],
-  [["shield", "shield", "torch", "militia", "militia"], ["hound", "hound", "torch", "torch", "shield"], ["shield", "shield", "shield", "hound", "hound", "torch"]],
+  [["shield", "torch", "hound", "hound", "shield", "torch", "hound", "hound"], ["militia", "militia", "torch", "torch", "militia", "militia", "torch", "torch"], ["shield", "shield", "torch", "hound", "hound", "shield", "shield", "torch", "hound"]],
+  [["hound", "hound", "hound", "hound", "hound", "hound", "hound", "hound"], ["shield", "torch", "torch", "militia", "shield", "torch", "torch", "militia"], ["shield", "shield", "torch", "torch", "militia", "shield", "shield", "torch", "torch"]],
+  [["shield", "shield", "torch", "militia", "militia", "shield", "shield", "torch", "militia"], ["hound", "hound", "torch", "torch", "shield", "hound", "hound", "torch", "torch"], ["shield", "shield", "shield", "hound", "hound", "torch", "shield", "shield", "shield", "hound", "hound"]],
   "shop",
   "boss",
 ];
@@ -940,8 +940,10 @@ const SHOP_MAP = MAP(...Array(7).fill("......................................"),
 const BOSS_MAP = MAP("......................................", "......................................", "......................................", "......................................",
   "......................................", "...=======....................=======.", "......................................", "......................................",
   "......................................", ".......E......................E.......", "######################################");
+// 전투 방을 크게: 원래 지도 + 가운데 다리 + 좌우를 뒤집은 지도 (폭 2배 이상)
+const WIDE = (rows) => rows.map((r, i) => { const last = i === rows.length - 1, mid = last ? "#".repeat(14) : i === rows.length - 5 ? "...========..." : i === rows.length - 6 ? "......T......." : ".".repeat(14); return r + mid + [...r].reverse().join(""); });
 const LAYOUTS = [
-  MAP("......................................",
+  WIDE(MAP("......................................",
       "......................................",
       "..............==========..............",
       "......................................",
@@ -954,8 +956,8 @@ const LAYOUTS = [
       ".......E.......###.......E............",
       ".....######....###....######..........",
       ".....######..E.###....######..........",
-      "######################################"),
-  MAP("..............................................",
+      "######################################")),
+  WIDE(MAP("..............................................",
       "..............................................",
       ".....................========.................",
       "..............................................",
@@ -969,8 +971,8 @@ const LAYOUTS = [
       "..............................................",
       ".........E.......................E............",
       "..............................................",
-      "##############################################"),
-  MAP("......................................",
+      "##############################################")),
+  WIDE(MAP("......................................",
       "......................................",
       "..........=======......=======........",
       "......................................",
@@ -981,8 +983,8 @@ const LAYOUTS = [
       ".............#######..................",
       "......................................",
       "....E............................E....",
-      "########.....############.....########"),
-  MAP("......................................",
+      "########.....############.....########")),
+  WIDE(MAP("......................................",
       "......................................",
       ".......T..................T...........",
       ".....######...........#######.........",
@@ -999,8 +1001,8 @@ const LAYOUTS = [
       "......................................",
       "......E..................E............",
       "....#####...............####..........",
-      "######################################"),
-  MAP("......................................................",
+      "######################################")),
+  WIDE(MAP("......................................................",
       "......................................................",
       "...........==========..............==========.........",
       "......................................................",
@@ -1013,7 +1015,7 @@ const LAYOUTS = [
       "......................................................",
       "........E........E..........................E.........",
       "......#####...#########..................#####........",
-      "######################################################"),
+      "######################################################")),
 ];
 // 지도 → 방: 벽과 천장을 두르고, 적 자리를 뽑는다
 function buildRoom(rows) {
@@ -2436,7 +2438,7 @@ function render() {
       g.fillStyle = "#1a1526"; g.fillRect(x + 30, 60, 30, 70); g.fillStyle = "#3a6ab0"; g.globalAlpha = 0.35 + 0.1 * Math.sin(time + i); g.fillRect(x + 34, 66, 22, 60); g.globalAlpha = 1; g.fillStyle = "#1a1526"; g.fillRect(x + 44, 66, 2, 60); g.fillRect(x + 34, 94, 22, 2);   // 창
       g.fillStyle = "#231c30"; g.fillRect(x, 0, 14, H); g.fillStyle = "#2f2640"; g.fillRect(x + 2, 0, 3, H); }                                                          // 기둥
   } else if (ready(bgi)) {                                              // 배경은 한 장을 통째로: 풍경 끝이 바닥 바로 위에 오게, 위로 비는 곳은 하늘 색
-    const k = 0.25, bh = 380, bw = Math.ceil(bgi.naturalWidth * bh / bgi.naturalHeight), [frac, sky] = BGFIT[bk];
+    const bh = 380, bw = Math.ceil(bgi.naturalWidth * bh / bgi.naturalHeight), k = Math.min(0.25, Math.max(0, bw - W) / Math.max(1, L.w - W)), [frac, sky] = BGFIT[bk];
     const by = Math.round(242 - frac * bh - camY * 0.5); if (by > 0) { g.fillStyle = sky; g.fillRect(0, 0, W, by); }
     g.drawImage(bgi, Math.round(-camX * k), by, bw, bh);
     g.fillStyle = "rgba(10,20,40,0.12)"; g.fillRect(0, 0, W, H);
