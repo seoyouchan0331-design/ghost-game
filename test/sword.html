@@ -11,6 +11,28 @@
   #state { color: #ffe27a; }
 </style>
 <canvas id="screen" width="960" height="540"></canvas>
+<style>
+  /* 모바일 임시 버튼: 터치 화면에서만 보인다 (키보드와 같은 키를 누른다) */
+  #pad { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 5; font-family: sans-serif; -webkit-user-select: none; user-select: none; }
+  body.touch #pad { display: block; }
+  #pad .b { position: absolute; pointer-events: auto; touch-action: none; width: 13vmin; height: 13vmin; border-radius: 50%; background: rgba(20, 30, 50, 0.45); border: 2px solid rgba(155, 232, 255, 0.55);
+    color: #dff6ff; font-size: 3.6vmin; font-weight: bold; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.05; }
+  #pad .b.on { background: rgba(155, 232, 255, 0.45); }
+  #pad .s { width: 10vmin; height: 10vmin; font-size: 2.8vmin; border-radius: 3vmin; }
+  #rotate { display: none; position: fixed; inset: 0; z-index: 9; background: #0b0a10; color: #9be8ff; font: bold 6vmin sans-serif; align-items: center; justify-content: center; text-align: center; }
+  @media (orientation: portrait) { body.touch #rotate { display: flex; } }
+</style>
+<div id="pad">
+  <div class="b" data-k="ArrowLeft" style="left:3vmin;bottom:16vmin">◀</div><div class="b" data-k="ArrowRight" style="left:31vmin;bottom:16vmin">▶</div>
+  <div class="b" data-k="ArrowUp" style="left:17vmin;bottom:30vmin">▲</div><div class="b" data-k="ArrowDown" style="left:17vmin;bottom:2vmin">▼</div>
+  <div class="b" data-k="KeyX" style="right:17vmin;bottom:3vmin">공격<br>X</div><div class="b" data-k="KeyC" style="right:3vmin;bottom:17vmin">점프<br>C</div>
+  <div class="b" data-k="KeyZ" style="right:31vmin;bottom:3vmin">대시<br>Z</div><div class="b" data-k="KeyA" style="right:17vmin;bottom:31vmin">스킬<br>A</div>
+  <div class="b" data-k="KeyS" style="right:3vmin;bottom:31vmin">스킬<br>S</div><div class="b" data-k="Space" style="right:31vmin;bottom:17vmin">교체</div>
+  <div class="b s" data-k="KeyD" style="right:45vmin;bottom:3vmin">영혼<br>D</div>
+  <div class="b s" data-k="Tab" style="left:2vmin;top:42vmin">창</div><div class="b s" data-k="Enter" style="left:13vmin;top:42vmin">확인</div>
+  <div class="b s" data-k="Escape" style="left:24vmin;top:42vmin">닫기</div><div class="b s" data-k="KeyM" style="left:35vmin;top:42vmin">소리</div>
+</div>
+<div id="rotate">화면을 가로로 돌려 주세요</div>
 <script>
 "use strict";
 /* =====================================================================================
@@ -1163,6 +1185,13 @@ addEventListener("keydown", (e) => {
   keys[e.code] = true;
 });
 addEventListener("keyup", (e) => { keys[e.code] = false; });
+// 모바일 임시 버튼: 누르면 keydown과 똑같이 keys/pressed를 켜고, 떼면 끈다 (여러 손가락 동시에)
+{ const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0 || /[?&]touch=1/.test(location.search);
+  if (isTouch) document.body.classList.add("touch");
+  for (const b of document.querySelectorAll("#pad .b")) { const k = b.dataset.k, on = new Set();
+    const down = (e) => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (err) {} on.add(e.pointerId); b.classList.add("on"); if (!keys[k]) { pressed[k] = 0.12; dispatchEvent(new KeyboardEvent("keydown", { code: k })); } keys[k] = true; };
+    const up = (e) => { on.delete(e.pointerId); if (on.size) return; b.classList.remove("on"); keys[k] = false; };
+    b.addEventListener("pointerdown", down); b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up); b.addEventListener("lostpointercapture", up); b.addEventListener("contextmenu", (e) => e.preventDefault()); } }
 const take = (code) => { if (pressed[code] > 0) { pressed[code] = 0; return true; } return false; };
 
 // ---------- 게임 상태 ----------
