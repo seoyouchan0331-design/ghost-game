@@ -1,5 +1,5 @@
 # 스컬식 세로 전투 방 만들기: 층 간격 4칸(2단 점프 약 5.5칸), 바닥 + 여러 층의 땅덩이(#)·발판(=), 층마다 적 자리
-# python3 art/maps/tall_maps.py  → 지도 문자열과 도달 검사 결과 출력 (index.html LAYOUTS 에 붙여 넣음)
+# 46×23칸 (만든 뒤 위 3줄을 잘라 냄). python3 art/maps/tall_maps.py  → 지도 문자열과 도달 검사 결과 출력 (index.html LAYOUTS 에 붙여 넣음)
 import json, sys
 W, H = 46, 26
 def new(): return [["."] * W for _ in range(H)]
@@ -90,6 +90,10 @@ def check(g):
     spots = [(r, c) for r in range(H) for c in range(W) if g[r][c] in "ET"]
     unreach = [s for s in spots if s not in seen]
     return bad, unreach, len(spots)
+# 맨 위 3줄(빈 하늘)은 잘라 낸다: 방이 너무 높으면 배경 그림 위가 비어 보인다
+CUT = 3
+for g in MAPS: assert all(ch == "." for r in g[:CUT] for ch in r), "top rows not empty"
+MAPS = [g[CUT:] for g in MAPS]; H -= CUT; F = H - 2
 ok = True
 for i, g in enumerate(MAPS):
     bad, un, n = check(g); print(f"map {i}: spots {n}, floating {bad}, unreachable {un}", file=sys.stderr); ok &= not bad and not un
