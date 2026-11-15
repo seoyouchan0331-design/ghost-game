@@ -1026,17 +1026,6 @@ function stageDeco(id, g0) {
   if (id === "mage") { const ice = ["#58b4ec", "#9bdcff", "#e8f6ff"]; R(-8, -2, 16, 1, ice[1]); R(-6, -3, 2, 1, ice[2]); R(3, -3, 2, 1, ice[2]); if (g0 >= 2) { R(-4, -12, 2, 4, ice[0]); R(1, -14, 2, 5, ice[1]); R(5, -11, 2, 3, ice[0]); }
     if (g0 >= 3) { R(-6, -16, 12, 2, "#d8e8f0"); for (const x of [-6, -2, 2]) R(x, -19, 2, 3, "#f0f8ff"); R(-1, -21, 2, 2, "#ffffff"); } }
 }
-// 갑옷 빙의 (임시, 그림 오기 전): 계보 단계마다 몸 색, 망토·스카프, 무기 잔상, 전설 오라. [단계] = { tint, a(진하기), cape(색), capeL(길이) }
-const ARMOR = {
-  soldier: [{ tint: "#8a6a44", a: 0.28 }, { tint: "#9aa4b8", a: 0.32 }, { tint: "#d8dce6", a: 0.36, cape: "#d8423a", capeL: 16 }],
-  hunter: [{ tint: "#4f7a3a", a: 0.3, cape: "#35582b", capeL: 9 }, { tint: "#8a6a44", a: 0.3, cape: "#4f7a3a", capeL: 14 }, { tint: "#2a2438", a: 0.42, cape: "#6a3f96", capeL: 16 }],
-  mage: [{ tint: "#6a3f96", a: 0.3 }, { tint: "#58b4ec", a: 0.3, cape: "#3a7ab8", capeL: 10 }, { tint: "#9bdcff", a: 0.34, cape: "#58b4ec", capeL: 14 }, { tint: "#e8f6ff", a: 0.4, cape: "#f0f8ff", capeL: 19, aura: true }],
-  smith: [{ tint: "#654a2f", a: 0.3 }, { tint: "#c9783a", a: 0.3 }, { tint: "#433c4b", a: 0.4, glow: "#ff7a2a" }],
-  thief: [{ tint: "#2a2531", a: 0.36 }, { tint: "#2a2531", a: 0.36, cape: "#4f7a3a", capeL: 12, scarf: true }, { tint: "#2a2531", a: 0.4, cape: "#8a5cc0", capeL: 18, scarf: true }],
-  wood: [{ tint: "#6b4a34", a: 0.3 }, { tint: "#35582b", a: 0.32 }, { tint: "#9c6a3c", a: 0.36, cape: "#4f7a3a", capeL: 10 }],
-  shield: [{ tint: "#62596b", a: 0.3 }, { tint: "#8a8094", a: 0.36, cape: "#3a3448", capeL: 14 }],
-};
-const armorOf = (h) => { const L2 = ARMOR[h.id]; return L2 ? L2[clamp(hgOf(h.id), 0, L2.length - 1)] : null; };
 function hName(h) { const L2 = LINES[h.id], g = hgOf(h.id); return L2 ? L2.names[clamp(g, 0, L2.names.length - 1)] : h.name; }   // 각성 쇳조각 / 분해하면 얻는 쇳조각
 // 성채의 영구 강화: 3갈래 × 4개. mod 값은 레벨만큼 곱해져 stat()에 더해진다. 앞 칸을 1레벨 이상 올려야 다음 칸이 열린다
 const TREES = [
@@ -1829,9 +1818,6 @@ function thorns(e, dmg, root) {                                    // 가시덩�
   flashes.push({ kind: "stab", x: e.x, y: e.y, dir: 1, len: 20, t: 0, ramp: RAMP_LEAF, up: true }); damage(e, dmg, { dir: 1, kb: 0, ramp: RAMP_LEAF }); if (live(e) && !e.type.boss && !e.type.giant) e.stun = Math.max(e.stun ?? 0, root);
 }
 function lineTick(p, dt) {
-  { const AR = armorOf(p.helm);
-    if (AR && AR.aura && Math.random() < dt * 10) { const a0 = rnd(0, 6.28); spark(p.x + Math.cos(a0) * 16, p.y - 14 + Math.sin(a0) * 12, -Math.sin(a0) * 20, Math.cos(a0) * 20 - 10, 0.6, ["#0c1430", "#58b4ec", "#9bdcff", "#e8f6ff", "#ffffff"], true); }   // 전설: 늘 도는 오라
-    if (AR && AR.glow && Math.random() < dt * 6) spark(p.x + rnd(-6, 6), p.y - rnd(6, 20), rnd(-10, 10), -rnd(30, 60), 0.4, RAMP_FIRE, true); }
   if (p.heatT > 0 && (p.heatT -= dt) <= 0) p.heat = 0;               // 대장장이 열기는 3초 안 때리면 식는다                                        // 계보 단계 능력 (진화하면 켜진다)
   const id = p.helm.id, g0 = hgOf(id);
   if (id === "hunter" && g0 >= 1 && (p.hawkT = (p.hawkT ?? 3) - dt) <= 0) {   // 매사냥꾼: 3초마다 매가 가까운 적을 쪼음
@@ -1938,8 +1924,6 @@ function basicAttack(p) {
     if (nHit && helm.id === "thief" && Math.random() < 0.15) dropCoins(p.x + p.dir * 16, p.y - 10, 3, 1);   // 좀도둑: 때리면 금화
     if (nHit && helm.id === "soldier" && hgOf("soldier") >= 2 && p.rushG < 1) { p.rushG = Math.min(1, (p.rushG ?? 0) + 0.2 * nHit); if (p.rushG >= 1) { banner = { s: "돌진 게이지 가득! (A)", t: 1 }; fxRing(p.x, p.y - 12, 16, RAMP_IRON); } }
     fxSwoosh(p.x + p.dir * (thrust ? step.reach + 6 : step.reach + 4), p.y - 11, p.dir, thrust ? step.reach : 9 + (step.heavy ? 3 : 0), helm.ramp, thrust);
-    if (hgOf(helm.id) >= 1) fxSwoosh(p.x + p.dir * (thrust ? step.reach + 2 : step.reach), p.y - 14, p.dir, (thrust ? step.reach : 9) + 3, helm.ramp, thrust);   // 단련된 이상: 무기 잔상
-    if (hgOf(helm.id) >= 2) light(p.x + p.dir * (step.reach + 6), p.y - 11, 22, helm.ramp[3], 0.45, 0.12);
     if (empowered) light(p.x + p.dir * step.reach, p.y - 12, 34, helm.ramp[3], 0.6, 0.15);
   } }] });
 }
@@ -2037,23 +2021,10 @@ function drawPlayerSprite(p) {
   const B = V["body_" + body], E = [3 + lean, (B.noBoots ? -1 : -11) - (B.r[3] - B.eye[1]) + bob];   // 몸통 아래끝이 장화 위에 살짝 떠 있게, 눈을 기준으로 맞춘다
   const draw = (k, x, y) => { const r = V[k].r; pcg.drawImage(void2Img, r[0], r[1], r[2], r[3], Math.round(SX + x), Math.round(SY + y), r[2], r[3]); };
   const hand = [E[0] + 6 + ext + (glove === "run" ? Math.sin(ph * 0.85) * 1.5 : 0), E[1] + 13];
-  if (a) { const u = a.t / a.dur, hu = (a.hitT ?? a.dur * 0.3) / a.dur;    // 무기마다 손 궤적: 망치·도끼는 높이 들었다 내려찍고, 활은 당겼다 놓고, 지팡이는 들어 올린다
-    if (a.pose === "slam") { hand[1] += u < hu ? -12 * (u / hu) : -12 + 16 * Math.min(1, (u - hu) / 0.15); hand[0] += u < hu ? -4 : 6; }
-    else if (a.pose === "shoot") hand[0] += u < hu ? -4 * (u / hu) : 2;
-    else if (a.pose === "cast") hand[1] -= u < hu ? 6 * (u / hu) : 6 - 6 * Math.min(1, (u - hu) / 0.3); }
-  const AR = armorOf(helm);
-  if (AR && AR.cape) {                                            // 망토·스카프: 어깨에서 뒤로, 달리면 눕고 늦게 따라 흔들린다
-    const run = clamp(Math.abs(p.vx) / 150), fall = !p.ground ? clamp(p.vy / 300, -1, 1) : 0, n = AR.capeL;
-    pcg.fillStyle = AR.cape;
-    for (let i = 0; i < n; i++) { const k = i / n, x = SX + E[0] - 2 - i * (0.45 + run * 0.55), y = SY + E[1] + (AR.scarf ? 2 : 5) + i * (0.85 - run * 0.55 - fall * 0.4) + Math.sin(t * 8 - i * 0.6) * k * (1.2 + run * 1.5);
-      const w = Math.max(2, Math.round((AR.scarf ? 3 : 6) * (1 - k * 0.5))); pcg.fillRect(Math.round(x - w / 2), Math.round(y), w, AR.scarf ? 2 : 3); }
-    pcg.globalAlpha = 0.45; pcg.fillStyle = "#000"; for (let i = 2; i < n; i += 3) pcg.fillRect(Math.round(SX + E[0] - 5 - i * (0.75 + run * 0.6)), Math.round(SY + E[1] + 6 + i * (0.95 - run * 0.6 - fall * 0.4) + Math.sin(t * 8 - i * 0.6) * (i / n) * (1.2 + run * 1.5)), 1, 1); pcg.globalAlpha = 1; }
   // 2) 뒷장화 → 몸통 → 앞장화 → 투구·무기 → 날아가는 주먹
   if (!B.noBoots) draw("boot_b", boots[0][0] - V.boot_b.r[2] / 2, boots[0][1] - V.boot_b.r[3]);
   draw("body_" + body, E[0] - B.eye[0], E[1] - B.eye[1]);
   if (!B.noBoots) draw("boot_f", boots[1][0] - V.boot_f.r[2] / 2, boots[1][1] - V.boot_f.r[3]);
-  if (AR) { pcg.save(); pcg.globalCompositeOperation = "source-atop"; pcg.globalAlpha = Math.min(0.62, AR.a + 0.18); pcg.fillStyle = AR.tint; pcg.fillRect(0, 0, SP, SP);   // 계보 갑옷 색 (몸통·장화·망토)
-    if (AR.glow) { pcg.globalAlpha = 0.25 + 0.15 * Math.sin(t * 6); pcg.fillStyle = AR.glow; pcg.fillRect(0, Math.round(SY + E[1] + 8), SP, 4); } pcg.restore(); }
   begin();
   if (helm.id !== "empty" || act) helm.weapon(hand[0], hand[1], act, t);
   if (!p.headless && helm.id !== "empty") at(E[0] - 4, E[1] + 6, () => helm.draw(t));
