@@ -37,9 +37,9 @@ put(g, "E", 12, 5); put(g, "E", 12, 40); put(g, "E", 8, 13); put(g, "E", 8, 31);
 MAPS.append(g)
 # C: 왼쪽에서 오른쪽 위로 크게 올라가는 비탈 (땅덩이 계단)
 g = new(); base(g)
-blk(g, 21, 24, 12, 19); blk(g, 17, 24, 22, 28); blk(g, 13, 24, 31, 37); blk(g, 9, 12, 40, 45)
+blk(g, 21, 24, 12, 19); blk(g, 17, 24, 22, 28); blk(g, 13, 24, 31, 37); blk(g, 9, 12, 40, 45); plat(g, 21, 39, 44); plat(g, 17, 38, 43)   # 오른쪽 아래 구덩이에서 올라오는 발판
 plat(g, 20, 2, 9); plat(g, 16, 6, 13); plat(g, 12, 14, 22); plat(g, 8, 24, 32); plat(g, 4, 34, 43)
-plat(g, 9, 2, 8)
+plat(g, 9, 2, 10); blk(g, 21, 24, 29, 30)   # 두 땅덩이 사이 틈에 디딤돌
 for c in (4, 8): put(g, "E", F, c)
 put(g, "E", 20, 15); put(g, "E", 16, 25); put(g, "E", 12, 34); put(g, "E", 8, 43)
 put(g, "T", 19, 5); put(g, "T", 15, 9); put(g, "T", 11, 18); put(g, "T", 7, 28); put(g, "T", 3, 38); put(g, "E", 8, 5)
@@ -71,25 +71,29 @@ put(g, "E", 8, 2); put(g, "T", 12, 9); put(g, "T", 12, 27); put(g, "T", 8, 18); 
 MAPS.append(g)
 
 def check(g):
+    # 점프는 넉넉하지 않게: 위로 4칸, 옆으로 5칸까지 (2단 점프 실제는 약 5.5칸)
     solid = lambda r, c: 0 <= r < H and 0 <= c < W and g[r][c] in "#="
     stand = lambda r, c: 0 <= c < W and 0 <= r < H - 1 and g[r][c] not in "#=" and solid(r + 1, c)
+    def nb(r, c):
+        for dc in range(-5, 6):
+            for dr in range(-4, H):
+                r2, c2 = r + dr, c + dc
+                if not stand(r2, c2): continue
+                if dr < 0 and any(g[rr][c] == "#" for rr in range(r2, r)) and any(g[rr][c2] == "#" for rr in range(r2 + 1, r + 1)): continue
+                yield (r2, c2)
+    def reach(a):
+        seen, todo = {a}, [a]
+        while todo:
+            for m in nb(*todo.pop()):
+                if m not in seen: seen.add(m); todo.append(m)
+        return seen
     bad = [(r, c) for r in range(H) for c in range(W) if g[r][c] in "ET" and not solid(r + 1, c)]
     bad += [("corner", r, c) for r in range(F - 3, F + 1) for c in list(range(0, 4)) + list(range(38, W)) if g[r][c] == "#"]   # 시작 자리(왼쪽 아래)와 문 자리(오른쪽 아래)는 비워 둔다
-    seen, todo = set(), [(F, 2)]
-    while todo:
-        r, c = todo.pop()
-        if (r, c) in seen: continue
-        seen.add((r, c))
-        for dc in range(-6, 7):
-            for dr in range(-5, H):
-                r2, c2 = r + dr, c + dc
-                if not stand(r2, c2) or (r2, c2) in seen: continue
-                if dr < 0:   # 위로 점프: 머리 위가 #로 막혀 있으면 안 됨
-                    if any(g[rr][c] == "#" for rr in range(r2, r)) and any(g[rr][c2] == "#" for rr in range(r2 + 1, r + 1)): continue
-                todo.append((r2, c2))
+    start = (F, 2); seen = reach(start)
     spots = [(r, c) for r in range(H) for c in range(W) if g[r][c] in "ET"]
     unreach = [s for s in spots if s not in seen]
-    return bad, unreach, len(spots)
+    traps = sorted({(r, c) for r, c in seen if start not in reach((r, c))})   # 떨어지면 다시 못 올라오는 곳
+    return bad, unreach + [("trap",) + t for t in traps[:6]], len(spots)
 # 맨 위 3줄(빈 하늘)은 잘라 낸다: 방이 너무 높으면 배경 그림 위가 비어 보인다
 CUT = 3
 for g in MAPS: assert all(ch == "." for r in g[:CUT] for ch in r), "top rows not empty"
