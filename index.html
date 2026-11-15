@@ -1276,6 +1276,8 @@ addEventListener("keyup", (e) => { keys[e.code] = false; });
 // 모바일 임시 버튼: 누르면 keydown과 똑같이 keys/pressed를 켜고, 떼면 끈다 (여러 손가락 동시에)
 { const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0 || /[?&]touch=1/.test(location.search);
   if (isTouch) document.body.classList.add("touch");
+  addEventListener("keydown", (e) => { if (e.isTrusted) document.body.classList.remove("touch"); });       // 진짜 키보드를 누르면 버튼을 숨긴다 (버튼이 보내는 가짜 키는 제외)
+  addEventListener("touchstart", () => document.body.classList.add("touch"), { passive: true });          // 다시 화면을 만지면 버튼이 돌아온다
   for (const b of document.querySelectorAll("#pad .b")) { const k = b.dataset.k, on = new Set();
     const down = (e) => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (err) {} on.add(e.pointerId); b.classList.add("on"); if (!keys[k]) { pressed[k] = 0.12; dispatchEvent(new KeyboardEvent("keydown", { code: k })); } keys[k] = true; };
     const up = (e) => { on.delete(e.pointerId); if (on.size) return; b.classList.remove("on"); keys[k] = false; };
