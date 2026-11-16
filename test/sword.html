@@ -1073,7 +1073,16 @@ function twinAI(e, p, dx, ad) {
     default: if (e.t <= 0) setSt(e, "walk", 0.8 * k);
   }
 }
-function drawTwin(e) {                                   // 그림(boss2_full)이 오기 전까지 코드 그림
+const twC = mk(SP, SP), twG = twC.getContext("2d");
+function drawTwinArt(e) {                                 // 그림(boss2_full) 4장을 기울이고 눌러서 움직인다 (따로 캔버스: 로컬 파일에서도 픽셀을 안 읽게). 영상이 오면 바꾼다
+  const q = CH2.twins[(e.id === "knight_s" ? "s" : "b") + (e.rage ? "_rage" : "")], wind = /Wind$/.test(e.st) || e.st === "toBack" || e.st === "roar", atk = ["lance", "swing", "throw", "leapAtk", "vault"].includes(e.st);
+  const ang = wind ? -0.14 : atk ? 0.18 : e.st === "guard" ? -0.05 : 0, bob = e.st === "walk" && Math.abs(Math.sin(e.walkT * 8)) > 0.5 ? -1 : 0, sq = e.st === "walk" ? 1 + Math.sin(e.walkT * 16) * 0.025 : wind ? 0.95 : atk ? 1.04 : 1, c = twG;
+  c.clearRect(0, 0, SP, SP); c.imageSmoothingEnabled = false; c.save(); c.translate(SX + (atk ? 3 : 0), SY + bob); c.rotate(ang); c.scale(1, sq); c.drawImage(ch2Img.twins, q[0], q[1], q[2], q[3], -Math.round(q[2] / 2), -q[3], q[2], q[3]); c.restore();
+  const t0 = T; T = c; if (wind) exclaim(0, -66); T = t0;
+  if (e.flash > 0 || e.dead) { c.globalCompositeOperation = "source-atop"; c.fillStyle = "#fff"; c.fillRect(0, 0, SP, SP); c.globalCompositeOperation = "source-over"; }
+  return twC;
+}
+function drawTwin(e) {                                   // 그림을 불러오는 동안의 코드 그림
   const Sv = e.id === "knight_s", c1 = Sv ? "#c8d0dc" : "#4a4a5a", c2 = Sv ? "#8a94a8" : "#2c2c38", c3 = Sv ? "#f0f4fa" : "#6a6a80", tab = Sv ? "#2a4a9a" : "#3a2a5a", pl = Sv ? "#5a8af0" : "#b0303a";
   const f = Math.sin(e.walkT * 8), a = Math.round(f * 3), wind = /Wind$/.test(e.st) || e.st === "toBack" || e.st === "roar", atk = ["lance", "swing", "throw", "leapAtk", "vault"].includes(e.st);
   const lean = wind ? -3 : atk ? 3 : 0, by = e.st === "walk" && Math.abs(f) > 0.5 ? -1 : 0;
@@ -1416,6 +1425,13 @@ function span(x, gy) { let a = x, b = x; const ok = (v) => groundAt(v, gy - 1) =
 // 챕터 1 초록 숲 그림 (Higgsfield → art/ch1/ch1_cut.py). 좌표는 그 스크립트가 뽑아 준 값
 const CH1 = {"bg_a":[601,340],"bg_b":[601,340],"front":[480,270],"terrain":{"fill":[0,0,64,64],"back":[66,0,64,64],"top":[132,0,98,22],"under":[232,0,66,18],"plank":[300,0,44,12],"side":[346,0,12,46]},"props":{"mushroom":[0,0,20,16],"fern":[22,0,26,20],"flowers":[50,0,22,16],"stump":[74,0,29,18],"log":[105,0,18,16],"column":[125,0,38,32],"arch":[165,0,44,34],"fence":[211,0,27,18],"lamp":[240,0,32,40],"sign":[274,0,20,26],"rock":[296,0,23,16],"vine":[321,0,33,30]}};
 const ch1Img = {}; for (const k of ["bg_a", "bg_b", "front", "terrain", "props"]) { ch1Img[k] = new Image(); ch1Img[k].onload = () => { if (L) buildTerrain(); }; ch1Img[k].src = `../assets/ch1_${k}.png`; }
+// 챕터 2 기사단 요새 그림 (art/ch2/ch2_cut.py). twins = 쌍둥이 기사단장 4장 (투구·분노)
+const CH2 = {"bg_a":[793,340],"bg_b":[793,340],"front":[480,270],"terrain":{"fill":[0,0,64,64],"back":[66,0,64,64],"top":[132,0,144,18],"under":[278,0,94,18],"plank":[374,0,92,12],"side":[468,0,10,54]},"props":{"rack":[0,0,26,30],"armor":[28,0,20,34],"torch":[50,0,9,18],"balls":[61,0,18,14],"banner":[81,0,21,40],"dummy":[104,0,18,28],"cage":[124,0,16,30],"brazier":[142,0,18,22],"spikes":[162,0,19,12],"crates":[183,0,28,22],"pillar":[213,0,33,34],"chain":[248,0,6,30]},"twins":{"s":[0,0,38,60],"b":[40,0,45,60],"s_rage":[87,0,47,60],"b_rage":[136,0,53,60]}};
+const ch2Img = {}; for (const k of ["bg_a", "bg_b", "front", "terrain", "props", "twins"]) { ch2Img[k] = new Image(); ch2Img[k].onload = () => { if (L && chapter === 2) buildTerrain(); }; ch2Img[k].src = `../assets/ch2_${k}.png`; }
+// 방 소품: 이벤트 4종·상자 3종·투구 무덤 (art/room/room_cut.py)
+const ROOMOBJ = {"altar":[0,0,34,30],"gamble":[36,0,42,40],"spring":[80,0,33,30],"armor":[115,0,26,22],"chest":[143,0,23,18],"chest_open":[168,0,22,22],"chest_red":[192,0,23,18],"grave":[217,0,27,28]};
+const roomImg = new Image(); roomImg.src = "../assets/room_objects.png";
+function roomPic(nm, x, yb, al = 1) { const q = ROOMOBJ[nm]; g.globalAlpha = al; g.drawImage(roomImg, q[0], q[1], q[2], q[3], Math.round(x - q[2] / 2), Math.round(yb - q[3]), q[2], q[3]); g.globalAlpha = 1; }
 // 성채 로비 그림 (Higgsfield → art/castle/castle_cut.py)
 const CASTLE = {"bg":[609,340],"sky":"#312f56","front":[480,270],"terrain":{"fill":[0,0,64,64],"back":[66,0,64,64],"top":[132,0,100,22],"under":[234,0,57,18],"plank":[293,0,52,12],"side":[347,0,12,46]},"props":{"gate":[0,0,50,60],"altar":[52,0,27,18],"helmrack":[81,0,34,26],"dummy":[117,0,25,36],"armor":[144,0,19,36],"helmpile":[165,0,20,16],"candles":[187,0,18,20],"statue":[207,0,22,30],"banner":[231,0,27,48],"chandelier":[260,0,30,36],"bench":[292,0,18,12],"pedestal":[312,0,12,16]}};
 const elderImg = new Image(); elderImg.src = "../assets/elder.png"; const elderPortrait = new Image(); elderPortrait.src = "../assets/elder_portrait.png";
@@ -1427,7 +1443,7 @@ function buildTerrain() {
   const OY = 24, top0 = rowTop(0); terr = mk(L.w, L.rows * TS + 80 + OY); terr.oy = OY; const c = terr.getContext("2d");
   let seed = L.w * 7 + L.rows * 13; const rnd2 = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   const at = (r, cc) => (r < 0 ? "#" : r >= L.rows ? L.grid[L.rows - 1][cc] : cc < 0 || cc >= L.cols ? "#" : L.grid[r][cc]);
-  const T = inLobby ? CASTLE.terrain : CH1.terrain, P = CH1.props, img = inLobby ? castleImg.terrain : ch1Img.terrain, pim = ch1Img.props, ok = ready(img) && ready(pim);
+  const c2 = chapter === 2 && !inLobby, T = inLobby ? CASTLE.terrain : c2 ? CH2.terrain : CH1.terrain, P = c2 ? CH2.props : CH1.props, img = inLobby ? castleImg.terrain : c2 ? ch2Img.terrain : ch1Img.terrain, pim = c2 ? ch2Img.props : ch1Img.props, ok = ready(img) && ready(pim);
   const piece = (k) => { const q = T[k], cv = mk(q[2], q[3]); cv.getContext("2d").drawImage(img, q[0], q[1], q[2], q[3], 0, 0, q[2], q[3]); return cv; };
   const pat = ok ? { fill: c.createPattern(piece("fill"), "repeat"), back: c.createPattern(piece("back"), "repeat") } : null;
   const seg = (k, i, dx, dy, w, h) => { const q = T[k], span = q[2] - 16, sx = q[0] + ((i * 16) % span); c.drawImage(img, sx, q[1], 16, q[3], dx, dy, w ?? 16, h ?? q[3]); };
@@ -1457,23 +1473,24 @@ function buildTerrain() {
   L.lamps = [];
   const busy = (x, r) => x < 72 || L.spawns.some((q) => Math.abs(q.x - x) < 14 && Math.abs(q.y - rowTop(r)) < 4) || (r === L.rows - 1 && (x > L.w - 136 || Math.abs(x - L.w / 2) < 30));
   const prop = (nm, x, yb) => { const q = P[nm]; c.drawImage(pim, q[0], q[1], q[2], q[3], Math.round(x - q[2] / 2), yb - q[3] + 1, q[2], q[3]);
-    if (nm === "lamp") L.lamps.push([x + 4, top0 - TS + yb - OY - q[3] + 30, "#ffbe5a", 26]); if (nm === "mushroom") L.lamps.push([x, top0 - TS + yb - OY - 8, "#5ab8ff", 18]); };
+    if (nm === "lamp") L.lamps.push([x + 4, top0 - TS + yb - OY - q[3] + 30, "#ffbe5a", 26]); if (nm === "mushroom") L.lamps.push([x, top0 - TS + yb - OY - 8, "#5ab8ff", 18]);
+    if (nm === "brazier") L.lamps.push([x, top0 - TS + yb - OY - q[3] + 4, "#ffae35", 26]); if (nm === "torch") L.lamps.push([x, top0 - TS + yb - OY - q[3] + 3, "#ffbe5a", 22]); };
   if (ready(pim) && !inLobby) for (let r = 1; r < L.rows; r++) {
     for (let cc = 1; cc < L.cols - 1; ) {
       if (!(at(r, cc) === "#" && open(r - 1, cc))) { cc++; continue; }
       let e = cc; while (e < L.cols - 1 && at(r, e) === "#" && open(r - 1, e)) e++;
       const len = e - cc; if (len >= 3) for (let k = 0; k < (len > 8 ? 2 : 1); k++) {
-        if (rnd2() < 0.25) continue; const nm = ["mushroom", "fern", "flowers", "stump", "log", "column", "arch", "fence", "lamp", "sign", "rock", "fern", "flowers", "mushroom"][Math.floor(rnd2() * 14)];
+        if (rnd2() < 0.25) continue; const PL = c2 ? ["rack", "armor", "balls", "dummy", "cage", "brazier", "crates", "pillar", "crates", "brazier", "rack", "dummy", "balls", "armor"] : ["mushroom", "fern", "flowers", "stump", "log", "column", "arch", "fence", "lamp", "sign", "rock", "fern", "flowers", "mushroom"], nm = PL[Math.floor(rnd2() * PL.length)];
         const x = (cc + 1 + rnd2() * (len - 2)) * TS, hr = Math.ceil(P[nm][3] / TS); let free = !busy(x, r); for (let k2 = 1; k2 <= hr; k2++) free = free && open(r - k2, Math.floor((x - 8) / TS)) && open(r - k2, Math.floor((x + 8) / TS));
         if (free) prop(nm, x, r * TS + OY);
       }
       cc = e;
     }
     for (let cc = 2; cc < L.cols - 2; cc++) if (r < L.rows - 2 && at(r, cc) === "#" && open(r + 1, cc) && open(r + 2, cc) && rnd2() < 0.09) {
-      const x = cc * TS + 8, y = (r + 1) * TS + OY; prop("vine", x, y + P.vine[3] - 2);   // 천장 밑 덩굴
+      const x = cc * TS + 8, y = (r + 1) * TS + OY, hn = c2 ? (rnd2() < 0.5 ? "chain" : "banner") : "vine"; prop(hn, x, y + P[hn][3] - 2);   // 천장 밑 덩굴 (요새: 쇠사슬·깃발)
     }
   }
-  if (chapter === 2 && !inLobby) { c.globalCompositeOperation = "source-atop"; c.fillStyle = "rgba(60,80,130,0.42)"; c.fillRect(0, 0, terr.width, terr.height); c.globalCompositeOperation = "source-over"; }   // 챕터 2: 요새 지형 그림이 오기 전까지 돌 색으로
+  if (c2 && !ok) { c.globalCompositeOperation = "source-atop"; c.fillStyle = "rgba(60,80,130,0.42)"; c.fillRect(0, 0, terr.width, terr.height); c.globalCompositeOperation = "source-over"; }   // 챕터 2: 요새 지형 그림이 오기 전까지 돌 색으로
 }
 
 // ---------- 입력 ----------
@@ -2404,16 +2421,16 @@ function updateEnemy(e, dt) {
   e.type.ai(e, player, dx, Math.abs(dx));
 }
 // 1챕터 적 그림 (Higgsfield → art/enemies/enemies_cut.py): 줄마다 대기·걷기·준비·공격 4자세, 기준점 = 발 가운데
-const ENSPR = {"militia":{"w":42,"h":32,"ax":16,"ay":32,"y":0},"torch":{"w":43,"h":37,"ax":14,"ay":37,"y":32},"shield":{"w":39,"h":32,"ax":18,"ay":32,"y":69},"hound":{"w":38,"h":18,"ax":14,"ay":18,"y":101}};
+const ENSPR = {"militia":{"w":42,"h":32,"ax":16,"ay":32,"y":0},"torch":{"w":43,"h":37,"ax":14,"ay":37,"y":32},"shield":{"w":39,"h":32,"ax":18,"ay":32,"y":69},"hound":{"w":38,"h":18,"ax":14,"ay":18,"y":101},"crossbow":{"w":33,"h":32,"ax":11,"ay":32,"y":119},"heavy":{"w":41,"h":47,"ax":21,"ay":47,"y":151}};
 const enImg = new Image(); enImg.src = "../assets/enemies.png";
 const enC = mk(SP, SP), enG = enC.getContext("2d");
 function drawEnemyArt(e) {
   const q = ENSPR[e.id]; if (!q || !ready(enImg)) return false;
   if (e.walkT !== e.lastWT) { e.lastWT = e.walkT; e.movedAt = time; }
-  const moving = time - (e.movedAt ?? -9) < 0.1, f = e.st === "windup" ? 2 : e.st === "attack" ? 3 : moving ? (Math.floor(e.walkT * 6) % 2 ? 1 : 0) : 0;
+  const moving = time - (e.movedAt ?? -9) < 0.1, f = e.st === "windup" || e.st === "aim" ? 2 : e.st === "attack" || e.st === "recover" ? 3 : moving ? (Math.floor(e.walkT * 6) % 2 ? 1 : 0) : 0;
   const bob = moving && f === 0 ? -1 : 0, c = enG; c.clearRect(0, 0, SP, SP); c.imageSmoothingEnabled = false;
   c.drawImage(enImg, f * q.w, q.y, q.w, q.h, SX - q.ax, SY - q.ay + bob, q.w, q.h);
-  const t0 = T; T = c; if (e.st === "windup") exclaim(0, -q.ay - 6);
+  const t0 = T; T = c; if (e.st === "windup" || (e.st === "aim" && e.t <= 0.25)) exclaim(0, -q.ay - 6);
   if (e.stun > 0) for (let i = 0; i < 3; i++) { const a = time * 7 + i * 2.1; R(Math.cos(a) * 7, -q.ay - 4 + Math.sin(a) * 2, 2, 2, "#ffe27a"); } T = t0;
   if (e.frozen > 0) { c.globalCompositeOperation = "source-atop"; c.fillStyle = "rgba(150,215,255,0.55)"; c.fillRect(0, 0, SP, SP); c.globalCompositeOperation = "source-over"; }
   if (e.flash > 0 || e.dead) { c.globalCompositeOperation = "source-atop"; c.fillStyle = "#fff"; c.fillRect(0, 0, SP, SP); c.globalCompositeOperation = "source-over"; }
@@ -2422,6 +2439,7 @@ function drawEnemyArt(e) {
 function drawEnemySprite(e) {
   if (ENSPR[e.id] && drawEnemyArt(e)) return enC;
   if (e.type.spr && drawAdvSprite(e)) return advC;
+  if (e.type.twin && ready(ch2Img.twins)) return drawTwinArt(e);
   begin(); e.type.draw(e); outline();
   if (e.stun > 0) for (let i = 0; i < 3; i++) { const a = time * 7 + i * 2.1; R(Math.cos(a) * 7, (e.type.low ? -22 : -38) + Math.sin(a) * 2, 2, 2, "#ffe27a"); }
   if (e.frozen > 0) { sg.globalCompositeOperation = "source-atop"; sg.fillStyle = "rgba(150,215,255,0.55)"; sg.fillRect(0, 0, SP, SP); sg.globalCompositeOperation = "source-over"; }
@@ -2641,6 +2659,9 @@ function drawObjs(back) {
     } else if (o.kind === "torch") {
       world(o.x, o.y, () => { const a = o.age * 14; R(Math.cos(a) * -4 - 1, Math.sin(a) * -4 - 1, 3, 3, C.wood2); R(-1, -1, 3, 3, C.wood); flame(Math.cos(a) * 4, Math.sin(a) * 4 + 3, 2, 7, time, FIRE); });
       glow(o.x, o.y, 20, "#ffae35", 0.5);
+    } else if (o.kind === "event" && ready(roomImg)) {               // 이벤트 (room_objects)
+      shadow(x, 16); roomPic(o.ev, x, FLOOR + 1, o.used ? 0.5 : 1);
+      if (!o.used) glow(x, FLOOR - 14, 22 + Math.sin(time * 4) * 2, EVENTS[o.ev].c, 0.3);
     } else if (o.kind === "event") {
       const E2 = EVENTS[o.ev], dim = o.used; shadow(x, 14);
       if (o.ev === "altar") { g.fillStyle = "#1d1c28"; g.fillRect(x - 12, FLOOR - 16, 24, 16); g.fillStyle = "#474658"; g.fillRect(x - 11, FLOOR - 15, 22, 14); g.fillStyle = "#6a6a7e"; g.fillRect(x - 12, FLOOR - 18, 24, 3);
@@ -2680,6 +2701,7 @@ function drawObjs(back) {
       g.fillStyle = COIN[3]; g.fillRect(x - 3, FLOOR - 23, 2, 2); g.fillRect(x + 1, FLOOR - 23, 2, 2); glow(o.x, FLOOR - 22, 12, "#ffd24a", 0.25);
     } else if (o.kind === "heart") {
       const yy = y - 5 + Math.round(Math.sin(time * 5 + o.x) * 1); glow(o.x, yy, 12, "#5fe07a", 0.6); g.fillStyle = "#0e3a18"; g.fillRect(x - 3, yy - 3, 6, 6); g.fillStyle = "#3ac060"; g.fillRect(x - 2, yy - 2, 4, 4); g.fillStyle = "#c8ffd0"; g.fillRect(x - 2, yy - 2, 1, 1); g.fillRect(x - 1, yy, 2, 1); g.fillRect(x, yy - 1, 1, 3);
+    } else if (o.kind === "grave" && ready(roomImg)) { shadow(x, 10); roomPic("grave", x, FLOOR + 1); glow(o.x, FLOOR - 18, 16, "#9aa4b8", 0.25);
     } else if (o.kind === "grave") {
       const h = helmById(o.id); shadow(x, 10); g.fillStyle = "#1d1c28"; g.fillRect(x - 7, FLOOR - 16, 14, 16); g.fillStyle = "#474658"; g.fillRect(x - 6, FLOOR - 15, 12, 15); g.fillStyle = "#6a6a7e"; g.fillRect(x - 6, FLOOR - 15, 12, 1); g.fillRect(x - 1, FLOOR - 12, 2, 7); g.fillRect(x - 3, FLOOR - 10, 6, 2);   // 묘비
       begin(); at(0, -18, () => h.draw(time)); outline(); g.globalAlpha = 0.8; g.drawImage(spr, x - SX, FLOOR - SY); g.globalAlpha = 1; glow(o.x, FLOOR - 18, 16, "#9aa4b8", 0.3);
@@ -2728,6 +2750,11 @@ function drawObjs(back) {
       else for (const [cx, cy, w, h] of [[-7, -5, 6, 5], [-2, -9, 7, 9], [4, -6, 5, 6], [-4, -3, 4, 3]]) { g.fillStyle = P[0]; g.fillRect(x + cx, yy + cy + bob, w, h); g.fillStyle = P[2]; g.fillRect(x + cx + 1, yy + cy + 1 + bob, w - 2, h - 2); g.fillStyle = P[4]; g.fillRect(x + cx + 1, yy + cy + 1 + bob, 1, 1); }
       glow(o.x, yy - 6, 22, o.look === "gold" ? "#ffd24a" : "#c8ccd6", 0.35 + 0.1 * Math.sin(time * 4));
       if (Math.sin(time * 3.3) > 0.9) { g.fillStyle = "#fff"; g.fillRect(x + 4, yy - 13, 1, 3); g.fillRect(x + 3, yy - 12, 3, 1); }
+    } else if (o.kind === "chest" && ready(roomImg)) {                // 상자 (room_objects): 덜컹거리다 열린다
+      const op = o.open >= 0.45, rat = o.open >= 0 && !op ? Math.round(Math.sin(o.open * 60)) : 0; shadow(x, 12);
+      if (op) { g.fillStyle = "rgba(255,226,122,0.25)"; g.fillRect(x - 9, FLOOR - 60, 18, 50); glow(x, FLOOR - 14, 30 + Math.sin(time * 6) * 3, "#ffe27a", 0.6); }
+      roomPic(op ? "chest_open" : o.red ? "chest_red" : "chest", x + rat, FLOOR + 1);
+      if (!op) glow(x, FLOOR - 10, 18, o.red ? "#ff5a4a" : "#ffd24a", o.open >= 0 ? 0.5 + o.open : 0.2 + 0.1 * Math.sin(time * 4));
     } else if (o.kind === "chest") {
       const W2 = o.red ? ["#1a0808", "#4a1414", "#7a2020", "#a83a2a"] : ["#110a10", "#3a1f1f", "#73402c", "#925737"], op = o.open >= 0.45, rat = o.open >= 0 && !op ? Math.round(Math.sin(o.open * 60)) : 0;
       const cx = x + rat, yy = FLOOR; shadow(x, 12);
@@ -2982,7 +3009,7 @@ function render() {
   camX = clamp(Math.round(player.x - W / 2), 0, L.w - W);          // 카메라가 보이드를 따라간다 (좌우 + 위아래)
   camY = Math.round(Math.min(0, Math.max(rowTop(0) - TS, player.y - 175)));
   const layer = (img, w, h, k, y) => { const off = camX * k; for (let i = Math.floor(off / w); i * w < off + W; i++) { g.save(); g.translate(Math.round(i * w - off + (i % 2 ? w : 0)), Math.round(y)); g.scale(i % 2 ? -1 : 1, 1); g.drawImage(scaled(img, Math.round(w), Math.round(h)), 0, 0); g.restore(); } };   // 좌우로 뒤집어 이어 붙인다
-  const bk = room % 2 ? "bg_b" : "bg_a", bgi = ch1Img[bk], BGFIT = { bg_a: [0.75, "#55afc0"], bg_b: [0.676, "#106260"] };   // [풍경이 끝나는 높이 비율, 하늘 색]
+  const bk = room % 2 ? "bg_b" : "bg_a", c2 = chapter === 2, bgi = (c2 ? ch2Img : ch1Img)[bk], BGFIT = c2 ? { bg_a: [0.743, "#8cb3eb"], bg_b: [0.74, "#5d7095"] } : { bg_a: [0.75, "#55afc0"], bg_b: [0.676, "#106260"] };   // [풍경이 끝나는 높이 비율, 하늘 색]
   if (!inLobby && ROOMS[room] === "shop" && ready(marketImg)) {   // 암시장 밤 배경 한 장 (바닥 띠가 바닥 바로 위에 오게)
     const bh = 380, bw = Math.ceil(marketImg.naturalWidth * bh / marketImg.naturalHeight), by = Math.round(242 - 0.89 * bh - camY * 0.5);
     if (by > 0) { g.fillStyle = "#141a3a"; g.fillRect(0, 0, W, by); } g.drawImage(scaled(marketImg, bw, bh), Math.round(-camX * 0.3), by);
@@ -2999,10 +3026,10 @@ function render() {
     const top = -Math.min(-1, rowTop(0) - TS), kv = Math.min(0.5, Math.max(0, frac * bh - 242) / top);   // 방이 높으면 배경이 덜 따라 올라가서 그림 위 끝이 보이지 않게
     const by = Math.round(242 - frac * bh - camY * kv); if (by > 0) { g.fillStyle = sky; g.fillRect(0, 0, W, by); }
     g.drawImage(scaled(bgi, bw, bh), Math.round(-camX * k), by);
-    g.fillStyle = chapter === 2 ? "rgba(36,54,104,0.5)" : "rgba(10,20,40,0.12)"; g.fillRect(0, 0, W, H);   // 챕터 2: 요새 그림이 오기 전까지 숲을 새벽빛으로
+    g.fillStyle = "rgba(10,20,40,0.12)"; g.fillRect(0, 0, W, H);
   } else { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "#55afc0"); gr.addColorStop(1, "#1d4a48"); g.fillStyle = gr; g.fillRect(0, 0, W, H); }   // 숲 그림을 불러오는 동안은 숲 색만 (옛 불타는 마을 배경은 뺐다)
   if (ROOMS[room] === "shop" && !inLobby && !ready(marketImg)) { g.fillStyle = "rgba(12,14,44,0.62)"; g.fillRect(0, 0, W, H); g.fillStyle = "#e8f0c8"; g.beginPath(); g.arc(380 - camX * 0.05, 46, 16, 0, 7); g.fill(); glow(380 - camX * 0.05, 46, 50, "#c8e0ff", 0.4); }   // 암시장은 밤
-  for (const m of embers) if (!m.near) { g.fillStyle = Math.sin(time * 5 + m.ph) > 0 ? "#e8ffb0" : "#8fd88a"; g.fillRect(Math.round(m.x), Math.round(m.y), 1, 1); }
+  for (const m of embers) if (!m.near) { g.fillStyle = chapter === 2 && !inLobby ? (Math.sin(time * 5 + m.ph) > 0 ? "#ffffff" : "#b8d0f0") : Math.sin(time * 5 + m.ph) > 0 ? "#e8ffb0" : "#8fd88a"; g.fillRect(Math.round(m.x), Math.round(m.y), 1, 1); }
   g.save(); g.translate(-camX, -camY); lg.save(); lg.translate(-camX, -camY);   // 여기부터 방 안의 좌표
   for (const e of enemies) if (e.type.giant && !(e.dead > 0)) drawGiantBody(e); for (const o of objs) if (o.kind === "giantDeath") drawGiantDeath(o);
   g.drawImage(terr, 0, rowTop(0) - terr.oy); for (const [x, y, col, r] of L.lamps) glow(x, y, r + 3 * Math.sin(time * 11 + x), col, 0.45);
@@ -3032,13 +3059,13 @@ function render() {
   glow(p.x + p.dir * 2, p.y - 30, 18, C.flame1, 0.3); glow(p.x, p.y - 12, 34, C.flame0, 0.12);
   drawFxFront();
   g.restore(); lg.restore();
-  const frontImg = inLobby ? castleImg.front : ch1Img.front;
+  const frontImg = inLobby ? castleImg.front : chapter === 2 ? ch2Img.front : ch1Img.front;
   if (ready(frontImg)) {                                     // 앞 실루엣: 위쪽 잎은 화면 맨 위에 붙이고, 아래 덤불만 바닥 쪽으로 내린다
     const fw = CH1.front[0], fh = CH1.front[1];
     g.save(); g.beginPath(); g.rect(0, 0, W, inLobby ? H * 0.16 : H / 2); g.clip(); layer(frontImg, fw, fh, 1.2, inLobby ? -20 : -46); g.restore();
     g.save(); g.beginPath(); g.rect(0, inLobby ? H * 0.86 : H / 2, W, H / 2); g.clip(); layer(frontImg, fw, fh, 1.2, inLobby ? 6 : 22); g.restore();
   }
-  for (const m of embers) if (m.near) { g.fillStyle = "#f2ffc8"; g.fillRect(Math.round(m.x), Math.round(m.y), 2, 2); glow(m.x, m.y, 7, "#c8ff9a", 0.35 + 0.25 * Math.sin(time * 4 + m.ph)); }
+  for (const m of embers) if (m.near) { g.fillStyle = chapter === 2 && !inLobby ? "#ffffff" : "#f2ffc8"; g.fillRect(Math.round(m.x), Math.round(m.y), 2, 2); glow(m.x, m.y, 7, chapter === 2 && !inLobby ? "#d8e8ff" : "#c8ff9a", 0.35 + 0.25 * Math.sin(time * 4 + m.ph)); }
   g.drawImage(vignette, 0, 0);
   if (whiteT > 0) { lg.fillStyle = "rgba(190,230,255,0.35)"; lg.fillRect(0, 0, W, H); }
   g.globalCompositeOperation = "lighter"; g.drawImage(lightC, 0, 0); g.globalCompositeOperation = "source-over";

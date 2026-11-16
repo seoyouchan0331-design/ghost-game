@@ -1,10 +1,11 @@
-# 1챕터 적 4종 시트(가로 한 줄 4자세: 대기·걷기·준비·공격)를 잘라 assets/enemies.png 로 묶는다. 좌표 JSON 출력
+# 적 시트(가로 한 줄 4자세: 대기·걷기·준비·공격)를 잘라 assets/enemies.png 로 묶는다. 좌표 JSON 출력
 # 자세마다 발(아래 20% 줄)의 가운데를 기준점으로 맞춘다. 크기는 대기 자세 키로 맞춤
 import json, sys, os, numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "adv")); from keying import key
 from PIL import Image
 from scipy import ndimage
-SHEETS = {"militia": 30, "torch": 30, "shield": 30, "hound": 16}   # 대기 자세 게임 속 키(px)
+SHEETS = {"militia": 30, "torch": 30, "shield": 30, "hound": 16, "crossbow": 30, "heavy": 36, "cavalry": 40, "handler": 30, "banner": 36}   # 대기 자세 게임 속 키(px). 2챕터 것은 원본이 있을 때만
+SHEETS = {k: v for k, v in SHEETS.items() if os.path.exists(f"{k}_source.png")}
 cells, meta = {}, {}
 for name, H in SHEETS.items():
     a = np.asarray(Image.open(f"{name}_source.png").convert("RGB")).astype(int); bg = np.median(a[:20, :20].reshape(-1, 3), axis=0)
