@@ -1296,7 +1296,9 @@ const take = (code) => { if (pressed[code] > 0) { pressed[code] = 0; return true
 let player, enemies, objs, sparks, puffs, lights, flashes, ghosts, texts, glints, embers;
 // 타격 정지: 연타 중에는 바로 이어서 길게 멈추지 않게 (멈춤이 끝나고 0.18초 안의 다음 타격은 아주 짧게)
 let hitstopEnd = -9;
-function hitStop(d) { const now = performance.now() / 1000; if (now - hitstopEnd < 0.18) d = Math.min(d, 0.015); if (d > hitstop) { hitstop = d; hitstopEnd = now + d; } }
+// 타격 정지: 0.5초 안에 처음 맞힌 한 번만 제대로 멈추고, 그 뒤 이어지는 타격은 아주 짧게 (연타·여러 마리 동시 타격 때 멈춤이 겹쳐 버벅이지 않게)
+let hitstopFull = -9;
+function hitStop(d) { const now = performance.now() / 1000; if (now - hitstopFull < 0.5) d = Math.min(d, 0.012); else hitstopFull = now; if (d > hitstop) { hitstop = d; hitstopEnd = now + d; } }
 let time = 0, hitstop = 0, shakeT = 0, shakeAmp = 0, shakeDur = 1, whiteT = 0, state = "play";
 let eventRoom = false, eliteRoom = false, pendingReward = null, room = 0, wave = 0, waveT = 0, phase = "fight", banner = null;
 
@@ -1565,7 +1567,7 @@ function damage(e, base, o = {}) {
   if (!o.quiet) {
     if (blocked) {
       e.vx = dir * 40; fxHit(e.x + e.dir * 10, e.y - 14, -dir, ["#30343c", "#6a7284", "#a8b0c0", "#dfe6f0", "#ffffff"], false);
-      texts.push({ x: e.x, y: e.y - 46, vy: -30, t: 0.6, s: "막힘", c: "#a8b0c0" }); hitstop = Math.max(hitstop, 0.04);
+      texts.push({ x: e.x, y: e.y - 46, vy: -30, t: 0.6, s: "막힘", c: "#a8b0c0" }); hitStop(0.04);
     } else {
       if (!e.type.boss && !armor) { e.vx = dir * (o.kb ?? 90) * (e.type.shield ? 0.5 : 1); e.vy = Math.min(e.vy, -60);
       if (o.stun) e.stun = Math.max(e.stun, o.stun);
