@@ -1027,7 +1027,7 @@ const AWAKE_COST = [10, 30, 100], SCRAP_OF = [5, 15, 40, 80];
 // 투구 계보: 대장장이 강화(진화)로 등급이 오르면 이름·모습·능력이 바뀐다. 계보 길이 = 그 투구의 마지막 등급
 const LINES = {
   soldier: { names: ["병사 투구", "창병 투구", "근위 창대장 투구"], add: ["3번째 공격 1.5배", "대시가 공격이 된다 (닿은 적 14)", "때릴수록 돌진 게이지, 가득 차면 창 돌격 3연속 · S 유령 창기세"] },
-  hunter: { names: ["사냥꾼 모자", "매사냥꾼 모자", "그림자 궁수 두건"], add: ["멀수록 화살 피해 +30%", "3초마다 매가 가까운 적을 쪼음 (12)", "화살이 적을 꿰뚫는다"] },
+  hunter: { names: ["사냥꾼 두건", "레인저 모자", "숲의 정령 궁수"], add: ["멀수록 화살 피해 +30%", "X를 꾹 눌러 모았다 놓으면 강한 관통 화살 (30)", "화살이 적을 꿰뚫는다"] },
   smith: { names: ["대장장이 두건", "불꽃 대장장이 두건", "모루의 주인"], add: ["맞힐 때마다 열기 (피해 +4%씩, 최대 5)", "열기 5에서 망치에 화상", "모루 낙하가 모루 3개"] },
   thief: { names: ["좀도둑 복면", "의적 복면", "밤의 대도 가면"], add: ["때리면 15% 확률로 금화", "구르며 금화를 던짐 (12)", "줍는 금화가 주변에 터짐 (10)"] },
   wood: { names: ["나무꾼 모자", "숲지기 두건", "고목의 투구"], add: ["30% 확률로 한 번 더 벰", "때리면 20% 확률로 가시덩굴", "가시덩굴이 방 전체 적에게, 오래 묶음"] },
@@ -1862,13 +1862,17 @@ function thorns(e, dmg, root) {                                    // 가시덩�
   flashes.push({ kind: "stab", x: e.x, y: e.y, dir: 1, len: 20, t: 0, ramp: RAMP_LEAF, up: true }); damage(e, dmg, { dir: 1, kb: 0, ramp: RAMP_LEAF }); if (live(e) && !e.type.boss && !e.type.giant) e.stun = Math.max(e.stun ?? 0, root);
 }
 function lineTick(p, dt) {
+  if (p.helm.id === "hunter" && hgOf("hunter") >= 1) {               // 레인저: 공격을 꾹 누르면 모아 쏘기 (다 모이면 놓을 때 강한 관통 화살)
+    if (keys.KeyX && !p.dashing) { p.drawT = (p.drawT ?? 0) + dt;
+      if (p.drawT > 0.25) { const k = clamp((p.drawT - 0.25) / 0.6); if (Math.random() < dt * 30 * k) spark(p.x + p.dir * (18 + rnd(-4, 4)), p.y - 13 + rnd(-6, 6), -p.dir * rnd(10, 40), rnd(-20, 20), 0.3, RAMP_LEAF, true);
+        if (k >= 1 && !p.drawFull) { p.drawFull = true; fxRing(p.x + p.dir * 14, p.y - 13, 12, RAMP_LEAF); light(p.x + p.dir * 14, p.y - 13, 30, "#8fc05a", 0.8, 0.2); } } }
+    else if (p.drawT > 0) { if (p.drawFull) { const g3 = hgOf("hunter") >= 2;
+        shot(p, { dmg: g3 ? 42 : 30, vx: 620, look: "arrow", far: 0.3, pierce: true, ramp: RAMP_LEAF }); startAct(p, { dur: 0.22, pose: "shoot", reach: 6 }); p.src = "basic";
+        fxRing(p.x + p.dir * 16, p.y - 13, g3 ? 22 : 16, RAMP_LEAF); shake(2, 0.12); for (let i = 0; i < 10; i++) spark(p.x + p.dir * 16, p.y - 13, p.dir * rnd(80, 260), rnd(-60, 60), 0.35, RAMP_LEAF, true); }
+      p.drawT = 0; p.drawFull = false; } }
   if (p.lanceT > 0) { p.lanceT -= dt; if (Math.random() < dt * 14) spark(p.x + rnd(-8, 8), p.y - rnd(4, 30), rnd(-15, 15), -rnd(30, 70), 0.5, RAMP_GHOST, true); }   // 유령 창기세: 몸에서 청록 불꽃이 피어오른다
   if (p.heatT > 0 && (p.heatT -= dt) <= 0) p.heat = 0;               // 대장장이 열기는 3초 안 때리면 식는다                                        // 계보 단계 능력 (진화하면 켜진다)
   const id = p.helm.id, g0 = hgOf(id);
-  if (id === "hunter" && g0 >= 1 && (p.hawkT = (p.hawkT ?? 3) - dt) <= 0) {   // 매사냥꾼: 3초마다 매가 가까운 적을 쪼음
-    const tg = enemies.filter((e) => live(e) && Math.abs(e.x - p.x) < 220 && Math.abs(e.y - p.y) < 120).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
-    if (tg) { p.hawkT = 3; flashes.push({ kind: "swoosh", x: tg.x, y: tg.y - 20, dir: p.dir, r: 12, t: 0, ramp: ["#3a2a14", "#654a2f", "#8a6a44", "#e8dcc0", "#ffffff"] }); for (let i = 0; i < 6; i++) spark(tg.x + rnd(-6, 6), tg.y - 24 - i * 6, rnd(-20, 20), 80, 0.25, ["#3a2a14", "#654a2f", "#a98858", "#e8dcc0", "#ffffff"], false); damage(tg, 12, { dir: p.dir, kb: 40, ramp: ["#3a2a14", "#8a6a44", "#e8dcc0", "#ffffff", "#ffffff"] }); }
-    else p.hawkT = 0.5; }
   if (id === "mage" && g0 >= 2 && (p.auraT = (p.auraT ?? 0) - dt) <= 0) {   // 빙하 대마법사: 주변 냉기
     p.auraT = 0.25; for (const e of enemies) if (live(e) && Math.abs(e.x - p.x) < 60 && Math.abs(e.y - p.y) < 50) { damage(e, 1, { quiet: true, kb: 0, ramp: ["#0c1430", "#58b4ec", "#9bdcff", "#e8f6ff", "#ffffff"] }); }
     if (Math.random() < 0.5) spark(p.x + rnd(-60, 60), p.y - rnd(0, 40), 0, -20, 0.5, ["#0c1430", "#58b4ec", "#9bdcff", "#e8f6ff", "#ffffff"], false); }
