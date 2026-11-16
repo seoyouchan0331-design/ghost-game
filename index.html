@@ -1569,7 +1569,7 @@ function damage(e, base, o = {}) {
       if (e.st === "windup" && !e.type.shield) setSt(e, "walk", 0.35); }
       const big = crit || o.heavy || (o.mult ?? 1) > 1.2;
       fxHit(e.x - dir * 4, o.y ?? e.y - 12, dir, o.ramp ?? RAMP_FIRE, big);
-      hitStop(big ? 0.09 : 0.05); shake(big ? 3 : 1.5, big ? 0.18 : 0.1);
+      hitStop(big ? 0.07 : 0.035); shake(big ? 3 : 1.5, big ? 0.18 : 0.1);
     }
   }
   texts.push({ x: e.x + rnd(-5, 5), y: e.y - 34, vy: -40, t: 0.7, s: String(dmg), c: o.quiet ? "#ffae35" : crit ? "#ffe27a" : "#ffffff", big: crit });
@@ -1899,7 +1899,8 @@ function updatePlayer(dt) {
     if (a.ghost) { a.ghostT = (a.ghostT ?? 0) - dt; if (a.ghostT <= 0) { fxGhost(p); a.ghostT = 0.04; } }
     p.vx = a.vx != null ? p.dir * a.vx : a.lunge && a.t < 0.1 ? p.dir * a.lunge : p.ground ? 0 : ax * speed * 0.6;
     if (a.vx != null && !a.air) p.vy = Math.min(p.vy, 0);
-    if (p.act === a && a.t >= a.dur) { p.act = null; p.comboT = 0.45; if (a.vx != null) p.vx = 0; }
+    if (p.act === a && a.t >= a.dur) { p.act = null; p.comboT = 0.45; p.actEndT = time; if (a.vx != null) p.vx = 0;
+      if (p.src === "basic" && pressed.KeyX > 0) { take("KeyX"); basicAttack(p); } }   // 연타: 미리 누른 공격은 끝나는 그 프레임에 바로 이어서 (대기 자세가 한 프레임 끼지 않게)
   } else {
     p.vx = ax * speed; if (ax) p.dir = ax;
     if (keys.ArrowDown && p.ground && tileAt(p.x, p.y + 2) === "=" && take("KeyC")) { p.dropT = 0.25; p.ground = false; }   // ↓+점프: 발판 아래로
@@ -2068,9 +2069,11 @@ function drawHeroFrames(p, S, img, BX, o) {
     else if (a.pose === "thrust" && S.charge) fr = seg(S.charge, ...G.ch, u);
     else fr = seg(S.attack, ...G.sl, u); }
   else if (a) { fr = at2(S.idle, 0); dx = Math.min(ext, 8); }
+  else if (p.lastFr && time - (p.actEndT ?? -9) < 0.07) fr = p.lastFr;     // 공격이 끝난 직후 잠깐은 마지막 공격 자세를 유지
   else if (body === "run") fr = at2(S.run, Math.floor(time * S.run.fps));
   else if (body === "jump" || body === "dash") fr = at2(S.run, 2);
   else fr = at2(S.idle, Math.floor(time * S.idle.fps));
+  if (a) p.lastFr = fr;
   hcg.clearRect(0, 0, HC_W, HC_H); hcg.imageSmoothingEnabled = false;
   const b = BX[fr[0]]; hcg.drawImage(img, b[0], b[1], b[2], b[3], Math.round(HX + fr[1] + dx), Math.round(HY + fr[2]), b[2], b[3]);
   if (p.flash > 0 || body === "hit") { hcg.globalCompositeOperation = "source-atop"; hcg.fillStyle = "#fff"; hcg.globalAlpha = p.flash > 0 ? 1 : 0.5; hcg.fillRect(0, 0, HC_W, HC_H); hcg.globalAlpha = 1; hcg.globalCompositeOperation = "source-over"; }
