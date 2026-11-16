@@ -2344,8 +2344,11 @@ function drawObjs(back) {
     if ((o.kind === "door" || o.kind === "pickup" || o.kind === "shop" || o.kind === "smith" || o.kind === "deco" || o.kind === "gate" || o.kind === "npc" || o.kind === "booth") !== back) continue;
     const x = Math.round(o.x), y = Math.round(o.y);
     if (o.kind === "helm") {
-      begin(); E(0, -6, 7, 6, C.iron1); E(-1, -8, 5, 4, C.iron2); E(-2, -10, 3, 1, C.iron3); R(-7, -4, 15, 2, C.iron0); R(-1, -8, 9, 5, C.dark); R(-2, -9, 10, 1, C.iron3); outline();
-      g.drawImage(spr, x - SX, y - SY + 8);
+      if (ready(heroImg.empty)) {                                    // 영상에서 잘라 낸 투구 (assets/hero_empty.png 의 던지기 프레임 안). 날아가는 동안 돌고, 멈추면 바로 선다
+        const q = [1679, 84, 19, 24], ang = o.rest ? 0 : (o.age ?? 0) * 14 * Math.sign(o.vx || 1);
+        g.save(); g.translate(Math.round(x), Math.round(y)); g.rotate(ang); g.drawImage(heroImg.empty, q[0], q[1], q[2], q[3], -10, -14, q[2], q[3]); g.restore();
+      } else { begin(); E(0, -6, 7, 6, C.iron1); E(-1, -8, 5, 4, C.iron2); E(-2, -10, 3, 1, C.iron3); R(-7, -4, 15, 2, C.iron0); R(-1, -8, 9, 5, C.dark); R(-2, -9, 10, 1, C.iron3); outline();
+      g.drawImage(spr, x - SX, y - SY + 8); }
       if (o.rest && ((time * 3) | 0) % 2) starGlint(g, x + 5, y - 9, 2, C.flame2, C.flame1);
       glow(x, y, 14, C.flame1, o.rest ? 0.25 : 0.4);
     } else if (o.kind === "wall") {
