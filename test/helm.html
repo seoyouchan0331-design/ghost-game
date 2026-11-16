@@ -209,8 +209,8 @@ const HELMETS = [
       else { R(hx, hy - 24, 2, 32, C.wood); R(hx, hy - 24, 1, 32, C.wood2); R(hx - 1, hy - 23, 4, 3, C.cloth3); R(hx - 2, hy - 28, 6, 5, C.steel2); R(hx - 1, hy - 31, 4, 7, C.steel); R(hx, hy - 33, 2, 3, C.white); }
     },
     basic: { steps: [                             // 창 2연타, 각 16, 길고 느림. 3번째마다 1.5배
-      { dur: 0.42, hitT: 0.16, dmg: 16, reach: 42, pose: "thrust", lunge: 50 },
-      { dur: 0.50, hitT: 0.18, dmg: 16, reach: 46, pose: "thrust", lunge: 80, heavy: true },
+      { dur: 0.34, hitT: 0.12, dmg: 16, reach: 42, pose: "thrust", lunge: 50 },
+      { dur: 0.40, hitT: 0.14, dmg: 16, reach: 46, pose: "thrust", lunge: 80, heavy: true },
     ], nth: { every: 3, mult: 1.5 } },
     skills: [
       { name: "창 돌격", cd: 7, icon() { R(-8, 0, 13, 1, C.wood2); R(4, -1, 4, 3, C.steel); R(-8, -3, 4, 1, C.white); R(-8, 3, 4, 1, C.white); },
@@ -1276,7 +1276,7 @@ function buildTerrain() {
 const keys = {}, pressed = {};
 addEventListener("keydown", (e) => {
   if (["Space", "Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.code)) e.preventDefault();
-  if (!e.repeat) pressed[e.code] = 0.12;        // 눌림을 잠깐 기억해 둔다 (선입력)
+  if (!e.repeat) pressed[e.code] = e.code === "KeyX" ? 0.3 : 0.12;   // 공격은 조금 더 오래 기억 (연타 선입력)        // 눌림을 잠깐 기억해 둔다 (선입력)
   if (e.code === "KeyM" && !e.repeat) { muted = !muted; if (muted) for (const k in SFX) SFX[k].pause(); banner = { s: muted ? "소리 끔 (M)" : "소리 켬 (M)", t: 1 }; }
   keys[e.code] = true;
 });
@@ -1902,6 +1902,7 @@ function updatePlayer(dt) {
     p.ghostT -= dt; if (p.ghostT <= 0) { fxGhost(p); p.ghostT = 0.032; }
   } else if (p.act) {
     const a = p.act; a.t += dt;
+    if (p.src === "basic" && pressed.KeyX > 0 && a.t > (a.hitT ?? 0) + 0.06 && a.t < a.dur) { take("KeyX"); p.act = null; basicAttack(p); }   // 평타 후딜 끊기: 맞힌 뒤엔 다음 평타로 바로 이어진다 (연타가 씹히지 않게)
     while (a.ei < a.events.length && a.t >= a.events[a.ei].t) a.events[a.ei++].fn();
     if (a.tick) a.tick();
     if (a.ghost) { a.ghostT = (a.ghostT ?? 0) - dt; if (a.ghostT <= 0) { fxGhost(p); a.ghostT = 0.04; } }
