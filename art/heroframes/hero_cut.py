@@ -1,7 +1,7 @@
 # 한 영상에 나란히 있는 계보 3단계 → 단계·동작별 프레임 시트 (assets/hero_<계보>.png) + 좌표 JSON
 # python3 art/heroframes/hero_cut.py <계보> src=<영상>[,zone=left] <동작:시작초:끝초[:fps][:pin]> ... (src= 여러 번 가능, 한 시트로 합침)
 #   병사: soldier src=art/heroframes/soldier_idle_run_source.mp4 idle:1.1:4:10:pin run:4.6:9.6:10:pin src=art/heroframes/soldier_attack_source.mp4,zone=left,only=2 attack:0.4:3.6:12 charge:5.4:8.8:12 src=art/heroframes/soldier_s12_attack_source.mp4,zone=half,n=2,st=0,white=0 attack:0.2:4.4:12 charge:4.6:9.4:12
-#   (3단계 혼자 영상이 오면 둘째 src 를 그 영상,n=1,st=2,zone=half 로 바꾼다)
+#   지금: 둘째 src = art/heroframes/soldier_s3_attack_source.mp4,zone=half,n=1,st=2 attack:0.2:4.4:12 charge:5.2:9.0:12
 # 첫 프레임에서 세 캐릭터 자리(가로 구간)와 바닥선을 잡고, 모든 프레임을 같은 자리·같은 배율로 자른다 (둥실거림이 그대로 남게)
 import sys, os, json, glob, subprocess
 import numpy as np
@@ -65,6 +65,8 @@ for tok in ARGS:
             halo = (b_ > r_ + 8) & (b_ >= g_) & (lum > bgl + 4) & (lum < 75) & ~((g_ > r_ + 30) & (g_ >= b_ - 10))   # 빛이 번져 바탕보다 밝아진 남색 (검은 테두리·청록 불꽃은 아님)
             lb, nb = ndimage.label(halo | ~m); edge = set(np.unique(np.concatenate([lb[0], lb[-1], lb[:, 0], lb[:, -1]]))) - {0}
             m &= ~np.isin(lb, list(edge))
+            near = (np.abs(sub - np.median(np.concatenate([sub[:4].reshape(-1, 3), sub[-4:].reshape(-1, 3)]), axis=0)).max(axis=2) < 40) & (lum >= bgl - 7) & (b_ > r_ + 6) & ~((g_ > r_ + 30) & (g_ >= b_ - 10))   # 고리 안쪽처럼 둘러싸인 넓은 남색 빛도 지운다 (검은 테두리보다는 밝은 것만)
+            ln, nn = ndimage.label(near); szn = ndimage.sum(near, ln, range(1, nn + 1)); m &= ~np.isin(ln, [i + 1 for i in range(nn) if szn[i] > 400])
             lab, n = ndimage.label(m); sz = ndimage.sum(m, lab, range(1, n + 1)); objs = ndimage.find_objects(lab); keep = []
             for i in range(n):
                 if sz[i] <= 30: continue
