@@ -2081,6 +2081,7 @@ function drawHeroFrames(p, S, img, BX, o) {
   else if (body === "jump" || body === "dash") fr = at2(S.run, 2);
   else fr = at2(S.idle, Math.floor(time * S.idle.fps));
   let clip = null;
+  if (a && p.src === "skill" && a.pose === "punch" && S.throw) clip = [-16, 16];   // 던지는 자세: 영상 속 날아가는 투구는 빼고 몸 움직임만 (투구는 게임 쪽이 바로 날린다)
   if (p.headless && S.throw && !(a && p.src === "skill" && a.pose === "punch")) { fr = seg(S.throw, ...S.seg.hl, (time * 0.9) % 1); clip = [-14, 14]; }   // 머리 없는 몸: 날아간 투구는 빼고 몸통 부분만
   if (a) p.lastFr = fr;
   hcg.clearRect(0, 0, HC_W, HC_H); hcg.imageSmoothingEnabled = false;
