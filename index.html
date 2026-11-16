@@ -193,7 +193,7 @@ const HELMETS = [
     } },
   },
   {
-    id: "soldier", name: "병사 투구", atk: "창 2연타, 각 16 (길고 느림)", passive: "기본 공격 3번째마다 피해 1.5배", grade: "녹슨", type: "파워", ramp: RAMP_IRON,
+    id: "soldier", name: "병사 투구", atk: "찌르기 · 강찌르기 · 올려 베기 (각 16)", passive: "3연타 마무리 올려 베기 피해 1.5배", grade: "녹슨", type: "파워", ramp: RAMP_IRON,
     draw(t) {
       flame(0, -15, 2, 5, t, GHOST);
       hood();
@@ -206,8 +206,9 @@ const HELMETS = [
       else { R(hx, hy - 24, 2, 32, C.wood); R(hx, hy - 24, 1, 32, C.wood2); R(hx - 1, hy - 23, 4, 3, C.cloth3); R(hx - 2, hy - 28, 6, 5, C.steel2); R(hx - 1, hy - 31, 4, 7, C.steel); R(hx, hy - 33, 2, 3, C.white); }
     },
     basic: { steps: [                             // 창 2연타, 각 16, 길고 느림. 3번째마다 1.5배
-      { dur: 0.34, hitT: 0.12, dmg: 16, reach: 42, pose: "thrust", lunge: 50 },
-      { dur: 0.40, hitT: 0.14, dmg: 16, reach: 46, pose: "thrust", lunge: 80, heavy: true },
+      { dur: 0.32, hitT: 0.12, dmg: 16, reach: 42, pose: "thrust", lunge: 50 },
+      { dur: 0.36, hitT: 0.13, dmg: 16, reach: 46, pose: "thrust", lunge: 70 },
+      { dur: 0.46, hitT: 0.17, dmg: 16, reach: 46, pose: "thrust", lunge: 60, heavy: true, fin: true },   // 마무리 올려 베기
     ], nth: { every: 3, mult: 1.5 } },
     skills: [
       { name: "창 돌격", cd: 7, icon() { R(-8, 0, 13, 1, C.wood2); R(4, -1, 4, 3, C.steel); R(-8, -3, 4, 1, C.white); R(-8, 3, 4, 1, C.white); },
@@ -2192,7 +2193,7 @@ function updatePlayer(dt) {
 function basicAttack(p) {
   const helm = p.helm, b = helm.basic, step = b.steps[p.combo % b.steps.length];
   const n = (p.counts[helm.id] = (p.counts[helm.id] ?? 0) + 1);
-  const empowered = !!b.nth && n % b.nth.every === 0;
+  const empowered = b.steps.some((q) => q.fin) ? !!step.fin : !!b.nth && n % b.nth.every === 0;   // 마무리 단계가 있으면 그 단계만 강화 (병사: 3연타 마지막)
   p.combo = (p.combo + 1) % b.steps.length;
   const k = 1 + stat("aspd"); p.src = "basic";              // 공격 속도만큼 동작이 짧아진다
   startAct(p, { ...step, stepIdx: b.steps.indexOf(step), dur: step.dur / k, hitT: step.hitT / k, empowered, events: [{ t: step.hitT / k, fn() {
@@ -2328,7 +2329,7 @@ function drawHeroFrames(p, S, img, BX, o) {
   let fr, dx = 0;
   if (a && S.attack) { const u = clamp(a.t / a.dur), G = S.seg;   // 영상 구간은 단계마다 다르다 (seg: 찌르기 t1, 강찌르기 t2, 올려 베기 sl, 돌격 ch)
     if (p.src === "skill" && a.pose === "punch" && S.throw) fr = seg(S.throw, ...G.th, u);      // 투구 던지기: 던지는 자세
-    else if (p.src === "basic") fr = a.empowered || a.heavy ? seg(S.attack, ...G.sl, u) : (a.stepIdx ?? 0) % 2 === 0 ? seg(S.attack, ...G.t1, u) : seg(S.attack, ...G.t2, u);
+    else if (p.src === "basic") fr = a.empowered || (a.heavy && p.helm.id !== "soldier") ? seg(S.attack, ...G.sl, u) : (a.stepIdx ?? 0) % 2 === 0 ? seg(S.attack, ...G.t1, u) : seg(S.attack, ...G.t2, u);
     else if ((a.pose === "thrust" || a.pose === "ram") && S.charge) fr = seg(S.charge, ...G.ch, u);
     else fr = seg(S.attack, ...G.sl, u); }
   else if (a) { fr = at2(S.idle, 0); dx = Math.min(ext, 8); }
@@ -2858,6 +2859,7 @@ function drawHud() {
   }
 }
 function drawHudText() {                          // 글자는 화면 해상도로 또렷하게
+  const pv = previewTarget();
   const p = player, helm = p.helm, cds = cdsOf(helm.id), S = SCALE, c = sctx;
   const tip = (s, x, y, col) => { c.font = `11px ${FONT}`; const w = Math.max(150, c.measureText(s).width + 36); pan("tooltip", x * S - w / 2, y * S - 30, w, 52); txt(s, x, y, 11, col, "center"); };
   const txt = (s, x, y, size = 11, col = "#fff", align = "left") => { c.font = `${fs(size)}px ${FONT}`; c.textAlign = align; c.lineWidth = 3; c.lineJoin = "round"; c.strokeStyle = "#17131c"; c.strokeText(s, x * S, y * S); c.fillStyle = col; c.fillText(s, x * S, y * S); };
@@ -2879,17 +2881,17 @@ function drawHudText() {                          // 글자는 화면 해상도�
     if (o.kind === "exitgate") { txt(chapter === 1 ? "요새로" : "성채로", o.x - camX, FLOOR - camY - 64, 12, "#9be8ff", "center"); if (Math.abs(o.x - p.x) < 22) tip("↑ 돌아가기", o.x - camX, FLOOR - camY - 76, "#ffe27a"); }
     if (o.kind === "grave") { txt("투구 무덤", o.x - camX, FLOOR - camY - 40, 11, "#c8ccd6", "center"); if (Math.abs(o.x - p.x) < 18) tip(`↑ 부수기 (쇳조각 ${o.val})`, o.x - camX, FLOOR - camY - 52, "#ffe27a"); }
     if (o.kind === "event") { const E2 = EVENTS[o.ev]; txt(E2.name, o.x - camX, FLOOR - camY - 36, 11, o.used ? "#7d7590" : E2.c, "center"); if (!o.used && Math.abs(o.x - p.x) < 20) tip(E2.tip, o.x - camX, FLOOR - camY - 50, "#ffe27a"); }
-    if (o.kind === "reveal" && o.taken == null && o.t > 0.4) { const it = o.item, gd = GRADES[it.grade]; txt(`${gd.name} ${it.name}`, o.x - camX, FLOOR - camY - 78, 11, gd.c, "center"); txt(it.desc, o.x - camX, FLOOR - camY - 68, 10, "#d0c8dc", "center");
+    if (o.kind === "reveal" && o.taken == null && o.t > 0.4 && o !== pv) { const it = o.item, gd = GRADES[it.grade]; txt(`${gd.name} ${it.name}`, o.x - camX, FLOOR - camY - 78, 11, gd.c, "center"); txt(it.desc, o.x - camX, FLOOR - camY - 68, 10, "#d0c8dc", "center");
       txt(it.crests.map((k) => CRESTS[k].name).join(" · "), o.x - camX, FLOOR - camY - 59, 10, CRESTS[it.crests[0]].c, "center");
       if (Math.abs(o.x - p.x) < 18) tip(`↑ 획득 · ↓ 분해(금화 ${itemScrapGold(it)})`, o.x - camX, FLOOR - camY - 92, "#ffe27a"); }
     if (o.kind === "chest" && o.open < 0) { txt(o.red ? "정예 상자" : "상자", o.x - camX, FLOOR - camY - 26, 11, o.red ? "#ff7a6a" : "#ffd24a", "center"); if (Math.abs(o.x - p.x) < 18) tip("↑ 열기", o.x - camX, FLOOR - camY - 38, "#ffe27a"); }
-    if (o.kind === "pickup") { txt(`${HGRADE[o.grade ?? 0].name} ${LINES[o.id] ? LINES[o.id].names[clamp(o.grade ?? 0, 0, LINES[o.id].names.length - 1)] : helmById(o.id).name}`, o.x - camX, FLOOR - camY - 46, 11, HGRADE[o.grade ?? 0].c, "center"); if (Math.abs(o.x - p.x) < 16) tip(`↑ 바꾸기 · ↓ 분해(쇳조각 ${SCRAP_OF[o.grade ?? 0]})`, o.x - camX, FLOOR - camY - 58, "#ffe27a"); }
+    if (o.kind === "pickup") { txt(`${HGRADE[o.grade ?? 0].name} ${LINES[o.id] ? LINES[o.id].names[clamp(o.grade ?? 0, 0, LINES[o.id].names.length - 1)] : helmById(o.id).name}`, o.x - camX, FLOOR - camY - 46, 11, HGRADE[o.grade ?? 0].c, "center"); if (Math.abs(o.x - p.x) < 16 && o !== pv) tip(`↑ 바꾸기 · ↓ 분해(쇳조각 ${SCRAP_OF[o.grade ?? 0]})`, o.x - camX, FLOOR - camY - 58, "#ffe27a"); }
     if (o.kind === "smith") { txt("대장장이", o.x - camX, FLOOR - camY - 30, 11, "#ffae35", "center"); if (Math.abs(o.x - p.x) < 18) { const g0 = hgOf(p.helm.id); tip(g0 < 0 ? "빈 투구는 진화 불가" : g0 >= lineMax(p.helm.id) ? `${hName(p.helm)}: 마지막 단계` : LINES[p.helm.id] ? `↑ 진화 → ${LINES[p.helm.id].names[g0 + 1]} (쇳조각 ${AWAKE_COST[g0]})` : `↑ ${hName(p.helm)} 각성 → ${HGRADE[g0 + 1].name} (쇳조각 ${AWAKE_COST[g0]})`, o.x - camX, FLOOR - camY - 44, "#ffe27a"); } }
     if (o.kind === "door") txt((Math.abs(o.x - p.x) < 18 ? "↑ " : "") + REWARDS[o.reward].name, o.x - camX, FLOOR - camY - 61, 11, REWARDS[o.reward].c, "center");
     if (o.kind === "shop" && !talk) { const nm = o.soul ? SOULS[o.soul].name : o.food === "soup" ? "버섯 수프" : o.food === "meat" ? "구운 고기" : o.potion ? "회복 물약" : o.item.name, ds = o.soul ? `${SOULS[o.soul].desc} / ${SOULS[o.soul].passive}` : o.food === "soup" || o.potion ? "체력 40 회복" : o.food === "meat" ? "이번 판 최대 체력 +10" : o.item.desc;
       const fl = ready(npcImg) && !o.pick, near = Math.abs(o.x - p.x) < 16, nc = o.item ? GRADES[o.item.grade].c : o.soul ? SOULS[o.soul].col : "#fff", pc = p.gold >= o.price ? "#ffd24a" : "#ff6a5a";
-      if (fl) { txt(`${o.price}`, o.x - camX + 3, FLOOR - camY - 30, 10, pc, "center"); if (near) { txt(nm, o.x - camX, FLOOR - camY - 64, 11, nc, "center"); tip("↑ " + ds, o.x - camX, FLOOR - camY - 76, "#ffe27a"); } }   // 암시장: 가격 팻말 + 가까이 가면 이름·설명
-      else { txt(nm, o.x - camX, FLOOR - camY - 39, 10, nc, "center"); txt(o.price ? `${o.price}G` : o.pick ? "선택" : "교환", o.x - camX, FLOOR - camY - 30, 11, pc, "center"); if (near) tip("↑ " + ds, o.x - camX, FLOOR - camY - 52, "#ffe27a"); } }
+      if (fl) { txt(`${o.price}`, o.x - camX + 3, FLOOR - camY - 30, 10, pc, "center"); if (near && o !== pv) { txt(nm, o.x - camX, FLOOR - camY - 64, 11, nc, "center"); tip("↑ " + ds, o.x - camX, FLOOR - camY - 76, "#ffe27a"); } }   // 암시장: 가격 팻말 + 가까이 가면 이름·설명
+      else { txt(nm, o.x - camX, FLOOR - camY - 39, 10, nc, "center"); txt(o.price ? `${o.price}G` : o.pick ? "선택" : "교환", o.x - camX, FLOOR - camY - 30, 11, pc, "center"); if (near && o !== pv) tip("↑ " + ds, o.x - camX, FLOOR - camY - 52, "#ffe27a"); } }
   }
   if (talk) { talk.t += 1 / 60; if (Math.abs(talk.x - p.x) > 60 || state !== "play") talk = null; }
   if (talk) {                                                   // 아래 대화창: 이름표 + 한 글자씩 나오는 말
@@ -3048,13 +3050,63 @@ function render() {
   g.clearRect(0, 0, W, H); lg.clearRect(0, 0, W, H); drawHud();
   g.globalCompositeOperation = "lighter"; g.drawImage(lightC, 0, 0); g.globalCompositeOperation = "source-over";
   sctx.drawImage(buf, 0, 0, W * SCALE, H * SCALE);
-  drawHudText(); drawMenu();
+  drawHudText(); drawPreview(); drawMenu();
 }
 
 // =====================================================================================
 //  캐릭터 창 (Tab): 왼쪽 능력치 / 가운데 투구·영혼·아이템 칸 / 오른쪽 고른 것의 설명
 // =====================================================================================
-let menuOpen = false, menuT = 0, menuSel = 0;
+// 줍기 전 미리보기 카드: 아이템(상자·보상·상점)과 바닥 투구. 가까이 가면 위에 뜬다
+function previewTarget() {
+  const p = player; if (menuOpen || talk) return null;
+  return objs.find((o) => o.kind === "reveal" && o.taken == null && o.t > 0.4 && Math.abs(o.x - p.x) < 18)
+    || objs.find((o) => o.kind === "shop" && o.item && !o.gone && Math.abs(o.x - p.x) < 16)
+    || objs.find((o) => o.kind === "pickup" && !o.gone && Math.abs(o.x - p.x) < 16) || null;
+}
+function drawPreview() {
+  const o = previewTarget(); if (!o) return;
+  const c = sctx, p = player, CW = 300, t = (str, x, y, size = 14, col = "#e4def0", al = "left") => { c.font = `${fs(size)}px ${FONT}`; c.textAlign = al; c.fillStyle = col; c.fillText(str, x, y); };
+  const rows = [], it = o.item, helm = o.kind === "pickup" ? helmById(o.id) : null;
+  let gc, name, sub, keysTxt, warn = null;
+  if (it) {
+    const gd = GRADES[it.grade]; gc = gd.c; name = it.name; sub = `${gd.name} 아이템`;
+    rows.push({ desc: it.desc });
+    for (const k of it.crests) { const C2 = CRESTS[k], n0 = crestN(k), n1 = n0 + 1, on = n1 === 2 ? C2.t2 : n1 === 4 ? C2.t4 : null; rows.push({ crest: k, n0, n1, on }); }
+    if (o.kind === "shop") { const ok = p.gold >= o.price; keysTxt = o.price ? `↑ 구매  ${o.price}G` : "↑ 고르기"; if (!ok && o.price) warn = "금화가 모자라"; }
+    else keysTxt = `↑ 획득   ↓ 분해 (금화 ${itemScrapGold(it)})`;
+    if (p.items.length >= 9) warn = "아이템 칸이 가득 찼어 — Tab에서 X 꾹: 분해";
+  } else {
+    const g0 = o.grade ?? 0; gc = HGRADE[g0].c; name = LINES[o.id] ? LINES[o.id].names[clamp(g0, 0, LINES[o.id].names.length - 1)] : helm.name; sub = `${HGRADE[g0].name} 투구 · ${helm.type}`;
+    rows.push({ kv: ["패시브", helm.passive] }, { kv: ["기본 공격  X", helm.atk] }, { kv: ["스킬 1  A", helm.skills[0].name] }, { kv: ["스킬 2  S", helm.skills[1].name + (g0 < Math.min(2, LINES[o.id] ? LINES[o.id].names.length - 1 : 2) ? " (명품부터)" : "")] }, { kv: ["교체 공격", helm.swap.name] });
+    keysTxt = `↑ 바꾸기   ↓ 분해 (쇳조각 ${SCRAP_OF[g0]})`;
+  }
+  const rh = (r) => r.crest ? (r.on ? 44 : 30) : r.kv ? 22 : 28, CH = 84 + rows.reduce((a, r) => a + rh(r), 0) + 30 + (warn ? 18 : 0);
+  const ox = (o.x - camX) * 2, x = Math.round(clamp(ox - CW / 2, 12, 960 - CW - 12)), y = Math.round(clamp((FLOOR - camY - 74) * 2 - CH, 60, 540 - CH - 40));
+  c.fillStyle = "rgba(6,4,12,0.55)"; c.fillRect(x + 4, y + 6, CW, CH);                                       // 그림자
+  c.fillStyle = "#0e0b14"; c.fillRect(x - 3, y - 3, CW + 6, CH + 6); c.fillStyle = gc; c.fillRect(x - 1, y - 1, CW + 2, CH + 2);
+  c.fillStyle = "#17121f"; c.fillRect(x, y, CW, CH); c.fillStyle = gc; c.globalAlpha = 0.16; c.fillRect(x, y, CW, 70); c.globalAlpha = 1; c.fillStyle = gc; c.fillRect(x, y, CW, 3);
+  c.imageSmoothingEnabled = false;                                                                            // 아이콘 칸
+  c.fillStyle = "#0e0b14"; c.fillRect(x + 12, y + 12, 52, 52); c.strokeStyle = gc; c.lineWidth = 2; c.strokeRect(x + 13, y + 13, 50, 50);
+  if (it) c.drawImage(itemImg.big, it.icon * 48, 0, 48, 48, x + 14, y + 14, 48, 48);
+  else { begin(); helm.draw(time); outline(); c.save(); c.beginPath(); c.rect(x + 14, y + 14, 48, 48); c.clip(); c.drawImage(spr, x + 38 - SX * 1.5, y + 52 - SY * 1.5, SP * 1.5, SP * 1.5); c.restore(); }
+  t(name, x + 76, y + 36, 16, "#ffffff"); t(sub, x + 76, y + 58, 11, gc);
+  let yy = y + 84;
+  c.fillStyle = "#342d44"; c.fillRect(x + 12, yy - 10, CW - 24, 1);
+  for (const r of rows) {
+    if (r.desc) { t(r.desc, x + CW / 2, yy + 8, r.desc.length > 20 ? 12 : 13, "#ffe27a", "center"); }
+    else if (r.kv) { t(r.kv[0], x + 14, yy + 6, 11, "#9a91ad"); t(r.kv[1], x + CW - 14, yy + 6, r.kv[1].length > 18 ? 11 : 12, "#ffffff", "right"); }
+    else { const C2 = CRESTS[r.crest], ix = ["powder", "frost", "blood", "ghost", "gale", "gold", "poison", "thunder", "iron", "hunt", "soul", "clock"].indexOf(r.crest);
+      c.fillStyle = "rgba(255,255,255,0.04)"; c.fillRect(x + 10, yy - 8, CW - 20, rh(r) - 4);
+      if (ix >= 0) c.drawImage(engImg, ix * 48, 0, 48, 48, x + 14, yy - 6, 24, 24); else { c.fillStyle = C2.c; c.beginPath(); c.arc(x + 26, yy + 6, 10, 0, 7); c.fill(); }
+      t(C2.name, x + 46, yy + 10, 13, C2.c);
+      for (let j = 0; j < 4; j++) { c.fillStyle = j < r.n0 ? C2.c : j < r.n1 ? "#ffffff" : "#342d44"; c.fillRect(x + CW - 74 + j * 14, yy + 1, 10, 10); }   // 지금 가진 개수 + 새로 생기는 칸(흰색)
+      if (r.on) t(`${r.n1}개 효과 발동: ${r.on}`, x + 46, yy + 28, 11, "#ffffff"); }
+    yy += rh(r);
+  }
+  if (warn) { t(warn, x + CW / 2, yy + 4, 11, "#ff6a5a", "center"); yy += 18; }
+  c.fillStyle = "#342d44"; c.fillRect(x + 12, yy - 6, CW - 24, 1); t(keysTxt, x + CW / 2, yy + 14, 12, "#ffe27a", "center");
+}
+let menuOpen = false, menuT = 0, menuSel = 0, menuHold = 0;
 const menuCells = () => [...player.slots.map((id) => ({ helm: helmById(id) })), ...Array.from({ length: 9 }, (_, i) => ({ item: player.items[i] }))];
 function updateMenu(dt) {
   if (take("Tab") || (menuOpen && take("Escape"))) menuOpen = !menuOpen;
@@ -3064,6 +3116,12 @@ function updateMenu(dt) {
   if (dx) menuSel = clamp(menuSel + dx, 0, 10);
   if (dy > 0) menuSel = menuSel < 2 ? 2 + menuSel : Math.min(10, menuSel + 3);
   if (dy < 0) menuSel = menuSel < 2 ? menuSel : menuSel < 5 ? Math.min(1, menuSel - 2) : menuSel - 3;
+  const it = menuSel >= 2 ? player.items[menuSel - 2] : null;      // 가진 아이템 분해: X를 꾹 누른다 (실수로 지우지 않게 0.6초)
+  if (it && keys.KeyX) { menuHold += dt; if (menuHold >= 0.6) { menuHold = 0; pressed.KeyX = 0; sellOwnedItem(it); } } else menuHold = 0;
+}
+function sellOwnedItem(it) {
+  const p = player, n = itemScrapGold(it); p.items.splice(p.items.indexOf(it), 1); p.gold += n; p.hp = Math.min(p.hp, maxHp());
+  texts.push({ x: p.x, y: p.y - 44, vy: -30, t: 1, s: `+${n}G`, c: "#ffd24a" }); banner = { s: `${it.name} 분해 — 금화 ${n}`, t: 1.6 }; menuSel = Math.min(menuSel, 2 + Math.max(0, p.items.length - 1)); if (!p.items.length) menuSel = 0;
 }
 const ITEM_COL = { phys: "#d8423a", magic: "#a070e0", crit: "#ffe27a", hp: "#8fc05a", gold: "#ffd24a", skill: "#f2701f", speed: "#63c8ea", basic: "#c9783a", aspd: "#b5efff", swapHeal: "#ff9ad0" };
 function drawMenu() {
@@ -3126,6 +3184,8 @@ function drawMenu() {
       const yy = Y + 88 + i * 31; t(a, DX + 28, yy, 13, "#b8b0c4"); t(String(b), DX + DW - 28, yy, 13, "#fff", "right"); c.fillStyle = "#342d44"; c.fillRect(DX + 26, yy + 10, DW - 52, 1);
     });
   }
+  if (cl.item) { const n = itemScrapGold(cl.item), bw2 = DW - 56; t(`X 꾹 누르기: 분해 (금화 +${n})`, cx, Y + PH - 62, 12, "#ffd24a", "center");
+    c.fillStyle = "#2a2236"; c.fillRect(cx - bw2 / 2, Y + PH - 54, bw2, 5); c.fillStyle = "#ffd24a"; c.fillRect(cx - bw2 / 2, Y + PH - 54, Math.round(bw2 * clamp(menuHold / 0.6)), 5); }
   t("Tab 닫기   ·   ← → ↑ ↓ 칸 고르기", cx, Y + PH - 30, 12, "#9a91ad", "center");
   c.restore();
 }
