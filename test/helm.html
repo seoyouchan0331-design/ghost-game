@@ -1962,7 +1962,10 @@ function updatePlayer(dt) {
   }
   if (!p.dashing) p.vy += GRAV * dt;
   const y0 = p.y, nx = clamp(p.x + p.vx * dt, ROOM_L, ROOM_R), body = (x, y) => [-5, 5].some((dx) => [-4, -14, -24].some((dy) => isSolid(x + dx, y + dy)));
-  if (!body(nx, p.y)) p.x = nx;                                  // 벽에 막힌다
+  { const n = Math.ceil(Math.abs(nx - p.x) / 3), sx = (nx - p.x) / Math.max(1, n);   // 벽에 막힌다. 3px씩 나눠 움직여서 빠른 대시·느린 기계(큰 dt)에서도 얇은 벽을 뚫지 않는다
+    for (let i = 0; i < n && !body(p.x + sx, p.y); i++) p.x += sx; }
+  if (body(p.x, p.y)) { const dx = [4, -4, 8, -8, 12, -12, 16, -16, 24, -24].find((d) => !body(p.x + d, p.y));   // 그래도 벽 속이면 가까운 빈칸으로, 없으면 마지막 안전한 곳으로
+    if (dx != null) p.x += dx; else { [p.x, p.y] = p.safe; p.vy = 0; } }
   p.y += p.vy * dt; p.dropT = Math.max(0, (p.dropT ?? 0) - dt);
   if (p.vy < 0 && [-4, 4].some((dx) => isSolid(p.x + dx, p.y - 28))) { p.y = rowTop(Math.floor((p.y - 28 - FLOOR) / TS) + L.rows - 1) + TS + 28; p.vy = 0; }   // 천장에 머리
   let gy = Infinity;                                             // 발판은 떨어지는 중에 위에서 닿을 때만 선다
