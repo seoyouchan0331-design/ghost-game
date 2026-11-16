@@ -624,6 +624,14 @@ function drawGolem(e) {
 // 모험가 그림 (Higgsfield, 대기 자세 한 장씩 → art/adv/adv_cut.py). 걷기·공격은 코드로 기울이고 들썩여서 표현한다
 const ADV_SPR = {"adv_sword":{"r":[0,0,27,38],"face":-1},"adv_archer":{"r":[29,0,27,36],"face":-1},"adv_cleric":{"r":[58,0,26,38],"face":1},"adv_mage":{"r":[86,0,31,38],"face":1},"adv_thief":{"r":[119,0,31,34],"face":-1},"adv_warrior":{"r":[152,0,43,42],"face":-1}};
 const advImg = new Image(); advImg.src = "assets/adv.png";
+// 견습 도적 8자세 (art/ch2/thief_cut.py): 0 대기 1 달리기 2 찌를 준비 3 찌르기 4 뒤로 구르기 5 연막 6 등 뒤 베기 7 포션
+const THF = {"thief_anim":{"w":48,"h":34,"ax":19,"ay":34,"y":0}};
+const thfImg = new Image(); thfImg.src = "assets/thief_anim.png";
+function thiefFrame(e) {
+  if (e.walkT !== e.lastWT) { e.lastWT = e.walkT; e.movedAt = time; }
+  const S = e.st; if (S === "stabWind" || S === "ambushWind") return 2; if (S === "stab") return 3; if (S === "roll") return 4; if (S === "smoke" || S === "charge") return 5; if (S === "ambush") return 6; if (S === "potion") return 7;
+  return time - (e.movedAt ?? -9) < 0.1 ? (Math.floor(e.walkT * 7) % 2 ? 1 : 0) : 0;
+}
 const advC = mk(SP, SP), advG = advC.getContext("2d");
 // 검사 베기 애니메이션 (영상에서 뽑은 10프레임, art/adv/adv_sword_anim.py): 0 대기, 1~4 준비, 5~7 휘두름, 8 뻗은 끝, 9 돌아오기
 const SWA = { size: 70, footX: 34, footY: 58 }, swaImg = new Image(); swaImg.src = "assets/adv_sword_anim.png";
@@ -670,6 +678,7 @@ function drawAdvSprite(e) {
   const c = advG; c.clearRect(0, 0, SP, SP); c.imageSmoothingEnabled = false;
   if (e.id === "adv_sword" && ready(swaImg)) { let m = ready(swmImg) ? swordMove(e) : -1; const f = m >= 0 ? m : m === SWAX ? 4 : swordFrame(e), im = m >= 0 ? swmImg : swaImg;
     c.drawImage(im, f * SWA.size, 0, SWA.size, SWA.size, SX - SWA.footX, SY + (m < 0 && f === 0 ? bob : 0) - SWA.footY, SWA.size, SWA.size); }
+  else if (e.id === "adv_thief" && ready(thfImg)) { const q2 = THF.thief_anim, f = thiefFrame(e); c.drawImage(thfImg, f * q2.w, 0, q2.w, q2.h, SX - q2.ax, SY - q2.ay + (f === 0 ? bob : 0), q2.w, q2.h); }
   else {   // 그림은 따로 캔버스에 (로컬 파일로 열면 그림 그린 캔버스는 픽셀을 못 읽는다)
   c.save(); c.translate(SX + (atk ? 2 : 0), SY + bob); c.rotate(ang); c.scale(q.face, sq);   // 그림이 보는 방향을 오른쪽으로 맞춘다
   c.drawImage(advImg, q.r[0], q.r[1], q.r[2], q.r[3], -Math.round(q.r[2] / 2), -q.r[3], q.r[2], q.r[3]); c.restore(); }
@@ -2422,13 +2431,13 @@ function updateEnemy(e, dt) {
   e.type.ai(e, player, dx, Math.abs(dx));
 }
 // 1챕터 적 그림 (Higgsfield → art/enemies/enemies_cut.py): 줄마다 대기·걷기·준비·공격 4자세, 기준점 = 발 가운데
-const ENSPR = {"militia":{"w":42,"h":32,"ax":16,"ay":32,"y":0},"torch":{"w":43,"h":37,"ax":14,"ay":37,"y":32},"shield":{"w":39,"h":32,"ax":18,"ay":32,"y":69},"hound":{"w":38,"h":18,"ax":14,"ay":18,"y":101},"crossbow":{"w":33,"h":32,"ax":11,"ay":32,"y":119},"heavy":{"w":41,"h":47,"ax":21,"ay":47,"y":151}};
+const ENSPR = {"militia":{"w":42,"h":32,"ax":16,"ay":32,"y":0},"torch":{"w":43,"h":37,"ax":14,"ay":37,"y":32},"shield":{"w":39,"h":32,"ax":18,"ay":32,"y":69},"hound":{"w":38,"h":18,"ax":14,"ay":18,"y":101},"crossbow":{"w":33,"h":32,"ax":11,"ay":32,"y":119},"heavy":{"w":41,"h":47,"ax":21,"ay":47,"y":151},"cavalry":{"w":66,"h":56,"ax":26,"ay":56,"y":198},"handler":{"w":49,"h":35,"ax":17,"ay":35,"y":254},"banner":{"w":56,"h":56,"ax":16,"ay":56,"y":289}};
 const enImg = new Image(); enImg.src = "assets/enemies.png";
 const enC = mk(SP, SP), enG = enC.getContext("2d");
 function drawEnemyArt(e) {
   const q = ENSPR[e.id]; if (!q || !ready(enImg)) return false;
   if (e.walkT !== e.lastWT) { e.lastWT = e.walkT; e.movedAt = time; }
-  const moving = time - (e.movedAt ?? -9) < 0.1, f = e.st === "windup" || e.st === "aim" ? 2 : e.st === "attack" || e.st === "recover" ? 3 : moving ? (Math.floor(e.walkT * 6) % 2 ? 1 : 0) : 0;
+  const moving = time - (e.movedAt ?? -9) < 0.1, f = e.st === "windup" || e.st === "aim" || e.st === "plant" ? 2 : e.st === "attack" || e.st === "recover" || e.st === "gallop" ? 3 : e.st === "back" ? (Math.floor(e.walkT * 6) % 2 ? 1 : 0) : moving ? (Math.floor(e.walkT * 6) % 2 ? 1 : 0) : 0;
   const bob = moving && f === 0 ? -1 : 0, c = enG; c.clearRect(0, 0, SP, SP); c.imageSmoothingEnabled = false;
   c.drawImage(enImg, f * q.w, q.y, q.w, q.h, SX - q.ax, SY - q.ay + bob, q.w, q.h);
   const t0 = T; T = c; if (e.st === "windup" || (e.st === "aim" && e.t <= 0.25)) exclaim(0, -q.ay - 6);
@@ -3039,7 +3048,7 @@ function render() {
     if (e.dead > 0.25) continue;
     if (e.born > 0) { const k = e.born * 2; glow(e.x, e.y - 12, 22, "#8a5cc0", 0.5); g.fillStyle = "#b08ae0"; for (let i = 0; i < 6; i++) g.fillRect(Math.round(e.x + Math.cos(time * 9 + i) * 10 * k), Math.round(e.y - 12 + Math.sin(time * 9 + i) * 12 * k), 2, 2); continue; }
     if (e.hidden) continue;
-    if (!e.type.giant) shadow(e.x, e.type.giant ? 40 : e.type.twin ? 14 : e.type.low ? 10 : 8, e.gy ?? FLOOR);
+    if (!e.type.giant) shadow(e.x, e.type.twin ? 14 : e.id === "cavalry" ? 20 : e.type.low ? 10 : 8, e.gy ?? FLOOR);
     if (e.type.drawWorld) { e.type.drawWorld(e); continue; }
     blit(drawEnemySprite(e), e.x, e.y, e.dir);
     if (e.type.over) e.type.over(e);

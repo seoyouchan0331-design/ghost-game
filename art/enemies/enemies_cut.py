@@ -4,7 +4,7 @@ import json, sys, os, numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "adv")); from keying import key
 from PIL import Image
 from scipy import ndimage
-SHEETS = {"militia": 30, "torch": 30, "shield": 30, "hound": 16, "crossbow": 30, "heavy": 36, "cavalry": 40, "handler": 30, "banner": 36}   # 대기 자세 게임 속 키(px). 2챕터 것은 원본이 있을 때만
+SHEETS = {"militia": 30, "torch": 30, "shield": 30, "hound": 16, "crossbow": 30, "heavy": 36, "cavalry": 54, "handler": 32, "banner": 54}   # 대기 자세 게임 속 키(px). 2챕터 것은 원본이 있을 때만
 SHEETS = {k: v for k, v in SHEETS.items() if os.path.exists(f"{k}_source.png")}
 cells, meta = {}, {}
 for name, H in SHEETS.items():
