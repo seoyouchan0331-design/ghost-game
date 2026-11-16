@@ -212,7 +212,7 @@ const HELMETS = [
       { name: "창 돌격", cd: 7, icon() { R(-8, 0, 13, 1, C.wood2); R(4, -1, 4, 3, C.steel); R(-8, -3, 4, 1, C.white); R(-8, 3, 4, 1, C.white); },
         use(p) {
           const hit = new Set();                // 3칸(96px) 돌진, 경로의 적에게 35
-          startAct(p, { dur: 0.24, pose: "thrust", reach: 30, vx: 400, ghost: true, events: [{ t: 0.22, fn() { if (hgOf("soldier") >= 1) blast(p.x + p.dir * 18, p.y - 10, 30, 20, RAMP_IRON); } }], tick() { melee(p, { x0: 0, x1: 36, y0: -24, y1: -2, dmg: 35, kb: 120, heavy: true, once: hit }); } });
+          startAct(p, { dur: 0.24, pose: "thrust", reach: 30, vx: 400, ghost: true, events: [{ t: 0.22, fn() { if (hgOf("soldier") >= 1) blast(p.x + p.dir * 18, p.y - 10, 30, 20, RAMP_IRON); } }], tick() { melee(p, { x0: 0, x1: hgOf("soldier") >= 2 ? 100 : 36, y0: -24, y1: -2, dmg: 35, kb: 120, heavy: true, once: hit }); } });
           dust(p.x, FLOOR, -p.dir, 6);
         } },
       { name: "창벽", cd: 12, icon() { for (const x of [-5, -1, 3]) { R(x, -3, 1, 8, C.wood2); R(x - 1, -6, 3, 3, C.steel); } },
@@ -1659,11 +1659,16 @@ function starGlint(ctx, x, y, arm, c, tip) {
   if (arm >= 3) { ctx.fillStyle = c; for (const [a, b] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) ctx.fillRect(x + a, y + b, 1, 1); }
   ctx.fillStyle = "#fff"; ctx.fillRect(x, y, 1, 1);
 }
+// 빛: 색마다 둥근 빛 그림을 한 번만 만들어 두고 크기만 바꿔 찍는다 (매번 그라데이션을 만들면 이펙트가 많을 때 버벅임)
+const GLOW_CACHE = new Map();
+// 큰 배경 그림은 그릴 크기로 한 번만 줄여 두고 다시 쓴다 (매 프레임 큰 그림을 줄이면 폰에서 무거움)
+const SCALED = new Map();
+function scaled(img, w, h) { const key = img.src + "|" + w + "x" + h; let cv = SCALED.get(key); if (!cv) { cv = mk(w, h); const c = cv.getContext("2d"); c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, w, h); SCALED.set(key, cv); } return cv; }
 function glow(x, y, r, c, k) {
   if (r < 1 || k <= 0.01) return;
-  const gr = lg.createRadialGradient(x, y, 0, x, y, r);
-  gr.addColorStop(0, c); gr.addColorStop(1, "rgba(0,0,0,0)");
-  lg.globalAlpha = clamp(k); lg.fillStyle = gr; lg.fillRect(x - r, y - r, r * 2, r * 2); lg.globalAlpha = 1;
+  let cv = GLOW_CACHE.get(c);
+  if (!cv) { cv = mk(64, 64); const cg = cv.getContext("2d"), gr = cg.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, c); gr.addColorStop(1, "rgba(0,0,0,0)"); cg.fillStyle = gr; cg.fillRect(0, 0, 64, 64); GLOW_CACHE.set(c, cv); }
+  lg.globalAlpha = clamp(k); lg.drawImage(cv, x - r, y - r, r * 2, r * 2); lg.globalAlpha = 1;
 }
 function ray(x, y, a, L, w, ramp, from = 0) {     // 뿌리는 굵고 끝은 가는 광선, 바깥으로 갈수록 식는 색
   const c = Math.cos(a), s = Math.sin(a);
@@ -1936,7 +1941,8 @@ function basicAttack(p) {
   startAct(p, { ...step, stepIdx: b.steps.indexOf(step), dur: step.dur / k, hitT: step.hitT / k, empowered, events: [{ t: step.hitT / k, fn() {
     if (step.fire) return step.fire(p);
     const thrust = step.pose === "thrust";
-    const nHit = melee(p, { x0: 0, x1: step.reach + 8, y0: -26, y1: 0, dmg: step.dmg, heavy: step.heavy || empowered, mult: empowered ? b.nth.mult : 1, kb: step.heavy ? 150 : 80 });
+    const longR = helm.id === "soldier" && hgOf("soldier") >= 2 ? (empowered ? 90 : 96) : 0;   // 근위 창대장: 불길·반달 이펙트만큼 길게
+    const nHit = melee(p, { x0: empowered && longR ? -30 : 0, x1: longR || step.reach + 8, y0: empowered && longR ? -70 : -26, y0: -26, y1: 0, dmg: step.dmg, heavy: step.heavy || empowered, mult: empowered ? b.nth.mult : 1, kb: step.heavy ? 150 : 80 });
     if (nHit && helm.id === "thief" && Math.random() < 0.15) dropCoins(p.x + p.dir * 16, p.y - 10, 3, 1);   // 좀도둑: 때리면 금화
     if (nHit && helm.id === "soldier" && hgOf("soldier") >= 2 && p.rushG < 1) { p.rushG = Math.min(1, (p.rushG ?? 0) + 0.2 * nHit); if (p.rushG >= 1) { banner = { s: "돌진 게이지 가득! (A)", t: 1 }; fxRing(p.x, p.y - 12, 16, RAMP_IRON); } }
     fxSwoosh(p.x + p.dir * (thrust ? step.reach + 6 : step.reach + 4), p.y - 11, p.dir, thrust ? step.reach : 9 + (step.heavy ? 3 : 0), helm.ramp, thrust);
@@ -2565,18 +2571,24 @@ function drawHudFrames() {
   ui("gold", 814, 54); ui("scrap", 876, 52);
 }
 function box(x, y, s, on) { g.fillStyle = C.line; g.fillRect(x - 1, y - 1, s + 2, s + 2); g.fillStyle = on ? "#3a3346" : "#221e2a"; g.fillRect(x, y, s, s); g.fillStyle = on ? "#4c4459" : "#2c2736"; g.fillRect(x, y, s, 1); }
-function icon(x, y, s, fn) { begin(); fn(); outline(); g.save(); g.beginPath(); g.rect(x, y, s, s); g.clip(); g.drawImage(spr, x + (s >> 1) - SX, y + (s >> 1) - SY); g.restore(); }
+// HUD 아이콘: 테두리 그리기(픽셀 읽기)가 무거워서 그린 결과를 key 로 기억해 두고 다시 쓴다
+const ICON_CACHE = new Map();
+function icon(x, y, s, fn, key) {
+  let cv = key && ICON_CACHE.get(key);
+  if (!cv) { begin(); fn(); outline(); cv = mk(SP, SP); cv.getContext("2d").drawImage(spr, 0, 0); if (key) { if (ICON_CACHE.size > 200) ICON_CACHE.clear(); ICON_CACHE.set(key, cv); } }
+  g.save(); g.beginPath(); g.rect(x, y, s, s); g.clip(); g.drawImage(cv, x + (s >> 1) - SX, y + (s >> 1) - SY); g.restore();
+}
 function drawHud() {
   const p = player, helm = p.helm, sub = helmById(p.slots[1 - p.active]), cds = cdsOf(helm.id);
   const b = HUD.hp, k = p.hp / maxHp(), shade = "rgba(10,8,16,0.72)";
   const panel = (o) => { g.fillStyle = "#1a1622"; g.fillRect(o.x - 3, o.y - 2, o.s + 6, o.s + 4); };
   g.fillStyle = "#2a1016"; g.fillRect(b.x, b.y, b.w, b.h);
   g.fillStyle = k > 0.3 ? "#c9342c" : "#ff5a3c"; g.fillRect(b.x, b.y, Math.round(b.w * k), b.h); g.fillStyle = "#f07860"; g.fillRect(b.x, b.y, Math.round(b.w * k), 2);
-  panel(HUD.main); icon(HUD.main.x, HUD.main.y, HUD.main.s, () => at(0, 10, () => helm.draw(time)));
-  panel(HUD.sub); if (sub) icon(HUD.sub.x, HUD.sub.y, HUD.sub.s, () => at(0, 9, () => sub.draw(0)));
+  panel(HUD.main); icon(HUD.main.x, HUD.main.y, HUD.main.s, () => at(0, 10, () => helm.draw(time)), `m:${helm.id}:${hgOf(helm.id)}:${Math.floor(time * 6) % 6}`);
+  panel(HUD.sub); if (sub) icon(HUD.sub.x, HUD.sub.y, HUD.sub.s, () => at(0, 9, () => sub.draw(0)), `s:${sub.id}:${hgOf(sub.id)}`);
   if (p.swapCd > 0) { const h = Math.ceil(HUD.sub.s * p.swapCd / (p.swapMax ?? BASE.swapCd)); g.fillStyle = shade; g.fillRect(HUD.sub.x, HUD.sub.y + HUD.sub.s - h, HUD.sub.s, h); }
   for (let i = 0; i < 2; i++) {
-    const s = HUD.skill[i]; panel(s); icon(s.x, s.y, s.s, helm.skills[i].icon);
+    const s = HUD.skill[i]; panel(s); icon(s.x, s.y, s.s, helm.skills[i].icon, `k:${helm.id}:${i}`);
     if (cds[i] > 0) { const h = Math.ceil(s.s * cds[i] / skillCd(helm, i)); g.fillStyle = shade; g.fillRect(s.x, s.y + s.s - h, s.s, h); }
     if (i === 1 && sLocked(helm.id)) { g.fillStyle = "rgba(10,8,16,0.8)"; g.fillRect(s.x, s.y, s.s, s.s); g.fillStyle = "#b0a8ba"; g.fillRect(s.x + 5, s.y + 8, 7, 5); g.strokeStyle = "#b0a8ba"; g.lineWidth = 1; g.strokeRect(s.x + 6.5, s.y + 4.5, 4, 4); }   // 명품 전 S 잠김
   }
@@ -2704,14 +2716,14 @@ function render() {
   g.clearRect(0, 0, W, H); lg.clearRect(0, 0, W, H);
   camX = clamp(Math.round(player.x - W / 2), 0, L.w - W);          // 카메라가 보이드를 따라간다 (좌우 + 위아래)
   camY = Math.round(Math.min(0, Math.max(rowTop(0) - TS, player.y - 175)));
-  const layer = (img, w, h, k, y) => { const off = camX * k; for (let i = Math.floor(off / w); i * w < off + W; i++) { g.save(); g.translate(Math.round(i * w - off + (i % 2 ? w : 0)), Math.round(y)); g.scale(i % 2 ? -1 : 1, 1); g.drawImage(img, 0, 0, w, h); g.restore(); } };   // 좌우로 뒤집어 이어 붙인다
+  const layer = (img, w, h, k, y) => { const off = camX * k; for (let i = Math.floor(off / w); i * w < off + W; i++) { g.save(); g.translate(Math.round(i * w - off + (i % 2 ? w : 0)), Math.round(y)); g.scale(i % 2 ? -1 : 1, 1); g.drawImage(scaled(img, Math.round(w), Math.round(h)), 0, 0); g.restore(); } };   // 좌우로 뒤집어 이어 붙인다
   const bk = room % 2 ? "bg_b" : "bg_a", bgi = ch1Img[bk], BGFIT = { bg_a: [0.75, "#55afc0"], bg_b: [0.676, "#106260"] };   // [풍경이 끝나는 높이 비율, 하늘 색]
   if (!inLobby && ROOMS[room] === "shop" && ready(marketImg)) {   // 암시장 밤 배경 한 장 (바닥 띠가 바닥 바로 위에 오게)
     const bh = 380, bw = Math.ceil(marketImg.naturalWidth * bh / marketImg.naturalHeight), by = Math.round(242 - 0.89 * bh - camY * 0.5);
-    if (by > 0) { g.fillStyle = "#141a3a"; g.fillRect(0, 0, W, by); } g.drawImage(marketImg, Math.round(-camX * 0.3), by, bw, bh);
+    if (by > 0) { g.fillStyle = "#141a3a"; g.fillRect(0, 0, W, by); } g.drawImage(scaled(marketImg, bw, bh), Math.round(-camX * 0.3), by);
   } else if (inLobby && ready(castleImg.bg)) {                          // 성채 홀 그림 한 장 (숲과 같은 방식: 바닥 띠가 바닥 바로 위에 오게)
     const bh = 380, bw = Math.ceil(castleImg.bg.naturalWidth * bh / castleImg.bg.naturalHeight), by = Math.round(242 - 0.8 * bh - camY * 0.5);
-    if (by > 0) { g.fillStyle = CASTLE.sky; g.fillRect(0, 0, W, by); } g.drawImage(castleImg.bg, Math.round(-camX * 0.25), by, bw, bh);
+    if (by > 0) { g.fillStyle = CASTLE.sky; g.fillRect(0, 0, W, by); } g.drawImage(scaled(castleImg.bg, bw, bh), Math.round(-camX * 0.25), by);
   } else if (inLobby) {                                                 // 그림을 불러오는 동안: 어두운 돌벽, 기둥, 푸른 창
     const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "#120e1c"); gr.addColorStop(1, "#2a2236"); g.fillStyle = gr; g.fillRect(0, 0, W, H);
     for (let i = -1; i < 8; i++) { const x = Math.round(i * 90 - (camX * 0.5) % 90);
@@ -2721,7 +2733,7 @@ function render() {
     const k = 0.25, bh = 380, bw = Math.ceil(bgi.naturalWidth * bh / bgi.naturalHeight), [frac, sky] = BGFIT[bk];
     const top = -Math.min(-1, rowTop(0) - TS), kv = Math.min(0.5, Math.max(0, frac * bh - 242) / top);   // 방이 높으면 배경이 덜 따라 올라가서 그림 위 끝이 보이지 않게
     const by = Math.round(242 - frac * bh - camY * kv); if (by > 0) { g.fillStyle = sky; g.fillRect(0, 0, W, by); }
-    g.drawImage(bgi, Math.round(-camX * k), by, bw, bh);
+    g.drawImage(scaled(bgi, bw, bh), Math.round(-camX * k), by);
     g.fillStyle = "rgba(10,20,40,0.12)"; g.fillRect(0, 0, W, H);
   } else { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "#55afc0"); gr.addColorStop(1, "#1d4a48"); g.fillStyle = gr; g.fillRect(0, 0, W, H); }   // 숲 그림을 불러오는 동안은 숲 색만 (옛 불타는 마을 배경은 뺐다)
   if (ROOMS[room] === "shop" && !inLobby && !ready(marketImg)) { g.fillStyle = "rgba(12,14,44,0.62)"; g.fillRect(0, 0, W, H); g.fillStyle = "#e8f0c8"; g.beginPath(); g.arc(380 - camX * 0.05, 46, 16, 0, 7); g.fill(); glow(380 - camX * 0.05, 46, 50, "#c8e0ff", 0.4); }   // 암시장은 밤
