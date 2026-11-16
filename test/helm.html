@@ -1772,8 +1772,8 @@ function drawFxFront() {
     } else if (f.kind === "lance" && ready(gfxImg.lance)) {                 // pixelfx 유령 불길 창: 돌진하는 동안은 다 뻗은 창, 끝나면 꼬리부터 타 들어간다
       const G2 = GFX.lance, len = Math.max(30, Math.abs(f.x1 - f.x0)), sx = len / G2.L, fi = Math.min(G2.n - 1, f.hold ? 3 : 3 + Math.floor(f.age * G2.fps));
       g.save(); g.translate(Math.round(f.x0), Math.round(f.y)); g.scale(f.dir * sx, 1);
-      g.globalAlpha = 0.7; g.drawImage(gfxImg.lance, 0, fi * G2.h, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h);                  // 반투명 혜성
-      g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.65; g.drawImage(gfxImg.lance, 0, fi * G2.h, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h);   // 빛으로 한 번 더 더해 에너지처럼 빛나게
+      g.globalAlpha = 0.48; g.drawImage(gfxImg.lance, 0, fi * G2.h, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h);                  // 반투명 혜성
+      g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.45; g.drawImage(gfxImg.lance, 0, fi * G2.h, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h);   // 빛으로 한 번 더 더해 에너지처럼 빛나게
       g.restore();
     } else if (f.kind === "lance") {                                          // 유령 창기세 돌진: 지나간 길 전체가 거대한 창 모양 빛 (뒤는 가늘고 끝은 넓은 날)
       const u = f.t / f.life, a = 1 - u, L = (f.x1 - f.x0) * f.dir, x0 = f.x0, d = f.dir, y = f.y, w = 7 * (1 - u * 0.6);
@@ -1918,14 +1918,14 @@ function updatePlayer(dt) {
     if (ax) p.dir = ax; p.ghostT = 0; dust(p.x, p.y, -p.dir, 5);
     if (p.helm.id === "soldier") {                                   // 병사 계보: 대시 = 창 찌르기 돌진. 푸른 찌르기 이펙트, 근위 창대장은 유령 불길, 창기세 중엔 더 멀고 크게
       const st = hgOf("soldier"), buff = p.lanceT > 0;
-      if (buff) { p.dashing *= 1.25; p.lanceFx = { kind: "lance", x0: p.x - p.dir * 6, x1: p.x, y: p.y - 13, dir: p.dir, t: 0, life: 0.5, age: 0, hold: true }; flashes.push(p.lanceFx); }   // 창기세: 빠르고 길게, 지나간 길에 거대한 창 모양 빛
+      if (buff) { p.dashing *= 0.95; p.lanceFx = { kind: "lance", x0: p.x - p.dir * 6, x1: p.x, y: p.y - 13, dir: p.dir, t: 0, life: 0.5, age: 0, hold: true }; flashes.push(p.lanceFx); }   // 창기세: 빠르고 길게, 지나간 길에 거대한 창 모양 빛
       fxStab(p.x + p.dir * 8, p.y - 12, p.dir, buff ? 70 : st >= 2 ? 52 : 36, RAMP_GHOST);
       light(p.x + p.dir * 24, p.y - 12, buff ? 70 : 40, "#63c8ea", buff ? 0.9 : 0.6, 0.25);
       if (st >= 2) { fxShock(p.x, p.y, buff ? 60 : 36, RAMP_GHOST); for (let i = 0; i < (buff ? 18 : 8); i++) spark(p.x, p.y - rnd(4, 22), -p.dir * rnd(60, 200), -rnd(10, 90), 0.45, RAMP_GHOST, true); }
     }
   }
   if (p.dashing > 0) {
-    p.dashing = Math.max(0, p.dashing - dt); p.vx = p.dir * BASE.dashSpeed * (p.helm.id === "soldier" && p.lanceT > 0 ? 1.7 : 1); p.vy = 0;
+    p.dashing = Math.max(0, p.dashing - dt); p.vx = p.dir * BASE.dashSpeed * (p.helm.id === "soldier" && p.lanceT > 0 ? 2.5 : 1); p.vy = 0;
     if (p.lanceFx) { p.lanceFx.x1 = p.x + p.dir * 18; p.lanceFx.t = 0; p.lanceFx.hold = true; if (p.dashing <= 0) { p.lanceFx.hold = false; p.lanceFx = null; } }   // 창 빛이 돌진 끝까지 따라 늘어난다
     { const sol = p.helm.id === "soldier" && hgOf("soldier") >= 1, buff = sol && p.lanceT > 0;
       const dd = buff ? 45 : cr("gale", 4) ? 20 : sol ? 14 : 0, hw = buff ? 26 : sol && hgOf("soldier") >= 2 ? 20 : 14;   // 질풍 4각인 또는 창병 이상: 대시가 공격, 창기세 중엔 3배 넘게
