@@ -2888,6 +2888,15 @@ window.__game = { get cam() { return [camX, camY]; }, set chapter(v) { chapter =
 <script>
 // 투구 시험장: HELMETS 목록을 그대로 읽어 버튼을 만든다 (투구가 추가되면 자동으로 늘어남). 진화 단계는 계보 길이(lineMax)만큼
 const TEST = { god: true, nocd: false, id: "empty" };
+// 렉 원인 찾기 스위치: 하나씩 꺼 보고 어느 걸 껐을 때 매끄러워지는지 본다
+const DIAG = { noStop: false, noFx: false, noFrames: false, noCancel: false }, ORIG = { glow, fxHit, spark, HERO: { ...HERO } };
+function diagApply() {
+  glow = DIAG.noFx ? () => {} : ORIG.glow; fxHit = DIAG.noFx ? () => {} : ORIG.fxHit; spark = DIAG.noFx ? () => {} : ORIG.spark;
+  for (const k in ORIG.HERO) { if (DIAG.noFrames) delete HERO[k]; else HERO[k] = ORIG.HERO[k]; }
+}
+(function diagLoop() { if (DIAG.noStop) hitstop = 0; if (DIAG.noCancel && player && player.act && player.src === "basic") pressed.KeyX = Math.min(pressed.KeyX ?? 0, player.act.dur - player.act.t > 0.02 ? 0 : pressed.KeyX);
+  if (DIAG.noFx) { flashes.length = 0; lights.length = 0; sparks.length = 0; } requestAnimationFrame(diagLoop); })();
+{ let n = 0, t0 = performance.now(), worst = 0, last = t0; (function fl(t) { n++; worst = Math.max(worst, t - last); last = t; if (t - t0 > 1000) { const el = document.getElementById("fps"); if (el) el.textContent = `${n} fps · 가장 긴 프레임 ${worst | 0}ms`; n = 0; worst = 0; t0 = t; } requestAnimationFrame(fl); })(t0); }
 const HL = () => HELMETS;
 function tEquip(id, g) { const p = player; TEST.id = id; p.slots[p.active] = id; if (id !== "empty") p.hg[id] = clamp(g ?? p.hg[id] ?? 0, 0, lineMax(id)); p.cds[id] = [0, 0]; p.act = null; p.combo = 0; fxSwap(p); draw(); }
 function grade(d) { const id = TEST.id; if (id === "empty") return; tEquip(id, (player.hg[id] ?? 0) + d); }
@@ -2902,6 +2911,12 @@ function draw() {
   btn(TEST.god ? "무적 켜짐" : "무적 꺼짐", TEST.god, () => { TEST.god = !TEST.god; draw(); });
   btn(TEST.nocd ? "쿨타임 없음" : "쿨타임 있음", TEST.nocd, () => { TEST.nocd = !TEST.nocd; draw(); });
   btn("적 다시 (F)", false, respawn);
+  const sep2 = document.createElement("div"); sep2.className = "sep"; el.appendChild(sep2);
+  btn(DIAG.noStop ? "✔ 히트스톱 꺼짐" : "히트스톱 끄기", DIAG.noStop, () => { DIAG.noStop = !DIAG.noStop; draw(); });
+  btn(DIAG.noFx ? "✔ 이펙트 꺼짐" : "이펙트 끄기", DIAG.noFx, () => { DIAG.noFx = !DIAG.noFx; diagApply(); draw(); });
+  btn(DIAG.noFrames ? "✔ 영상 프레임 꺼짐" : "영상 프레임 끄기", DIAG.noFrames, () => { DIAG.noFrames = !DIAG.noFrames; diagApply(); draw(); });
+  btn(DIAG.noCancel ? "✔ 평타 끊기 꺼짐" : "평타 끊기 끄기", DIAG.noCancel, () => { DIAG.noCancel = !DIAG.noCancel; draw(); });
+  const fps = document.createElement("span"); fps.id = "fps"; fps.style.cssText = "align-self:center;color:#ffe27a"; el.appendChild(fps);
 }
 addEventListener("keydown", (ev) => {
   const k = ev.code, ids = HL().map((h) => h.id), i = ids.indexOf(TEST.id);
