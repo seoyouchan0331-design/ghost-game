@@ -1767,7 +1767,10 @@ function drawFxFront() {
       if (t < 0.08) { const ex = f.x + f.dir * Math.cos(head) * f.r, ey = f.y + Math.sin(head) * f.r * f.ys; g.fillStyle = "#fff"; g.fillRect(Math.round(ex) - 2, Math.round(ey), 5, 1); g.fillRect(Math.round(ex), Math.round(ey) - 2, 1, 5); glow(ex, ey, 10, f.ramp[n - 2], 0.7); }
     } else if (f.kind === "lance" && ready(gfxImg.lance)) {                 // pixelfx 유령 불길 창: 돌진하는 동안은 다 뻗은 창, 끝나면 꼬리부터 타 들어간다
       const G2 = GFX.lance, len = Math.max(30, Math.abs(f.x1 - f.x0)), sx = len / G2.L, fi = Math.min(G2.n - 1, f.hold ? 3 : 3 + Math.floor(f.age * G2.fps));
-      g.save(); g.translate(Math.round(f.x0), Math.round(f.y)); g.scale(f.dir * sx, 1); g.drawImage(gfxImg.lance, 0, fi * G2.h, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h); g.restore();
+      g.save(); g.translate(Math.round(f.x0), Math.round(f.y)); g.scale(f.dir * sx, 1);
+      g.globalAlpha = 0.68; g.drawImage(gfxImg.lance, 0, fi * G2.h, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h);                 // 반투명하게 비쳐 보이는 유령 창
+      g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.28; g.drawImage(gfxImg.lance, 0, fi * G2.h, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h);   // 위에 빛을 살짝 더해 밝게
+      g.restore();
     } else if (f.kind === "lance") {                                          // 유령 창기세 돌진: 지나간 길 전체가 거대한 창 모양 빛 (뒤는 가늘고 끝은 넓은 날)
       const u = f.t / f.life, a = 1 - u, L = (f.x1 - f.x0) * f.dir, x0 = f.x0, d = f.dir, y = f.y, w = 7 * (1 - u * 0.6);
       g.globalAlpha = Math.min(1, a * 1.6);
