@@ -1291,6 +1291,9 @@ const take = (code) => { if (pressed[code] > 0) { pressed[code] = 0; return true
 
 // ---------- 게임 상태 ----------
 let player, enemies, objs, sparks, puffs, lights, flashes, ghosts, texts, glints, embers;
+// 타격 정지: 연타 중에는 바로 이어서 길게 멈추지 않게 (멈춤이 끝나고 0.18초 안의 다음 타격은 아주 짧게)
+let hitstopEnd = -9;
+function hitStop(d) { const now = performance.now() / 1000; if (now - hitstopEnd < 0.18) d = Math.min(d, 0.015); if (d > hitstop) { hitstop = d; hitstopEnd = now + d; } }
 let time = 0, hitstop = 0, shakeT = 0, shakeAmp = 0, shakeDur = 1, whiteT = 0, state = "play";
 let eventRoom = false, eliteRoom = false, pendingReward = null, room = 0, wave = 0, waveT = 0, phase = "fight", banner = null;
 
@@ -1566,7 +1569,7 @@ function damage(e, base, o = {}) {
       if (e.st === "windup" && !e.type.shield) setSt(e, "walk", 0.35); }
       const big = crit || o.heavy || (o.mult ?? 1) > 1.2;
       fxHit(e.x - dir * 4, o.y ?? e.y - 12, dir, o.ramp ?? RAMP_FIRE, big);
-      hitstop = Math.max(hitstop, big ? 0.09 : 0.05); shake(big ? 3 : 1.5, big ? 0.18 : 0.1);
+      hitStop(big ? 0.09 : 0.05); shake(big ? 3 : 1.5, big ? 0.18 : 0.1);
     }
   }
   texts.push({ x: e.x + rnd(-5, 5), y: e.y - 34, vy: -40, t: 0.7, s: String(dmg), c: o.quiet ? "#ffae35" : crit ? "#ffe27a" : "#ffffff", big: crit });
@@ -1643,8 +1646,9 @@ function fxStab(x, y, dir, len, ramp = STEEL) {          // 찌르기: 앞으로
 function fxShock(x, y, r, ramp) { flashes.push({ kind: "shock", x, y, r, t: 0, life: 0.4, ramp }); }   // 바닥을 따라 퍼지는 납작한 충격 고리
 const fxSwoosh = (x, y, dir, len, ramp, thrust) => flashes.push({ kind: "swoosh", x, y, dir, len, t: 0, ramp, thrust });
 // 대시 잔상: 지금 실루엣을 투구 색으로 찍어 남긴다
+const GHOST_POOL = Array.from({ length: 14 }, () => mk(SP, SP)); let ghostI = 0;   // 잔상 판은 미리 만들어 돌려 쓴다 (매번 새로 만들면 폰에서 버벅임)
 function fxGhost(p) {
-  const c = mk(SP, SP), cg = c.getContext("2d");
+  const c = GHOST_POOL[ghostI = (ghostI + 1) % GHOST_POOL.length], cg = c.getContext("2d"); cg.globalCompositeOperation = "source-over"; cg.clearRect(0, 0, SP, SP);
   { const ps = drawPlayerSprite(p); if (ps === hc) cg.drawImage(hc, HX - SX, HY - SY, SP, SP, 0, 0, SP, SP); else cg.drawImage(ps, 0, 0); } cg.globalCompositeOperation = "source-atop"; cg.fillStyle = p.helm.ramp[2]; cg.fillRect(0, 0, SP, SP);
   ghosts.push({ c, x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, t: 0, life: 0.26 });
 }
