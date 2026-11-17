@@ -245,7 +245,8 @@ const HELMETS = [
       if (acting) { R(hx - 3, hy, 12, 1, C.cream); R(hx + 9, hy - 1, 2, 3, C.steel); }
     },
     basic: { steps: [                             // 화살 1발 9, 빠른 연사. 멀수록 최대 +30%
-      { dur: 0.2, hitT: 0.06, pose: "shoot", reach: 6, fire(p) { shot(p, { dmg: 9, vx: 440, look: "arrow", fx: "harrow", far: 0.3, pierce: hgOf("hunter") >= 2 }); } },
+      { dur: 0.2, hitT: 0.06, pose: "shoot", reach: 6, move: 0.85, fire(p) { const g = Math.max(0, hgOf("hunter")); shot(p, { dmg: 9, vx: 440, look: "arrow", fx: g ? "harrow" : "harroww", far: 0.3, pierce: g >= 2 });
+        spawn({ kind: "gfx", key: g >= 2 ? "hrel" : g ? "hring" : "hringw", x: p.x + p.dir * (12 + 4 * g), y: p.y - 13, dir: p.dir, t: 0, rate: g >= 2 ? 1.6 : 1, add: true }); } },
     ] },
     skills: [
       { name: "덫 설치", cd: 8, icon() { R(-6, 2, 13, 2, C.steel2); for (const x of [-5, -2, 1, 4]) { R(x, -1, 2, 3, C.steel); R(x, -2, 1, 1, C.white); } },
@@ -390,7 +391,7 @@ const giantImg = new Image(); giantImg.src = "../assets/giant.png";
 // 골렘 이펙트 시트 (pixelfx로 만든 것: fire/golem-meteor, nature/lava-crater, nature/lava-spire → art/golemfx/golemfx_pack.py). px, py = 착지점
 const GFX = {"meteor": {"w": 238, "h": 300, "cols": 8, "n": 64, "fps": 15, "px": 130, "py": 270}, "crater": {"w": 232, "h": 132, "cols": 8, "n": 47, "fps": 15, "px": 116, "py": 104}, "spire": {"w": 176, "h": 114, "cols": 11, "n": 40, "fps": 15, "px": 88, "py": 98}};
 GFX.lance = {"w": 248, "h": 56, "n": 17, "fps": 30, "px": 8, "py": 28, "L": 224};   // pixelfx melee/spectral-comet (전엔 spectral-lance): 세로로 쌓은 프레임, 창 길이 L 을 돌진 거리만큼 늘려 그린다
-Object.assign(GFX, {"harrow":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hpow":{"w":139,"h":34,"cols":14,"n":12,"fps":30,"px":128,"py":17},"hrel":{"w":71,"h":63,"cols":28,"n":11,"fps":30,"px":15,"py":32}});   // 사냥꾼 화살·빔 화살·쏘는 순간 고리 (pixelfx projectiles/emerald-*, art/hunterfx/hunterfx_pack.py)
+Object.assign(GFX, {"harrow":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hpow":{"w":139,"h":34,"cols":14,"n":12,"fps":30,"px":128,"py":17},"hrel":{"w":71,"h":63,"cols":28,"n":11,"fps":30,"px":15,"py":32},"hring":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"hringw":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"harroww":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hchg":{"w":38,"h":40,"cols":53,"n":18,"fps":30,"px":19,"py":20},"hchg3":{"w":44,"h":43,"cols":46,"n":18,"fps":30,"px":19,"py":21}});   // 사냥꾼: 영상 이펙트를 pixelfx로 (화살·흰 화살·빔 화살·쏘는 고리·모으기) (pixelfx projectiles/emerald-*, art/hunterfx/hunterfx_pack.py)
 const gfxImg = {}; for (const k in GFX) { gfxImg[k] = new Image(); gfxImg[k].src = `../assets/gfx_${k}.png`; }
 const GFX_METEOR_HIT = 0.8, GFX_SPIRE_UP = 0.2;            // 시트 안에서 운석이 닿는 때, 돌기둥이 솟는 때
 function gfx(key, x, rate = 1) { if (!ready(gfxImg[key])) return false; spawn({ kind: "gfx", key, x, t: 0, rate }); return true; }
@@ -2104,11 +2105,11 @@ function thorns(e, dmg, root) {                                    // 가시덩�
 function lineTick(p, dt) {
   if (p.helm.id === "hunter" && hgOf("hunter") >= 1) {               // 레인저: 공격을 꾹 누르면 모아 쏘기 (다 모이면 놓을 때 강한 관통 화살)
     if (keys.KeyX && !p.dashing) { p.drawT = (p.drawT ?? 0) + dt;
-      if (p.drawT > 0.25) { const k = clamp((p.drawT - 0.25) / 0.6); if (Math.random() < dt * 30 * k) spark(p.x + p.dir * (18 + rnd(-4, 4)), p.y - 13 + rnd(-6, 6), -p.dir * rnd(10, 40), rnd(-20, 20), 0.3, RAMP_LEAF, true);
+      if (p.drawT > 0.25) { const k = clamp((p.drawT - 0.25) / 0.6);
         if (k >= 1 && !p.drawFull) { p.drawFull = true; fxRing(p.x + p.dir * 14, p.y - 13, 12, RAMP_LEAF); light(p.x + p.dir * 14, p.y - 13, 30, "#8fc05a", 0.8, 0.2); } } }
     else if (p.drawT > 0) { if (p.drawFull) { const g3 = hgOf("hunter") >= 2;
-        shot(p, { dmg: g3 ? 42 : 30, vx: 620, look: "arrow", fx: "hpow", far: 0.3, pierce: true, ramp: RAMP_LEAF }); startAct(p, { dur: 0.22, pose: "shoot", reach: 6, power: true }); p.src = "basic";
-        spawn({ kind: "gfx", key: "hrel", x: p.x + p.dir * (g3 ? 20 : 16), y: p.y - 13, dir: p.dir, t: 0, rate: 1, add: true }); shake(2, 0.12); for (let i = 0; i < 10; i++) spark(p.x + p.dir * 16, p.y - 13, p.dir * rnd(80, 260), rnd(-60, 60), 0.35, RAMP_LEAF, true); }
+        shot(p, { dmg: g3 ? 42 : 30, vx: 620, look: "arrow", fx: "hpow", far: 0.3, pierce: true, ramp: RAMP_LEAF }); startAct(p, { dur: 0.22, pose: "shoot", reach: 6, power: true, move: 0.85 }); p.src = "basic";
+        spawn({ kind: "gfx", key: "hrel", x: p.x + p.dir * (g3 ? 20 : 16), y: p.y - 13, dir: p.dir, t: 0, rate: 1, add: true }); if (g3) { whiteT = Math.max(whiteT, 0.04); light(p.x + p.dir * 24, p.y - 13, 60, "#8fe08a", 0.9, 0.2); } shake(2, 0.12); for (let i = 0; i < 10; i++) spark(p.x + p.dir * 16, p.y - 13, p.dir * rnd(80, 260), rnd(-60, 60), 0.35, RAMP_LEAF, true); }
       p.drawT = 0; p.drawFull = false; } }
   if (p.lanceT > 0) { p.lanceT -= dt; if (Math.random() < dt * 14) spark(p.x + rnd(-8, 8), p.y - rnd(4, 30), rnd(-15, 15), -rnd(30, 70), 0.5, RAMP_GHOST, true); }   // 유령 창기세: 몸에서 청록 불꽃이 피어오른다
   if (p.heatT > 0 && (p.heatT -= dt) <= 0) p.heat = 0;               // 대장장이 열기는 3초 안 때리면 식는다                                        // 계보 단계 능력 (진화하면 켜진다)
@@ -2182,12 +2183,12 @@ function updatePlayer(dt) {
     while (a.ei < a.events.length && a.t >= a.events[a.ei].t) a.events[a.ei++].fn();
     if (a.tick) a.tick();
     if (a.ghost) { a.ghostT = (a.ghostT ?? 0) - dt; if (a.ghostT <= 0) { fxGhost(p); a.ghostT = 0.04; } }
-    p.vx = a.vx != null ? p.dir * a.vx : a.lunge && a.t < 0.1 ? p.dir * a.lunge : p.ground ? 0 : ax * speed * 0.6;
+    p.vx = a.vx != null ? p.dir * a.vx : a.lunge && a.t < 0.1 ? p.dir * a.lunge : a.move ? ax * speed * a.move : p.ground ? 0 : ax * speed * 0.6;   // move: 쏘면서 걸을 수 있는 동작 (사냥꾼)
     if (a.vx != null && !a.air) p.vy = Math.min(p.vy, 0);
     if (p.act === a && a.t >= a.dur) { p.act = null; p.comboT = 0.45; p.actEndT = time; if (a.vx != null) p.vx = 0;
  }
   } else {
-    p.vx = ax * speed; if (ax) p.dir = ax;
+    p.vx = ax * speed * (p.helm.id === "hunter" && (p.drawT ?? 0) > 0.25 ? 0.6 : 1); if (ax) p.dir = ax;   // 사냥꾼: 모으는 동안은 천천히 걷는다
     if (keys.ArrowDown && p.ground && tileAt(p.x, p.y + 2) === "=" && take("KeyC")) { p.dropT = 0.25; p.ground = false; }   // ↓+점프: 발판 아래로
     else if (take("KeyC") && p.jumps > 0) { p.vy = BASE.jumpV * (p.jumps === BASE.jumps ? 1 : 0.9); if (!p.ground) fxRing(p.x, p.y, 12, RAMP_GHOST); else dust(p.x, p.y, 0, 3); p.jumps--; p.ground = false; }
     if (take("KeyA") && cds[0] <= 0) { cds[0] = clockReset(skillCd(helm, 0)); p.src = "skill"; helm.skills[0].use(p); if (helm.id === "soldier" && hgOf("soldier") >= 2 && p.rushG >= 1) { p.rushG = 0; p.rushChain = 2; } }
@@ -3074,6 +3075,10 @@ function render() {
   const p = player;
   shadow(p.x, 10, groundAt(p.x, p.y - 1));
   if (!(p.blink > 0 && ((time * 20) | 0) % 2)) { const ps = drawPlayerSprite(p); if (ps === hc) { g.save(); g.translate(Math.round(p.x), Math.round(p.y)); g.scale(p.dir, 1); g.drawImage(hc, -HX, -HY); g.restore(); } else blit(ps, p.x, p.y, p.dir); }
+  if (p.helm.id === "hunter" && (p.drawT ?? 0) > 0.25) {             // 사냥꾼 모으기: 활 끝에 빛이 모인다 (영상 이펙트를 pixelfx로)
+    const st = Math.max(0, hgOf("hunter")), key = st >= 2 ? "hchg3" : "hchg", G2 = GFX[key], k = clamp((p.drawT - 0.25) / 0.6), f = Math.floor(time * G2.fps) % G2.n;
+    if (ready(gfxImg[key])) { g.save(); g.translate(Math.round(p.x + p.dir * (14 + 4 * st)), Math.round(p.y - 13)); g.scale(p.dir * (0.6 + 0.4 * k), 0.6 + 0.4 * k); g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.35 + 0.65 * k;
+      g.drawImage(gfxImg[key], (f % G2.cols) * G2.w, Math.floor(f / G2.cols) * G2.h, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h); g.restore(); } }
   if (p.guardT > 0) { glow(p.x, p.y - 14, 26, "#9ad08a", 0.5 + 0.15 * Math.sin(time * 20)); g.strokeStyle = "#cfeab8"; g.lineWidth = 1; g.beginPath(); g.ellipse(p.x, p.y - 14, 15, 18, 0, 0, 7); g.stroke(); }   // 돌거북 껍질
   glow(p.x + p.dir * 2, p.y - 30, 18, C.flame1, 0.3); glow(p.x, p.y - 12, 34, C.flame0, 0.12);
   drawFxFront();

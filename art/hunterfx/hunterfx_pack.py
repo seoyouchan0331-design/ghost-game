@@ -1,10 +1,11 @@
 # 사냥꾼 화살 이펙트: pixelfx(저장소 Pixel/pixelfx: projectiles/emerald-arrow, emerald-power-arrow, emerald-release, --sheet) → assets/gfx_*.png
-# art/golemfx/golemfx_pack.py와 같은 방식. 실행: python3 art/hunterfx/hunterfx_pack.py <render --out 폴더>
+# art/golemfx/golemfx_pack.py와 같은 방식. 실행: python3 art/hunterfx/hunterfx_pack.py 키=<render --out 폴더>:<효과 id> ...
+# 예: harrow=out:projectiles/emerald-arrow  harroww=outw:projectiles/emerald-arrow (흰 팔레트 --opts로 따로 렌더)
 import sys, json
 from PIL import Image
-src = sys.argv[1]  # render --out 폴더
 out = {}
-for key, sid in [("harrow", "projectiles/emerald-arrow"), ("hpow", "projectiles/emerald-power-arrow"), ("hrel", "projectiles/emerald-release")]:
+for arg in sys.argv[1:]:
+    key, rest = arg.split("="); src, sid = rest.rsplit(":", 1)
     name = sid.split("/")[1]; j = json.load(open(f"{src}/{sid}/{name}.json")); im = Image.open(f"{src}/{sid}/{name}.png").convert("RGBA")
     m = j["meta"]["pixelfx"]; fw, fh = m["frameSize"]; fr = [f["frame"] for f in j["frames"]]
     cells = [im.crop((f["x"], f["y"], f["x"] + fw, f["y"] + fh)) for f in fr]
