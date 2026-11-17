@@ -263,7 +263,7 @@ const HELMETS = [
           spawn({ kind: "gfx", key: "hrel", x: p.x + p.dir * 16, y: p.y - 13, dir: p.dir, t: 0, rate: 1, add: true }); if (full) shake(3, 0.15); } }] }); } },
       { name: "공성 사격", cd: 13, icon() { for (const [x, y] of [[-5, -4], [0, -1], [4, -5], [-2, 3]]) { R(x, y, 1, 5, C.cream); R(x - 1, y + 4, 3, 2, C.steel); } },
         use(p) { const full = focusUse(p); startAct(p, { dur: 0.3, pose: "shoot", reach: 4, events: [{ t: 0.1, fn() {   // 앞쪽에 화살비. 집중: 범위가 두 배
-          spawn({ kind: "rain", x0: p.x + p.dir * (full ? 20 : 40), x1: p.x + p.dir * (full ? 270 : 160), y0: p.y - 210, dir: p.dir, t: 0, n: 0, count: full ? 16 : 8, gap: full ? 0.12 : 0.22, dmg: full ? 12 : 10 }); } }] }); } },
+          spawn({ kind: "rain", x0: p.x + p.dir * (full ? 20 : 36), x1: p.x + p.dir * (full ? 290 : 170), y0: p.y, px: p.x + p.dir * 10, dir: p.dir, n: 0, count: full ? 30 : 14, gap: full ? 0.04 : 0.06, dmg: full ? 14 : 12 }); } }] }); } },
       { name: "고정 사격", cd: 12, icon() { R(-6, -1, 9, 1, C.cream); R(-6, 2, 9, 1, C.cream); R(3, -2, 2, 3, C.steel); R(3, 1, 2, 3, C.steel); R(-8, -4, 2, 8, C.wood2); },
         use(p) { const full = focusUse(p), gap = full ? 0.06 : 0.14; let nt = 0;   // 제자리에서 연사. 집중: 훨씬 빠르고 많이
           startAct(p, { dur: full ? 1.5 : 1.1, pose: "shoot", reach: 6, vx: 0, tick() { const a = p.act; if (a.t < nt) return; nt = a.t + gap;
@@ -271,7 +271,7 @@ const HELMETS = [
     ],
     swap: { name: "덫 놓고 물러나며 화살비", use(p) {   // 스나이퍼 교체: 기절 덫 → 뒤로 뛰기 → 앞쪽 화살비
       spawn({ kind: "trap", x: p.x + p.dir * 10, gy: p.y, age: 0 }); p.vy = -230; p.ground = false;
-      startAct(p, { dur: 0.32, pose: "shoot", reach: 6, vx: -230, air: true, events: [{ t: 0.12, fn() { spawn({ kind: "rain", x0: p.x + p.dir * 40, x1: p.x + p.dir * 150, y0: p.y - 200, dir: p.dir, t: 0, n: 0, count: 6, gap: 0.12, dmg: 9 }); } }] });
+      startAct(p, { dur: 0.32, pose: "shoot", reach: 6, vx: -230, air: true, events: [{ t: 0.12, fn() { spawn({ kind: "rain", x0: p.x + p.dir * 30, x1: p.x + p.dir * 150, y0: p.y, px: p.x, dir: p.dir, n: 0, count: 8, gap: 0.06, dmg: 10, delay: 0.25 }); } }] });
     } },
   },
   {
@@ -402,7 +402,7 @@ const giantImg = new Image(); giantImg.src = "../assets/giant.png";
 // 골렘 이펙트 시트 (pixelfx로 만든 것: fire/golem-meteor, nature/lava-crater, nature/lava-spire → art/golemfx/golemfx_pack.py). px, py = 착지점
 const GFX = {"meteor": {"w": 238, "h": 300, "cols": 8, "n": 64, "fps": 15, "px": 130, "py": 270}, "crater": {"w": 232, "h": 132, "cols": 8, "n": 47, "fps": 15, "px": 116, "py": 104}, "spire": {"w": 176, "h": 114, "cols": 11, "n": 40, "fps": 15, "px": 88, "py": 98}};
 GFX.lance = {"w": 248, "h": 56, "n": 17, "fps": 30, "px": 8, "py": 28, "L": 224};   // pixelfx melee/spectral-comet (전엔 spectral-lance): 세로로 쌓은 프레임, 창 길이 L 을 돌진 거리만큼 늘려 그린다
-Object.assign(GFX, {"harrow":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hpow":{"w":139,"h":34,"cols":14,"n":12,"fps":30,"px":128,"py":17},"hrel":{"w":71,"h":63,"cols":28,"n":11,"fps":30,"px":15,"py":32},"hring":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"hringw":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"harroww":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hchg":{"w":38,"h":40,"cols":53,"n":18,"fps":30,"px":19,"py":20},"hchg3":{"w":44,"h":43,"cols":46,"n":18,"fps":30,"px":19,"py":21},"hlbolt":{"w":102,"h":13,"cols":20,"n":9,"fps":30,"px":96,"py":6},"hlbeam":{"w":300,"h":50,"cols":6,"n":15,"fps":30,"px":12,"py":25}});   // 사냥꾼: 영상 이펙트를 pixelfx로 (화살·흰 화살·빔 화살·쏘는 고리·모으기) (pixelfx projectiles/emerald-*, art/hunterfx/hunterfx_pack.py)
+Object.assign(GFX, {"harrow":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hpow":{"w":139,"h":34,"cols":14,"n":12,"fps":30,"px":128,"py":17},"hrel":{"w":71,"h":63,"cols":28,"n":11,"fps":30,"px":15,"py":32},"hring":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"hringw":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"harroww":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hchg":{"w":38,"h":40,"cols":53,"n":18,"fps":30,"px":19,"py":20},"hchg3":{"w":44,"h":43,"cols":46,"n":18,"fps":30,"px":19,"py":21},"hlbolt":{"w":102,"h":13,"cols":20,"n":9,"fps":30,"px":96,"py":6},"hlbeam":{"w":300,"h":50,"cols":6,"n":15,"fps":30,"px":12,"py":25},"himp":{"w":44,"h":24,"cols":46,"n":11,"fps":30,"px":22,"py":18}});   // 사냥꾼: 영상 이펙트를 pixelfx로 (화살·흰 화살·빔 화살·쏘는 고리·모으기) (pixelfx projectiles/emerald-*, art/hunterfx/hunterfx_pack.py)
 const gfxImg = {}; for (const k in GFX) { gfxImg[k] = new Image(); gfxImg[k].src = `../assets/gfx_${k}.png`; }
 const GFX_METEOR_HIT = 0.8, GFX_SPIRE_UP = 0.2;            // 시트 안에서 운석이 닿는 때, 돌기둥이 솟는 때
 function gfx(key, x, rate = 1) { if (!ready(gfxImg[key])) return false; spawn({ kind: "gfx", key, x, t: 0, rate }); return true; }
@@ -1767,6 +1767,10 @@ function melee(p, o) {
 }
 // 날아가는 것 한 발 (화살, 마법탄)
 const hArrowFx = () => { const g = Math.max(0, hgOf("hunter")); return g >= 2 ? "hlbolt" : g ? "harrow" : "harroww"; };
+function rainSplash(o) {                                   // 화살비 착탄: 착탄 이펙트 + 둘레 범위 피해 (이미 맞은 적은 빼고)
+  const gy = Math.min(o.y, groundAt(o.x, o.y - 10)); spawn({ kind: "gfx", key: "himp", x: o.x, y: gy, t: 0, rate: 1, add: true }); light(o.x, gy - 4, 18, "#3fdc5c", 0.5, 0.12);
+  for (const e of enemies) if (live(e) && !o.hit.has(e) && Math.abs(e.x - o.x) < 14 + (e.type.hw ?? 0) && Math.abs(e.y - gy) < 24) damage(e, Math.round(o.splash * 0.6), { ranged: true, dir: Math.sign(e.x - o.x) || 1, kb: 40, ramp: RAMP_LEAF, above: true });
+}
 function focusUse(p) { const f = !!p.drawFull; if (f) { p.drawT = 0; p.drawFull = false; light(p.x + p.dir * 14, p.y - 13, 40, "#8fe08a", 0.8, 0.2); } return f; }   // 집중이 다 찬 채로 스킬을 쓰면 강화 (집중은 쓴다)
 function skillsOf(h) {                                   // 무작위 스킬: 판마다 pool에서 2개 (A, S)
   const p = player; p.skPick = p.skPick || {};
@@ -2529,13 +2533,13 @@ function updateObjs(dt) {
         if (tg) { const sp = Math.hypot(o.vx, o.vy), ang = Math.atan2(o.vy, o.vx), want = Math.atan2(tg.y - 14 - o.y, tg.x - o.x); let d = want - ang; d = Math.atan2(Math.sin(d), Math.cos(d)); const na = ang + clamp(d, -o.home * 12 * dt, o.home * 12 * dt); o.vx = Math.cos(na) * sp; o.vy = Math.sin(na) * sp; } }
       if (o.look === "fire" && Math.random() < dt * 60) spark(o.x, o.y + rnd(-2, 2), -o.vx * 0.1, rnd(-40, 10), 0.25, RAMP_FIRE, true);
       if (o.look === "bolt" && Math.random() < dt * 30) spark(o.x, o.y + rnd(-2, 2), -o.vx * 0.1, rnd(-20, 20), 0.2, o.ramp, true);
-      for (const e of enemies) if (live(e) && !o.hit.has(e) && Math.abs(e.x - o.x) < (e.type.hw ?? 10) + (o.big ? 8 : 0) && o.y > e.y - (e.type.hh ?? (e.type.low ? 18 : 30)) - (o.big ? 8 : 0) && o.y < e.y + 2 + (o.big ? 8 : 0)) {
+      if (!o.ghost) for (const e of enemies) if (live(e) && !o.hit.has(e) && Math.abs(e.x - o.x) < (e.type.hw ?? 10) + (o.big ? 8 : 0) && o.y > e.y - (e.type.hh ?? (e.type.low ? 18 : 30)) - (o.big ? 8 : 0) && o.y < e.y + 2 + (o.big ? 8 : 0)) {
         o.hit.add(e);
         damage(e, o.dmg, { ranged: true, critAdd: o.farCrit ? 0.5 * clamp(Math.abs(o.x - o.x0) / 220) : 0, dir: Math.sign(o.vx) || 1, kb: 70, ramp: o.ramp, y: o.y, box: [o.x, o.x, o.y, o.y], burn: o.burn, mult: 1 + o.far * clamp(Math.abs(o.x - o.x0) / 220), sx: o.x - Math.sign(o.vx) * 20, above: o.above });
         if (o.chill && live(e) && !e.type.boss && !e.type.giant && Math.random() < o.chill) { e.frozen = 2; fxRing(e.x, e.y - 12, 12, ["#0c1430", "#58b4ec", "#9bdcff", "#e8f6ff", "#ffffff"]); }   // 서리 마법사: 빙결
-        if (!o.pierce) { o.gone = true; break; }
+        if (!o.pierce) { o.gone = true; if (o.splash) rainSplash(o); break; }
       }
-      if (o.y >= groundAt(o.x, o.y - 8) || isSolid(o.x, o.y)) { o.gone = true; dust(o.x, o.y, 0, 2); if (o.onWall) o.onWall(o); }
+      if (o.y >= groundAt(o.x, o.y - 8) || isSolid(o.x, o.y)) { o.gone = true; if (o.splash) rainSplash(o); else dust(o.x, o.y, 0, 2); if (o.onWall) o.onWall(o); }
       else if (o.x < ROOM_L - 4 || o.x > ROOM_R + 12) { o.gone = true; if (o.onWall) o.onWall(o); }
       if (o.life <= 0) o.gone = true;
     } else if (o.kind === "trap") {
@@ -2543,11 +2547,15 @@ function updateObjs(dt) {
       if (o.age > 0.3) for (const e of enemies) if (live(e) && Math.abs(e.x - o.x) < 11 && Math.abs(e.y - o.gy) < 4) {   // 밟으면 1.5초 속박 + 20
         damage(e, 20, { dir: 0, kb: 0, stun: 1.5, ramp: RAMP_LEAF, y: FLOOR - 6, above: true }); e.vx = 0; o.gone = true; shake(2, 0.1); break;
       }
-    } else if (o.kind === "rain") {
-      o.t += dt;
-      const N = o.count ?? 8; while (o.n < N && o.t >= o.n * (o.gap ?? 0.25)) { o.n++; const tx = rnd(Math.min(o.x0, o.x1), Math.max(o.x0, o.x1)); let sy = o.y0 ?? FLOOR - 200; while (sy < (o.y0 ?? FLOOR - 200) + 190 && (isSolid(tx - o.dir * 40, sy) || isSolid(tx, sy + 40))) sy += 8;   // 천장·방 위 끝 안에서 시작하면 바로 사라지므로 빈 칸까지 내려서 쏜다
-        spawn({ kind: "shot", x: tx - o.dir * 40, y: sy, x0: tx, vx: o.dir * 160, vy: 800, dmg: o.dmg ?? 10, look: "arrow", fx: hArrowFx(), far: 0, ramp: RAMP_LEAF, hit: new Set(), life: 1, above: true }); }
-      if (o.n >= N) o.gone = true;
+    } else if (o.kind === "rain") {                              // 화살비: 쏘아 올림 → 떨어질 자리 표시 → 고르게 쏟아짐 → 착탄마다 범위 피해
+      if (!o.init) { o.init = true; o.t = -(o.delay ?? 0.35); o.gy = groundAt((o.x0 + o.x1) / 2, (o.y0 ?? p.y) - 8); const N = o.count ?? 10;
+        o.slots = Array.from({ length: N }, (_, i) => (i + rnd(0.2, 0.8)) / N).sort(() => Math.random() - 0.5);
+        for (let i = 0; i < 4; i++) spawn({ kind: "shot", ghost: true, x: o.px ?? o.x0, y: (o.y0 ?? p.y) - 14, x0: o.x0, vx: o.dir * rnd(40, 110), vy: -rnd(700, 900), dmg: 0, look: "arrow", fx: hArrowFx(), ramp: RAMP_LEAF, hit: new Set(), life: 0.3 }); }   // 위로 쏘아 올리는 화살 (보이기만)
+      o.t += dt; const N = o.slots.length;
+      while (o.n < N && o.t >= o.n * (o.gap ?? 0.07)) { const tx = o.x0 + (o.x1 - o.x0) * o.slots[o.n]; o.n++;
+        let sy = o.gy - 150; while (sy < o.gy - 30 && (isSolid(tx - o.dir * 20, sy) || isSolid(tx, sy + 30))) sy += 8;   // 천장 속에서 생기지 않게
+        spawn({ kind: "shot", x: tx - o.dir * 20, y: sy, x0: tx, vx: o.dir * 120, vy: 1100, dmg: o.dmg ?? 12, splash: o.dmg ?? 12, sc: 1.3, look: "arrow", fx: hArrowFx(), far: 0, ramp: RAMP_LEAF, hit: new Set(), life: 1, above: true, ranged: true }); }
+      if (o.n >= N && o.t > o.n * (o.gap ?? 0.07) + 0.3) o.gone = true;
     } else if (o.kind === "torch") {
       o.age += dt; o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt;
       if (Math.abs(p.x - o.x) < 9 && o.y > p.y - 28 && o.y < p.y) { hurtPlayer(10, Math.sign(o.vx) || 1); o.gone = true; }
@@ -2697,6 +2705,11 @@ function drawObjs(back) {
         world(o.x, o.y, () => { for (let d = 18; d > 0; d -= 3) { const rr = Math.max(0, r - 1 - ((d / 6) | 0)); E(-ux * d, -uy * d + Math.sin(time * 30 + d) * 1.2, rr, rr, cols[0]); } E(0, 0, r, r, cols[0]); E(0, 0, r - 1, r - 1, cols[1]); E(ux, uy, r - 2, r - 2, cols[2]); R(ux * 2, uy * 2, 1, 1, "#fff"); });
         glow(o.x, o.y, fire ? 22 : 16, cols[1], 0.55);
       }
+    } else if (o.kind === "rain" && o.init) {                        // 떨어질 자리: 바닥에 초록 점선 + 아래 화살표, 쏟아지는 동안 옅어진다
+      const k = o.t < 0 ? 0.55 + 0.45 * Math.sin(time * 30) : Math.max(0, 0.6 - o.t), a = Math.min(o.x0, o.x1), b = Math.max(o.x0, o.x1);
+      if (k > 0) { g.globalAlpha = k; g.fillStyle = "#0a2a14"; g.fillRect(Math.round(a), Math.round(o.gy) - 3, Math.round(b - a), 3); g.fillStyle = "#e8ffe8"; for (let x = a; x < b; x += 6) g.fillRect(Math.round(x), Math.round(o.gy) - 2, 4, 1);   // 풀 위에서도 보이게: 어두운 띠 위에 밝은 점선
+        for (let x = a + 8; x < b; x += 22) { const yy = Math.round(o.gy) - 16 + ((time * 24) % 6); g.fillStyle = "#e8ffe8"; g.fillRect(Math.round(x), yy, 1, 5); g.fillStyle = "#3fdc5c"; g.fillRect(Math.round(x) - 1, yy + 3, 3, 1); g.fillRect(Math.round(x) - 2, yy + 2, 1, 1); g.fillRect(Math.round(x) + 2, yy + 2, 1, 1); }
+        g.globalAlpha = 1; glow((a + b) / 2, o.gy - 4, (b - a) / 2, "#3fdc5c", 0.25 * k); }
     } else if (o.kind === "trap") {
       world(o.x, o.gy, () => { R(-7, -2, 15, 2, C.line); R(-6, -2, 13, 1, C.steel2); for (const tx of [-6, -3, 0, 3, 6]) { R(tx - 1, -5, 3, 3, C.line); R(tx, -5, 1, 3, C.steel); R(tx, -6, 1, 1, C.white); } });
       if (((time * 2) | 0) % 2) starGlint(g, x + 6, o.gy - 7, 1, "#fff", C.steel);
