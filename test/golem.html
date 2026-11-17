@@ -2545,7 +2545,8 @@ function updateObjs(dt) {
       }
     } else if (o.kind === "rain") {
       o.t += dt;
-      const N = o.count ?? 8; while (o.n < N && o.t >= o.n * (o.gap ?? 0.25)) { o.n++; const tx = rnd(Math.min(o.x0, o.x1), Math.max(o.x0, o.x1)); spawn({ kind: "shot", x: tx - o.dir * 40, y: o.y0 ?? FLOOR - 200, x0: tx, vx: o.dir * 160, vy: 800, dmg: o.dmg ?? 10, look: "arrow", fx: hArrowFx(), far: 0, ramp: RAMP_LEAF, hit: new Set(), life: 1, above: true }); }
+      const N = o.count ?? 8; while (o.n < N && o.t >= o.n * (o.gap ?? 0.25)) { o.n++; const tx = rnd(Math.min(o.x0, o.x1), Math.max(o.x0, o.x1)); let sy = o.y0 ?? FLOOR - 200; while (sy < (o.y0 ?? FLOOR - 200) + 190 && (isSolid(tx - o.dir * 40, sy) || isSolid(tx, sy + 40))) sy += 8;   // 천장·방 위 끝 안에서 시작하면 바로 사라지므로 빈 칸까지 내려서 쏜다
+        spawn({ kind: "shot", x: tx - o.dir * 40, y: sy, x0: tx, vx: o.dir * 160, vy: 800, dmg: o.dmg ?? 10, look: "arrow", fx: hArrowFx(), far: 0, ramp: RAMP_LEAF, hit: new Set(), life: 1, above: true }); }
       if (o.n >= N) o.gone = true;
     } else if (o.kind === "torch") {
       o.age += dt; o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt;
