@@ -1,11 +1,16 @@
 # 영상 공격 프레임에서 이펙트를 지우고 몸동작만 남긴다 (이펙트는 pixelfx로 따로 그린다).
 # 같은 단계 대기 프레임들의 모양(발 기준으로 겹친 것)을 조금 넓힌 자리 밖은 지우고(고리·빔·화살·잎),
 # 그 안에서도 대기 때 없던 아주 밝은 색(빛 덩어리)은 지운다. 마지막으로 몸에서 떨어진 조각을 지운다.
-# 실행: python3 art/heroframes/fx_strip.py <계보>   (index.html의 HERO.<계보>와 assets/hero_<계보>.png를 고친다)
+# 실행: python3 art/heroframes/fx_strip.py <계보> [동작들] [단계:프레임범위,...]   (index.html의 HERO.<계보>와 assets/hero_<계보>.png를 고친다)
+# 예: fx_strip.py frostwolf attack 2:49-60,87-101  → 3단계 공격의 49~60, 87~101번 프레임만
 import sys, json, numpy as np
 from PIL import Image
 from scipy import ndimage
 LINE = sys.argv[1]; MOVES = sys.argv[2].split(",") if len(sys.argv) > 2 else ["attack"]
+ONLY = {}
+for tok in (sys.argv[3].split(",") if len(sys.argv) > 3 else []):
+    if ":" in tok: cur, tok = tok.split(":"); cur = int(cur)
+    a_, b_ = map(int, tok.split("-")); ONLY.setdefault(cur, []).append((a_, b_))
 s = open("index.html").read(); k = s.index(f"{LINE}: ", s.index("const HERO = {")) + len(LINE) + 2
 H, end = json.JSONDecoder().raw_decode(s[k:]); B = H["boxes"]
 sheet = np.asarray(Image.open(f"assets/hero_{LINE}.png").convert("RGBA")).copy()
@@ -18,7 +23,8 @@ for st, S in enumerate(H["stages"]):
         x, y, w, h = B[ci]; c = sheet[y:y + h, x:x + w]; pal |= set(np.unique(q(c)[c[..., 3] > 0]).tolist()); U[R + oy:R + oy + h, R + ox:R + ox + w] |= c[..., 3] > 0
     U = ndimage.binary_dilation(U, iterations=2)
     for mv in MOVES:
-        for ci, ox, oy in S.get(mv, {"f": []})["f"]:
+        for fi, (ci, ox, oy) in enumerate(S.get(mv, {"f": []})["f"]):
+            if ONLY and not any(a_ <= fi <= b_ for a_, b_ in ONLY.get(st, [])): continue
             if ci in done: continue
             done.add(ci); x, y, w, h = B[ci]; c = sheet[y:y + h, x:x + w]
             a = (c[..., 3] > 0) & U[R + oy:R + oy + h, R + ox:R + ox + w]    # 대기 모양을 넓힌 자리 안만
