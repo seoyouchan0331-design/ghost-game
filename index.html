@@ -1817,7 +1817,7 @@ function melee(p, o) {
 const iceK = (e) => clamp(((e.type.hh ?? (e.type.low ? 16 : 30)) + 10) / 46, 0.55, 1.9);   // 적 크기에 맞춘 얼음 크기
 function iceBreak(e) { spawn({ kind: "gfx", key: "wbreak", x: e.x, y: e.y, t: 0, rate: 1, sc: iceK(e), glowAdd: 0.3 }); }   // pixelfx 얼음 깨짐
 function freezeNow(e) { if (e.type.boss || e.type.giant) { e.chillN = 0; return; } e.frozen = 1.5; e.chillN = 0; if (e.st !== "walk") e.st = "walk"; }   // 얼음 덩어리는 그릴 때 (pixelfx frost-encase)
-function addFrost(e, n) { if (!live(e) || e.frozen > 0) return; e.chillN = (e.chillN ?? 0) + n; spark(e.x + rnd(-5, 5), e.y - rnd(8, 24), 0, -30, 0.35, ICE, true); if (e.chillN >= 3) freezeNow(e); }
+function addFrost(e, n) { if (!live(e) || e.frozen > 0) return; e.chillN = (e.chillN ?? 0) + n; e.chillT = time; spark(e.x + rnd(-5, 5), e.y - rnd(8, 24), 0, -30, 0.35, ICE, true); if (e.chillN >= 3) freezeNow(e); }
 function wolfShatter(e) {                                  // 언 적을 깨뜨림: 파편이 튀고 둘레에 피해, 2단계부터 옆 적에게 냉기, 사냥 본능
   const g = Math.max(0, hgOf("frostwolf")); spawn({ kind: "gfx", key: "wstar", x: e.x, y: e.y - 16, t: 0, rate: 1.3, add: true, front: true }); shake(3, 0.15); light(e.x, e.y - 16, 46, "#e8f6ff", 0.8, 0.2); texts.push({ x: e.x, y: e.y - 54, vy: -40, t: 0.7, s: "깨짐!", c: "#e8f6ff" });
   for (const t of enemies) if (t !== e && live(t) && Math.hypot(t.x - e.x, t.y - e.y) < 46) { damage(t, 12, { quiet: true }); if (g >= 1) addFrost(t, 1); }
@@ -3199,6 +3199,13 @@ function render() {
     if (e.st === "charge") glow(e.x, e.y - 20, 30 + Math.sin(time * 20) * 4, "#63c8ea", 0.6);
     if ((e.awake || e.elite) && !e.dead) glow(e.x, e.y - 16, e.elite ? 16 : 24, "#d8423a", 0.35);
     if (!e.dead && e.hp < e.maxHp) { const yy = Math.round(e.y) - (e.type.low ? 26 : 44), xx = Math.round(e.x); g.fillStyle = C.line; g.fillRect(xx - 10, yy, 20, 4); g.fillStyle = "#c9342c"; g.fillRect(xx - 9, yy + 1, Math.round(18 * e.hp / e.maxHp), 2); }
+    if (!e.dead && e.chillN > 0 && !(e.frozen > 0)) {   // 냉기 스택: 머리 위에 세 갈래 푸른 발톱이 하나씩 쌓인다 (3이면 빙결)
+      const n = Math.min(e.chillN, 3), yy = Math.round(e.y) - (e.type.giant ? 120 : e.type.low ? 26 : 44) - 14 - (time - (e.chillT ?? 0) < 0.12 ? 2 : 0), x0 = Math.round(e.x) - n * 8 + 1;
+      for (let k = 0; k < n; k++) { const bx = x0 + k * 16;
+        for (const pass of [0, 1]) for (let c = 0; c < 3; c++) for (let r = 0; r < 10; r++) {   // 굽은 발톱 3줄기: 가운데가 두껍고 끝이 뾰족
+          const px = bx + c * 4 + Math.round(4 * Math.pow(1 - r / 9, 1.6)), py = yy + r + (c === 1 ? -1 : 0), w = r >= 2 && r <= 7 ? 2 : 1;
+          if (pass === 0) { g.fillStyle = "#0b1a33"; g.fillRect(px - 1, py - 1, w + 2, 3); }
+          else { g.fillStyle = r < 3 ? "#e8f6ff" : r < 6 ? "#7cc8ff" : "#3a86e8"; g.fillRect(px, py, w, 1); } } } }
   }
   drawObjs(false);
   const p = player;
