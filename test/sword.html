@@ -1821,16 +1821,17 @@ function wolfClaw(p, dmg, x1) {                            // 평타 한 번: �
   melee(p, { x0: 0, x1, y0: -32, y1: 2, dmg, kb: 60, wolf: true, frost: 1 });
   if (hgOf("frostwolf") >= 2) { melee(p, { x0: 8, x1: x1 + 16, y0: -40, y1: 4, dmg: 5, kb: 20, wolf: true, frost: 1 }); fxSwoosh(p.x + p.dir * (x1 * 0.7), p.y - 20, p.dir, 26, ICE, false); }
 }
+// 빙결 사냥 연쇄: c.done이면 다시 처리하지 않는다 (끝나는 시간이 계속 밀리던 버그)
 function wolfHunt(p) {                                     // 빙결 사냥: 언 적이 있으면 그 적에게 직선 돌진해 깨고, 둘레에 적이 있으면 연쇄 (최대 5번, 무적)
   const fz = enemies.filter((e) => live(e) && e.frozen > 0 && Math.hypot(e.x - p.x, e.y - p.y) < 260).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
   if (!fz) { const hit = new Set(); startAct(p, { dur: 0.3, pose: "thrust", wm: "dash", vx: 420, ghost: true, tick() { melee(p, { x0: -6, x1: 24, y0: -30, y1: 2, dmg: 18, once: hit, kb: 70, wolf: true, frost: 2 }); } }); return; }
   const c = { tx: fz, fx: p.x, fy: p.y, k: 0, n: 0, seen: new Set() };
   startAct(p, { dur: 3, pose: "thrust", wm: "dash", vx: 0, air: true, ghost: true, tick() {
-    const a = p.act; p.invuln = Math.max(p.invuln, 0.2); p.vy = 0; c.k += STEP / 0.09; const u = Math.min(1, c.k), d = Math.sign(c.tx.x - c.fx) || p.dir, tx = c.tx.x - d * 8;
+    const a = p.act; if (c.done) return; p.invuln = Math.max(p.invuln, 0.2); p.vy = 0; c.k += STEP / 0.09; const u = Math.min(1, c.k), d = Math.sign(c.tx.x - c.fx) || p.dir, tx = c.tx.x - d * 8;
     p.x = c.fx + (tx - c.fx) * u; p.y = c.fy + (c.tx.y - c.fy) * u; p.dir = d; spark(p.x, p.y - 14, -d * rnd(20, 80), rnd(-20, 20), 0.3, ICE, true);
     if (u >= 1) { if (live(c.tx)) { damage(c.tx, 20, { wolf: true, dir: d, kb: 40 }); addFrost(c.tx, 2); } c.seen.add(c.tx); c.n++;
       const nx = enemies.filter((e) => live(e) && !c.seen.has(e) && Math.hypot(e.x - p.x, e.y - p.y) < 110).sort((a2, b2) => ((b2.frozen > 0) - (a2.frozen > 0)) || Math.hypot(a2.x - p.x, a2.y - p.y) - Math.hypot(b2.x - p.x, b2.y - p.y))[0];
-      if (!nx || c.n >= 5) a.dur = a.t + 0.06; else { c.fx = p.x; c.fy = p.y; c.tx = nx; c.k = 0; texts.push({ x: p.x, y: p.y - 46, vy: -30, t: 0.5, s: `연쇄 ${c.n}`, c: "#9bdcff" }); } } } });
+      if (!nx || c.n >= 5) { c.done = true; a.dur = a.t + 0.06; } else { c.fx = p.x; c.fy = p.y; c.tx = nx; c.k = 0; texts.push({ x: p.x, y: p.y - 46, vy: -30, t: 0.5, s: `연쇄 ${c.n}`, c: "#9bdcff" }); } } } });
 }
 const hArrowFx = () => { const g = Math.max(0, hgOf("hunter")); return g >= 2 ? "hlbolt" : g ? "harrow" : "harroww"; };
 function rainSplash(o) {                                   // 화살비 착탄: 착탄 이펙트 + 둘레 범위 피해 (이미 맞은 적은 빼고)
