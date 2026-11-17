@@ -1817,10 +1817,25 @@ function melee(p, o) {
 }
 // 날아가는 것 한 발 (화살, 마법탄)
 // 서리 늑대: 냉기·빙결·깨기·사냥 본능
+const CHILL_SHARD = ["...k...", "..kwk..", "..kwk..", ".kwwlk.", ".kwlbk.", "kwllbbk", "klllbbk", "klbbbbk", ".klbbk.", ".kbbbk.", "..kbk..", "...k..."], CHILL_C = { k: "#0b1a33", w: "#f2fbff", l: "#8fd4ff", b: "#3a86e8" };
+function drawChill(e) {                                     // 냉기 스택: 1 결정 하나가 몸에 박힘 / 2 결정 둘 + 둘레에 서리 (3이면 빙결)
+  const n = Math.min(e.chillN, 2), hh = e.type.hh ?? (e.type.low ? 16 : 30), k = Math.max(1, Math.round(iceK(e))), age = time - (e.chillT ?? -9);
+  const spots = [[3, 0.58, 1], [-4, 0.32, -1]];             // 몸 위 자리 (가로, 키 비율, 기우는 쪽)
+  if (n >= 2) { glow(e.x, e.y - hh * 0.45, hh * 1.1, "#7cc8ff", 0.55);
+    for (let i = 0; i < 18; i++) { const a = i * 2.4 + e.x * 0.1, r = (3 + (i * 5) % 12) * k; g.fillStyle = i % 3 ? "#bfe8ff" : "#ffffff"; g.globalAlpha = 0.6 + 0.4 * Math.sin(time * 4 + i); g.fillRect(Math.round(e.x + Math.cos(a) * r), Math.round(e.y - hh * 0.45 + Math.sin(a) * r * 0.9), i % 2 ? 2 : 1, 1); }
+    g.globalAlpha = 1; }
+  for (let j = 0; j < n; j++) { const [ox, fy, d] = spots[j], newest = j === n - 1 && age < 0.15, grow = newest ? Math.max(0.3, age / 0.15) : 1;
+    const bx = Math.round(e.x + ox * k * (e.dir || 1)), by = Math.round(e.y - hh * fy), H = CHILL_SHARD.length, rows = Math.max(2, Math.round(H * grow));
+    for (let r = H - rows; r < H; r++) { const sx = Math.round((H - r) * 0.35) * d;   // 비스듬히 박힌 결정 (위로 갈수록 기운다)
+      for (let c = 0; c < 7; c++) { const ch = CHILL_SHARD[r][c]; if (ch === ".") continue; g.fillStyle = CHILL_C[ch]; g.fillRect(bx + (c - 3 + sx) * k, by + (r - H + 4) * k, k, k); } }
+    if (newest) { g.fillStyle = "#fff"; g.globalAlpha = 1 - age / 0.15; g.fillRect(bx - 2 * k, by - 2 * k, 5 * k, 1); g.fillRect(bx, by - 4 * k, 1, 5 * k); g.globalAlpha = 1; } }   // 박힐 때 반짝
+}
 const iceK = (e) => clamp(((e.type.hh ?? (e.type.low ? 16 : 30)) + 10) / 46, 0.55, 1.9);   // 적 크기에 맞춘 얼음 크기
 function iceBreak(e) { spawn({ kind: "gfx", key: "wbreak", x: e.x, y: e.y, t: 0, rate: 1, sc: iceK(e), glowAdd: 0.3 }); }   // pixelfx 얼음 깨짐
-function freezeNow(e) { if (e.type.boss || e.type.giant) { e.chillN = 0; return; } e.frozen = 1.5; e.chillN = 0; if (e.st !== "walk") e.st = "walk"; }   // 얼음 덩어리는 그릴 때 (pixelfx frost-encase)
-function addFrost(e, n) { if (!live(e) || e.frozen > 0) return; e.chillN = (e.chillN ?? 0) + n; spark(e.x + rnd(-5, 5), e.y - rnd(8, 24), 0, -30, 0.35, ICE, true); if (e.chillN >= 3) freezeNow(e); }
+function freezeNow(e) { if (e.type.boss || e.type.giant) { e.chillN = 0; return; } e.frozen = 1.5; e.chillN = 0; if (e.st !== "walk") e.st = "walk";
+  const hh = e.type.hh ?? (e.type.low ? 16 : 30); spawn({ kind: "gfx", key: "wstar", x: e.x, y: e.y - hh * 0.5, t: 0, rate: 1.4, add: true, front: true, sc: iceK(e) }); light(e.x, e.y - hh * 0.5, 40 * iceK(e), "#9bdcff", 0.8, 0.2); shake(2, 0.1);   // 결정이 터지듯 자라며 봉인
+  for (let i = 0; i < 10; i++) spark(e.x, e.y - hh * 0.5, rnd(-120, 120), rnd(-140, 20), 0.35, ICE, true); }   // 얼음 덩어리는 그릴 때 (pixelfx frost-encase)
+function addFrost(e, n) { if (!live(e) || e.frozen > 0) return; e.chillN = (e.chillN ?? 0) + n; e.chillT = time; spark(e.x + rnd(-5, 5), e.y - rnd(8, 24), 0, -30, 0.35, ICE, true); if (e.chillN >= 3) freezeNow(e); }
 function wolfShatter(e) {                                  // 언 적을 깨뜨림: 파편이 튀고 둘레에 피해, 2단계부터 옆 적에게 냉기, 사냥 본능
   const g = Math.max(0, hgOf("frostwolf")); spawn({ kind: "gfx", key: "wstar", x: e.x, y: e.y - 16, t: 0, rate: 1.3, add: true, front: true }); shake(3, 0.15); light(e.x, e.y - 16, 46, "#e8f6ff", 0.8, 0.2); texts.push({ x: e.x, y: e.y - 54, vy: -40, t: 0.7, s: "깨짐!", c: "#e8f6ff" });
   for (const t of enemies) if (t !== e && live(t) && Math.hypot(t.x - e.x, t.y - e.y) < 46) { damage(t, 12, { quiet: true }); if (g >= 1) addFrost(t, 1); }
@@ -3191,6 +3206,7 @@ function render() {
     if (e.type.drawWorld) { e.type.drawWorld(e); continue; }
     blit(drawEnemySprite(e), e.x, e.y, e.dir);
     if (e.type.over) e.type.over(e);
+    if (e.chillN > 0 && !e.dead && !(e.frozen > 0)) drawChill(e);
     if (e.frozen > 0 && !e.dead && ready(gfxImg.wice)) { if (e.iceAt == null) e.iceAt = time; const G2 = GFX.wice, f = Math.min(G2.n - 1, Math.floor((time - e.iceAt) * G2.fps)), k = iceK(e), w = (e.type.hw ?? (e.type.low ? 12 : 8)) > 11 ? 1.5 : 1;
       g.save(); g.translate(Math.round(e.x), Math.round(e.y) + 1); g.scale(k * w, k); g.globalAlpha = 0.78; g.drawImage(gfxImg.wice, (f % G2.cols) * G2.w, Math.floor(f / G2.cols) * G2.h, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h); g.restore();
       if (((time * 3 + e.x) | 0) % 4 === 0) starGlint(g, e.x + 4 * k, e.y - 30 * k, 1, "#fff", "#8fdcff"); } else if (!(e.frozen > 0)) e.iceAt = null;
