@@ -515,7 +515,7 @@ function hitSound(kind, big = 1) {
 let sfxVol = 0.7; const sndLast = {};
 function snd(k, big = 1) {
   if (muted) return; const c = ac(); if (!c) return; const now = c.currentTime; if (now - (sndLast[k] ?? -1) < 0.035) return; sndLast[k] = now;
-  const t0 = now + 0.004, V = sfxVol * 0.5 * big;
+  const t0 = now + 0.004, V = sfxVol * 0.9 * big;
   const tone = (type, f0, f1, dur, v, dt = 0, att = 0.004) => { const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t0 + dt); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dt + dur); o.connect(envGain(c, t0 + dt, v, att, dur)); o.start(t0 + dt); o.stop(t0 + dt + dur + 0.05); };
   const nz = (type, f0, f1, dur, v, dt = 0, att = 0.003) => noiseSrc(c, t0 + dt, dur, type, f0, f1, envGain(c, t0 + dt, v, att, dur));
   switch (k) {
@@ -551,8 +551,7 @@ function snd(k, big = 1) {
     case "ui": tone("square", 1000, 1000, 0.03, V * 0.1); break;
   }
 }
-addEventListener("keydown", () => ac(), { once: true });
-addEventListener("pointerdown", () => ac(), { once: true });   // 폰: 첫 터치에 소리 켜기
+for (const ev of ["keydown", "pointerdown", "touchstart"]) addEventListener(ev, () => { if (!muted) ac(); }, true);   // 누를 때마다 소리판을 깨운다 (브라우저는 누르기 안에서만 소리를 허락한다)
 function sfx(k, rate = 1, vol = 0.8) { const a = SFX[k]; if (!a || muted) return; try { a.pause(); a.currentTime = 0; a.playbackRate = rate; a.volume = vol; const pr = a.play(); if (pr) pr.catch(() => {}); } catch (err) {} }
 function giantAI(e, p) {
   const ph2 = e.phase === 2, k = ph2 ? 1.3 : 1, H = e.hands, cx = e.cx;
