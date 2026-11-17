@@ -35,7 +35,7 @@ def setup(src, zone, n=3):
         ys = np.nonzero(m0[:, x0:x1].any(axis=1))[0]; chars.append({"cx": (x0 + x1) / 2, "gy": ys.max() + 1, "h": ys.max() + 1 - ys.min()})
     Wd = first.shape[1]
     if zone == "own":                                           # 넓게 잘라 두고, 덩어리마다 가장 가까운 캐릭터 것으로 (이펙트가 가운데 선을 넘는 영상)
-        bounds = [(max(0, int(c["cx"] - 360)), min(Wd, int(c["cx"] + 460))) for c in chars]
+        bounds = [(0, Wd)] if n == 1 else [(max(0, int(c["cx"] - 360)), min(Wd, int(c["cx"] + 460))) for c in chars]   # 혼자 나오는 영상은 화면 전체 (멀리 뻗는 이펙트가 잘리지 않게)
         for c in chars: c["own"] = [d["cx"] for d in chars]
     elif zone == "half":                                          # 화면을 캐릭터 수만큼 똑같이 나눈 영상
         bounds = [(Wd * i // n, Wd * (i + 1) // n) for i in range(n)]
