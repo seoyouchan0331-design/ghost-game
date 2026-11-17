@@ -234,7 +234,7 @@ const HELMETS = [
     } },
   },
   {
-    id: "hunter", name: "사냥꾼 모자", atk: "화살 1발 9 (빠른 연사)", passive: "멀수록 화살 피해 최대 +30%", grade: "녹슨", type: "스피드", ramp: RAMP_LEAF,
+    id: "hunter", name: "사냥꾼 모자", atk: "화살 1발 9 (빠른 연사) · X 꾹: 집중", passive: "멀수록 치명타 확률 (최대 +50%)", grade: "녹슨", type: "스피드", ramp: RAMP_LEAF,
     draw(t) {
       hood();
       for (let i = 0; i < 9; i++) { R(-7 - i, -13 - i, 3, 2, i % 3 === 2 ? C.cloth3 : C.cream); R(-6 - i, -13 - i, 1, 1, C.cloth); }   // 깃털
@@ -249,22 +249,33 @@ const HELMETS = [
       if (acting) { R(hx - 3, hy, 12, 1, C.cream); R(hx + 9, hy - 1, 2, 3, C.steel); }
     },
     basic: { steps: [                             // 화살 1발 9, 빠른 연사. 멀수록 최대 +30%
-      { dur: 0.2, hitT: 0.06, pose: "shoot", reach: 6, move: 0.85, fire(p) { const g = Math.max(0, hgOf("hunter")); shot(p, { dmg: 9, vx: g >= 2 ? 900 : 440, look: "arrow", fx: g >= 2 ? "hlbolt" : g ? "harrow" : "harroww", far: 0.3, pierce: g >= 2 });   // 3단계: 초록 레이저 볼트
+      { dur: 0.2, hitT: 0.06, pose: "shoot", reach: 6, move: 0.85, fire(p) { const g = Math.max(0, hgOf("hunter")); shot(p, { dmg: 9, vx: g >= 2 ? 900 : 440, look: "arrow", fx: hArrowFx(), farCrit: true, pierce: g >= 2 });   // 3단계: 초록 레이저 볼트
         spawn({ kind: "gfx", key: g >= 2 ? "hrel" : g ? "hring" : "hringw", x: p.x + p.dir * (12 + 4 * g), y: p.y - 13, dir: p.dir, t: 0, rate: g >= 2 ? 1.6 : 1, add: true }); } },
     ] },
-    skills: [
-      { name: "덫 설치", cd: 8, icon() { R(-6, 2, 13, 2, C.steel2); for (const x of [-5, -2, 1, 4]) { R(x, -1, 2, 3, C.steel); R(x, -2, 1, 1, C.white); } },
-        use(p) {
-          startAct(p, { dur: 0.25, pose: "slam", events: [{ t: 0.1, fn() { { const tr = objs.filter((o) => o.kind === "trap"), keep = hgOf("hunter") >= 1 ? 1 : 0; objs = objs.filter((o) => o.kind !== "trap" || tr.indexOf(o) >= tr.length - keep); } spawn({ kind: "trap", x: p.x + p.dir * 14, gy: p.y, age: 0 }); dust(p.x + p.dir * 14, FLOOR, 0, 3); } }] });
-        } },
-      { name: "화살비", cd: 14, icon() { for (const [x, y] of [[-5, -4], [0, -1], [4, -5], [-2, 3]]) { R(x, y, 1, 5, C.cream); R(x - 1, y + 4, 3, 2, C.steel); } },
-        use(p) {                                 // 앞쪽 넓은 범위에 2초간 8발, 각 10
-          startAct(p, { dur: 0.3, pose: "shoot", reach: 4, events: [{ t: 0.1, fn() { spawn({ kind: "rain", x0: p.x + p.dir * 30, x1: p.x + p.dir * 150, dir: p.dir, t: 0, n: 0 }); } }] });
-        } },
+    get skills() { return skillsOf(this); },     // 스컬 스나이퍼 방식: 아래 4개 중 2개를 판마다 무작위로 (S는 명품부터)
+    pool: [
+      { name: "다중 사격", cd: 10, icon() { for (const y of [-4, 0, 4]) { R(-6, y, 10, 1, C.cream); R(4, y - 1, 2, 3, C.steel); } },
+        use(p) { const full = focusUse(p); startAct(p, { dur: 0.3, pose: "shoot", reach: 6, move: 0.5, events: [{ t: 0.08, fn() {
+          if (!full) for (const a of [-0.12, -0.06, 0, 0.06, 0.12]) shot(p, { dmg: 10, vx: 520 * Math.cos(a), vy: 520 * Math.sin(a), look: "arrow", fx: hArrowFx(), farCrit: true });
+          else for (let i = 0; i < 7; i++) { const a = -0.9 + i * 0.1; shot(p, { dmg: 14, vx: 420 * Math.cos(a), vy: 420 * Math.sin(a), look: "arrow", fx: hArrowFx(), farCrit: true, home: 0.35 + i * 0.04 }); }   // 집중: 위로 흩뿌린 화살이 꺾여 적을 쫓는다
+          spawn({ kind: "gfx", key: full ? "hrel" : "hring", x: p.x + p.dir * 14, y: p.y - 13, dir: p.dir, t: 0, rate: 1.4, add: true }); } }] }); } },
+      { name: "관통 사격", cd: 14, icon() { R(-8, 0, 14, 2, C.green3); R(5, -2, 4, 6, C.cream); R(-8, -3, 3, 1, C.white); R(-8, 4, 3, 1, C.white); },
+        use(p) { const full = focusUse(p); startAct(p, { dur: 0.3, pose: "shoot", reach: 6, power: true, events: [{ t: 0.06, fn() {
+          shot(p, { dmg: full ? 55 : 30, vx: full ? 560 : 620, look: "arrow", fx: "hpow", sc: full ? 1.7 : 1, big: full, pierce: true, farCrit: true, ramp: RAMP_LEAF, life: 2,
+            onWall: full ? (o) => { const y = o.y; spawn({ kind: "gfx", key: "hlbeam", x: o.x, y, dir: -Math.sign(o.vx) || -1, t: 0, rate: 1, glowAdd: 0.35 }); shake(4, 0.25);   // 집중: 벽에 박히면 그 높이 가로줄 전체에 피해
+              for (const e of enemies) if (live(e) && y > e.y - (e.type.hh ?? 30) - 10 && y < e.y + 10) damage(e, 25, { ranged: true, dir: -Math.sign(o.vx) || -1, kb: 60, ramp: RAMP_LEAF }); } : null });
+          spawn({ kind: "gfx", key: "hrel", x: p.x + p.dir * 16, y: p.y - 13, dir: p.dir, t: 0, rate: 1, add: true }); if (full) shake(3, 0.15); } }] }); } },
+      { name: "공성 사격", cd: 13, icon() { for (const [x, y] of [[-5, -4], [0, -1], [4, -5], [-2, 3]]) { R(x, y, 1, 5, C.cream); R(x - 1, y + 4, 3, 2, C.steel); } },
+        use(p) { const full = focusUse(p); startAct(p, { dur: 0.3, pose: "shoot", reach: 4, events: [{ t: 0.1, fn() {   // 앞쪽에 화살비. 집중: 범위가 두 배
+          spawn({ kind: "rain", x0: p.x + p.dir * (full ? 20 : 40), x1: p.x + p.dir * (full ? 270 : 160), y0: p.y - 210, dir: p.dir, t: 0, n: 0, count: full ? 16 : 8, gap: full ? 0.12 : 0.22, dmg: full ? 12 : 10 }); } }] }); } },
+      { name: "고정 사격", cd: 12, icon() { R(-6, -1, 9, 1, C.cream); R(-6, 2, 9, 1, C.cream); R(3, -2, 2, 3, C.steel); R(3, 1, 2, 3, C.steel); R(-8, -4, 2, 8, C.wood2); },
+        use(p) { const full = focusUse(p), gap = full ? 0.06 : 0.14; let nt = 0;   // 제자리에서 연사. 집중: 훨씬 빠르고 많이
+          startAct(p, { dur: full ? 1.5 : 1.1, pose: "shoot", reach: 6, vx: 0, tick() { const a = p.act; if (a.t < nt) return; nt = a.t + gap;
+            shot(p, { dmg: 7, vx: 560, vy: rnd(-30, 30), look: "arrow", fx: hArrowFx(), farCrit: true }); spawn({ kind: "gfx", key: Math.max(0, hgOf("hunter")) ? "hring" : "hringw", x: p.x + p.dir * 14, y: p.y - 13, dir: p.dir, t: 0, rate: 1.6, add: true }); } }); } },
     ],
-    swap: { name: "뒤로 뛰며 3연사", use(p) {     // 뒤로 점프하며 화살 3발 부채꼴
-      p.vy = -210; p.ground = false;
-      startAct(p, { dur: 0.3, pose: "shoot", reach: 6, vx: -230, air: true, events: [{ t: 0.05, fn() { for (const a of [-0.22, 0, 0.22]) shot(p, { dmg: 9, vx: 440 * Math.cos(a), vy: 440 * Math.sin(a) + 40, look: "arrow", far: 0.3 }); } }] });
+    swap: { name: "덫 놓고 물러나며 화살비", use(p) {   // 스나이퍼 교체: 기절 덫 → 뒤로 뛰기 → 앞쪽 화살비
+      spawn({ kind: "trap", x: p.x + p.dir * 10, gy: p.y, age: 0 }); p.vy = -230; p.ground = false;
+      startAct(p, { dur: 0.32, pose: "shoot", reach: 6, vx: -230, air: true, events: [{ t: 0.12, fn() { spawn({ kind: "rain", x0: p.x + p.dir * 40, x1: p.x + p.dir * 150, y0: p.y - 200, dir: p.dir, t: 0, n: 0, count: 6, gap: 0.12, dmg: 9 }); } }] });
     } },
   },
   {
@@ -1250,7 +1261,7 @@ const AWAKE_COST = [10, 30, 100], SCRAP_OF = [5, 15, 40, 80];
 // 투구 계보: 대장장이 강화(진화)로 등급이 오르면 이름·모습·능력이 바뀐다. 계보 길이 = 그 투구의 마지막 등급
 const LINES = {
   soldier: { names: ["병사 투구", "창병 투구", "근위 창대장 투구"], add: ["3번째 공격 1.5배", "대시가 공격이 된다 (닿은 적 14)", "때릴수록 돌진 게이지, 가득 차면 창 돌격 3연속 · S 유령 창기세"] },
-  hunter: { names: ["사냥꾼 두건", "레인저 모자", "숲의 정령 궁수"], add: ["멀수록 화살 피해 +30%", "X를 꾹 눌러 모았다 놓으면 강한 관통 화살 (30)", "화살이 적을 꿰뚫는다"] },
+  hunter: { names: ["사냥꾼 두건", "레인저 모자", "숲의 정령 궁수"], add: ["멀수록 치명타 확률 (최대 +50%)", "X 꾹: 집중 — 다 모이면 강한 화살, 스킬도 강화", "주변에 적이 없으면 집중이 빨라진다 · 초록 레이저"] },
   smith: { names: ["대장장이 두건", "불꽃 대장장이 두건", "모루의 주인"], add: ["맞힐 때마다 열기 (피해 +4%씩, 최대 5)", "열기 5에서 망치에 화상", "모루 낙하가 모루 3개"] },
   thief: { names: ["좀도둑 복면", "의적 복면", "밤의 대도 가면"], add: ["때리면 15% 확률로 금화", "구르며 금화를 던짐 (12)", "줍는 금화가 주변에 터짐 (10)"] },
   wood: { names: ["나무꾼 모자", "숲지기 두건", "고목의 투구"], add: ["30% 확률로 한 번 더 벰", "때리면 20% 확률로 가시덩굴", "가시덩굴이 방 전체 적에게, 오래 묶음"] },
@@ -1759,8 +1770,15 @@ function melee(p, o) {
   return n;
 }
 // 날아가는 것 한 발 (화살, 마법탄)
+const hArrowFx = () => { const g = Math.max(0, hgOf("hunter")); return g >= 2 ? "hlbolt" : g ? "harrow" : "harroww"; };
+function focusUse(p) { const f = !!p.drawFull; if (f) { p.drawT = 0; p.drawFull = false; light(p.x + p.dir * 14, p.y - 13, 40, "#8fe08a", 0.8, 0.2); } return f; }   // 집중이 다 찬 채로 스킬을 쓰면 강화 (집중은 쓴다)
+function skillsOf(h) {                                   // 무작위 스킬: 판마다 pool에서 2개 (A, S)
+  const p = player; p.skPick = p.skPick || {};
+  if (!p.skPick[h.id]) p.skPick[h.id] = [...h.pool.keys()].sort(() => Math.random() - 0.5).slice(0, 2);
+  return p.skPick[h.id].map((i) => h.pool[i]);
+}
 function shot(p, o) {
-  spawn({ kind: "shot", x: p.x + p.dir * 12, y: p.y - 13, x0: p.x, vx: p.dir * o.vx, vy: o.vy ?? 0, dmg: o.dmg, look: o.look, fx: o.fx, pierce: o.pierce, burn: o.burn, chill: o.chill ?? 0, far: o.far ?? 0, ramp: o.ramp ?? p.helm.ramp, hit: new Set(), life: 1.4 });
+  spawn({ kind: "shot", x: p.x + p.dir * 12, y: p.y - 13, x0: p.x, vx: p.dir * o.vx, vy: o.vy ?? 0, dmg: o.dmg, look: o.look, fx: o.fx, farCrit: o.farCrit, home: o.home, sc: o.sc, big: o.big, onWall: o.onWall, life: o.life ?? 1.4, pierce: o.pierce, burn: o.burn, chill: o.chill ?? 0, far: o.far ?? 0, ramp: o.ramp ?? p.helm.ramp, hit: new Set() });
 }
 // 원형 폭발
 function blast(x, y, r, dmg, ramp) {
@@ -1789,7 +1807,7 @@ function damage(e, base, o = {}) {
   if (p.soul === "salamander" && e.burn > 0 && !o.quiet) o = { ...o, mult: (o.mult ?? 1) * 1.1 };   // 불도마뱀 영혼
   let mult = (o.mult ?? 1) * (p.src === "swap" && cr("ghost", 4) && !o.quiet && !o.noProc ? 2 : 1), shard = 0;
   if (e.frozen > 0 && !o.quiet) { if (cr("frost", 4)) { mult *= 1.4; shard = 20; } e.frozen = 0; fxRing(e.x, e.y - 12, 14, ["#0c1430", "#58b4ec", "#9bdcff", "#d8f4ff", "#fff"]); }   // 맞으면 빙결이 풀린다
-  const crit = !o.quiet && Math.random() < BASE.critChance + stat("crit"), dir = o.dir ?? 1;
+  const crit = !o.quiet && Math.random() < BASE.critChance + stat("crit") + (o.critAdd ?? 0), dir = o.dir ?? 1;   // critAdd: 사냥꾼 멀수록 치명타
   if (cr("hunt", 2) && !o.quiet && e.hp < e.maxHp * 0.5) mult *= 1.15;
   if (e.groggy && !o.quiet) mult *= 2;                                                     // 거대 골렘 그로기                    // 사냥 2
   if (e.type.backHit && !o.quiet && o.sx != null && (o.sx - e.x) * e.dir < 0) { mult *= 1.5; texts.push({ x: e.x, y: e.y - 52, vy: -40, t: 0.5, s: "등 뒤!", c: "#ffae35" }); }   // 중갑 기사: 등 뒤 1.5배
@@ -2108,14 +2126,14 @@ function thorns(e, dmg, root) {                                    // 가시덩�
 }
 function lineTick(p, dt) {
   if (p.helm.id === "hunter" && hgOf("hunter") >= 1) {               // 레인저: 공격을 꾹 누르면 모아 쏘기 (다 모이면 놓을 때 강한 관통 화살)
-    if (keys.KeyX && !p.dashing) { p.drawT = (p.drawT ?? 0) + dt;
+    if (keys.KeyX && !p.dashing) { p.drawT = (p.drawT ?? 0) + dt * (hgOf("hunter") >= 2 && !enemies.some((e) => live(e) && Math.abs(e.x - p.x) < 90 && Math.abs(e.y - p.y) < 50) ? 1.6 : 1);   // 주변에 적이 없으면 집중이 빨라진다
       if (p.drawT > 0.25) { const k = clamp((p.drawT - 0.25) / 0.6);
         if (k >= 1 && !p.drawFull) { p.drawFull = true; fxRing(p.x + p.dir * 14, p.y - 13, 12, RAMP_LEAF); light(p.x + p.dir * 14, p.y - 13, 30, "#8fc05a", 0.8, 0.2); } } }
     else if (p.drawT > 0) { if (p.drawFull) { const g3 = hgOf("hunter") >= 2;
         if (g3) { const bx = p.x + p.dir * 20, by = p.y - 13, len = 280;   // 3단계: 화살 대신 한순간에 앞을 꿰뚫는 초록 레이저 빔
           for (const e of enemies) if (live(e) && (e.x - bx) * p.dir > -8 && Math.abs(e.x - bx) < len + (e.type.hw ?? 0) && by > e.y - (e.type.hh ?? 30) - 8 && by < e.y + 8) damage(e, 42, { ranged: true, dir: p.dir, kb: 120, heavy: true, ramp: RAMP_LEAF, mult: 1.3 });
           spawn({ kind: "gfx", key: "hlbeam", x: bx, y: by, dir: p.dir, t: 0, rate: 1, glowAdd: 0.35 }); shake(4, 0.25); }
-        else shot(p, { dmg: 30, vx: 620, look: "arrow", fx: "hpow", far: 0.3, pierce: true, ramp: RAMP_LEAF }); startAct(p, { dur: 0.22, pose: "shoot", reach: 6, power: true, move: 0.85 }); p.src = "basic";
+        else shot(p, { dmg: 30, vx: 620, look: "arrow", fx: "hpow", farCrit: true, pierce: true, ramp: RAMP_LEAF }); startAct(p, { dur: 0.22, pose: "shoot", reach: 6, power: true, move: 0.85 }); p.src = "basic";
         if (!g3) spawn({ kind: "gfx", key: "hrel", x: p.x + p.dir * 16, y: p.y - 13, dir: p.dir, t: 0, rate: 1, add: true }); if (g3) { whiteT = Math.max(whiteT, 0.04); light(p.x + p.dir * 24, p.y - 13, 60, "#8fe08a", 0.9, 0.2); } shake(2, 0.12); for (let i = 0; i < 10; i++) spark(p.x + p.dir * 16, p.y - 13, p.dir * rnd(80, 260), rnd(-60, 60), 0.35, RAMP_LEAF, true); }
       p.drawT = 0; p.drawFull = false; } }
   if (p.lanceT > 0) { p.lanceT -= dt; if (Math.random() < dt * 14) spark(p.x + rnd(-8, 8), p.y - rnd(4, 30), rnd(-15, 15), -rnd(30, 70), 0.5, RAMP_GHOST, true); }   // 유령 창기세: 몸에서 청록 불꽃이 피어오른다
@@ -2362,7 +2380,7 @@ function drawHeroFrames(p, S, img, BX, o) {
   const seg = (m, f0, f1, u) => m.f[clamp(Math.floor(f0 + u * (f1 - f0)), 0, m.f.length - 1)];
   let fr, dx = 0;
   const hunt = p.helm.id === "hunter" && S.attack && S.seg.sh;          // 사냥꾼: 속사 한 발 / 꾹 눌러 모으기 / 강한 화살
-  if (a && hunt) fr = seg(S.attack, ...(a.power ? S.seg.pw : S.seg.sh), clamp(a.t / a.dur));
+  if (a && hunt) fr = seg(S.attack, ...(a.power ? S.seg.pw : S.seg.sh), a.dur > 0.5 ? (a.t % 0.2) / 0.2 : clamp(a.t / a.dur));   // 고정 사격처럼 긴 동작은 쏘는 동작을 되풀이
   else if (!a && hunt && (p.drawT ?? 0) > 0.25) fr = seg(S.attack, ...S.seg.ch, clamp((p.drawT - 0.25) / 0.6));
   else if (a && S.attack) { const u = clamp(a.t / a.dur), G = S.seg;   // 영상 구간은 단계마다 다르다 (seg: 찌르기 t1, 강찌르기 t2, 올려 베기 sl, 돌격 ch)
     if (p.src === "skill" && a.pose === "punch" && S.throw) fr = seg(S.throw, ...G.th, u);      // 투구 던지기: 던지는 자세
@@ -2511,16 +2529,19 @@ function updateObjs(dt) {
       if (o.life <= 0) o.gone = true;
     } else if (o.kind === "shot") {
       o.life -= dt; o.x += o.vx * dt; o.y += o.vy * dt;
+      if (o.home && (o.hAge = (o.hAge ?? 0) + dt) > 0.12) { let tg = null, bd = 1e9; for (const e of enemies) if (live(e)) { const d = Math.hypot(e.x - o.x, e.y - 14 - o.y); if (d < bd) { bd = d; tg = e; } }   // 다중 사격 집중: 꺾여서 적을 쫓는다
+        if (tg) { const sp = Math.hypot(o.vx, o.vy), ang = Math.atan2(o.vy, o.vx), want = Math.atan2(tg.y - 14 - o.y, tg.x - o.x); let d = want - ang; d = Math.atan2(Math.sin(d), Math.cos(d)); const na = ang + clamp(d, -o.home * 12 * dt, o.home * 12 * dt); o.vx = Math.cos(na) * sp; o.vy = Math.sin(na) * sp; } }
       if (o.look === "fire" && Math.random() < dt * 60) spark(o.x, o.y + rnd(-2, 2), -o.vx * 0.1, rnd(-40, 10), 0.25, RAMP_FIRE, true);
       if (o.look === "bolt" && Math.random() < dt * 30) spark(o.x, o.y + rnd(-2, 2), -o.vx * 0.1, rnd(-20, 20), 0.2, o.ramp, true);
-      for (const e of enemies) if (live(e) && !o.hit.has(e) && Math.abs(e.x - o.x) < (e.type.hw ?? 10) && o.y > e.y - (e.type.hh ?? (e.type.low ? 18 : 30)) && o.y < e.y + 2) {
+      for (const e of enemies) if (live(e) && !o.hit.has(e) && Math.abs(e.x - o.x) < (e.type.hw ?? 10) + (o.big ? 8 : 0) && o.y > e.y - (e.type.hh ?? (e.type.low ? 18 : 30)) - (o.big ? 8 : 0) && o.y < e.y + 2 + (o.big ? 8 : 0)) {
         o.hit.add(e);
-        damage(e, o.dmg, { ranged: true, dir: Math.sign(o.vx) || 1, kb: 70, ramp: o.ramp, y: o.y, box: [o.x, o.x, o.y, o.y], burn: o.burn, mult: 1 + o.far * clamp(Math.abs(o.x - o.x0) / 220), sx: o.x - Math.sign(o.vx) * 20, above: o.above });
+        damage(e, o.dmg, { ranged: true, critAdd: o.farCrit ? 0.5 * clamp(Math.abs(o.x - o.x0) / 220) : 0, dir: Math.sign(o.vx) || 1, kb: 70, ramp: o.ramp, y: o.y, box: [o.x, o.x, o.y, o.y], burn: o.burn, mult: 1 + o.far * clamp(Math.abs(o.x - o.x0) / 220), sx: o.x - Math.sign(o.vx) * 20, above: o.above });
         if (o.chill && live(e) && !e.type.boss && !e.type.giant && Math.random() < o.chill) { e.frozen = 2; fxRing(e.x, e.y - 12, 12, ["#0c1430", "#58b4ec", "#9bdcff", "#e8f6ff", "#ffffff"]); }   // 서리 마법사: 빙결
         if (!o.pierce) { o.gone = true; break; }
       }
-      if (o.y >= groundAt(o.x, o.y - 8) || isSolid(o.x, o.y)) { o.gone = true; dust(o.x, o.y, 0, 2); }
-      if (o.life <= 0 || o.x < 0 || o.x > ROOM_R + 12) o.gone = true;
+      if (o.y >= groundAt(o.x, o.y - 8) || isSolid(o.x, o.y)) { o.gone = true; dust(o.x, o.y, 0, 2); if (o.onWall) o.onWall(o); }
+      else if (o.x < ROOM_L - 4 || o.x > ROOM_R + 12) { o.gone = true; if (o.onWall) o.onWall(o); }
+      if (o.life <= 0) o.gone = true;
     } else if (o.kind === "trap") {
       o.age += dt;
       if (o.age > 0.3) for (const e of enemies) if (live(e) && Math.abs(e.x - o.x) < 11 && Math.abs(e.y - o.gy) < 4) {   // 밟으면 1.5초 속박 + 20
@@ -2528,8 +2549,8 @@ function updateObjs(dt) {
       }
     } else if (o.kind === "rain") {
       o.t += dt;
-      while (o.n < 8 && o.t >= o.n * 0.25) { o.n++; const tx = rnd(Math.min(o.x0, o.x1), Math.max(o.x0, o.x1)); spawn({ kind: "shot", x: tx - o.dir * 40, y: FLOOR - 200, x0: tx, vx: o.dir * 160, vy: 800, dmg: 10, look: "arrow", far: 0, ramp: RAMP_LEAF, hit: new Set(), life: 1, above: true }); }
-      if (o.n >= 8) o.gone = true;
+      const N = o.count ?? 8; while (o.n < N && o.t >= o.n * (o.gap ?? 0.25)) { o.n++; const tx = rnd(Math.min(o.x0, o.x1), Math.max(o.x0, o.x1)); spawn({ kind: "shot", x: tx - o.dir * 40, y: o.y0 ?? FLOOR - 200, x0: tx, vx: o.dir * 160, vy: 800, dmg: o.dmg ?? 10, look: "arrow", fx: hArrowFx(), far: 0, ramp: RAMP_LEAF, hit: new Set(), life: 1, above: true }); }
+      if (o.n >= N) o.gone = true;
     } else if (o.kind === "torch") {
       o.age += dt; o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt;
       if (Math.abs(p.x - o.x) < 9 && o.y > p.y - 28 && o.y < p.y) { hurtPlayer(10, Math.sign(o.vx) || 1); o.gone = true; }
@@ -2668,7 +2689,7 @@ function drawObjs(back) {
       const sp = Math.hypot(o.vx, o.vy), ux = o.vx / sp, uy = o.vy / sp;
       if (o.fx && ready(gfxImg[o.fx])) {                       // 사냥꾼: pixelfx 에메랄드 화살 / 빔 화살
         const G2 = GFX[o.fx], f = Math.floor((time + (o.x0 % 7) * 0.05) * G2.fps) % G2.n, sx = (f % G2.cols) * G2.w, sy = Math.floor(f / G2.cols) * G2.h;
-        g.save(); g.translate(Math.round(o.x), Math.round(o.y)); g.rotate(Math.atan2(o.vy, o.vx)); g.drawImage(gfxImg[o.fx], sx, sy, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h);
+        g.save(); g.translate(Math.round(o.x), Math.round(o.y)); g.rotate(Math.atan2(o.vy, o.vx)); if (o.sc) g.scale(o.sc, o.sc); g.drawImage(gfxImg[o.fx], sx, sy, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h);
         if (o.fx === "hpow") { g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.5; g.drawImage(gfxImg[o.fx], sx, sy, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h); } g.restore();
       } else if (o.look === "arrow") {
         for (let d = 0; d < 11; d++) { g.fillStyle = d < 2 ? C.steel : d > 8 ? C.green3 : C.cream; g.fillRect(Math.round(o.x - ux * d), Math.round(o.y - uy * d), 1, 1); }
@@ -2901,7 +2922,7 @@ function drawHud() {
   panel(HUD.sub); if (sub) icon(HUD.sub.x, HUD.sub.y, HUD.sub.s, () => at(0, 9, () => sub.draw(0)), `s:${sub.id}:${hgOf(sub.id)}`);
   if (p.swapCd > 0) { const h = Math.ceil(HUD.sub.s * p.swapCd / (p.swapMax ?? BASE.swapCd)); g.fillStyle = shade; g.fillRect(HUD.sub.x, HUD.sub.y + HUD.sub.s - h, HUD.sub.s, h); }
   for (let i = 0; i < 2; i++) {
-    const s = HUD.skill[i]; panel(s); icon(s.x, s.y, s.s, helm.skills[i].icon, `k:${helm.id}:${i}`);
+    const s = HUD.skill[i]; panel(s); icon(s.x, s.y, s.s, helm.skills[i].icon, `k:${helm.id}:${helm.skills[i].name}`);
     if (cds[i] > 0) { const h = Math.ceil(s.s * cds[i] / skillCd(helm, i)); g.fillStyle = shade; g.fillRect(s.x, s.y + s.s - h, s.s, h); }
     if (i === 1 && sLocked(helm.id)) { g.fillStyle = "rgba(10,8,16,0.8)"; g.fillRect(s.x, s.y, s.s, s.s); g.fillStyle = "#b0a8ba"; g.fillRect(s.x + 5, s.y + 8, 7, 5); g.strokeStyle = "#b0a8ba"; g.lineWidth = 1; g.strokeRect(s.x + 6.5, s.y + 4.5, 4, 4); }   // 명품 전 S 잠김
   }
