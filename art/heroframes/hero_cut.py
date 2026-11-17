@@ -1,6 +1,7 @@
 # 한 영상에 나란히 있는 계보 3단계 → 단계·동작별 프레임 시트 (assets/hero_<계보>.png) + 좌표 JSON
 # python3 art/heroframes/hero_cut.py <계보> src=<영상>[,zone=left] <동작:시작초:끝초[:fps][:pin]> ... (src= 여러 번 가능, 한 시트로 합침)
 #   병사: soldier src=art/heroframes/soldier_idle_run_source.mp4 idle:1.1:4:10:pin run:4.6:9.6:10:pin src=art/heroframes/soldier_attack_source.mp4,zone=left,only=2 attack:0.4:3.6:12 charge:5.4:8.8:12 src=art/heroframes/soldier_s12_attack_source.mp4,zone=half,n=2,st=0,white=0 attack:0.2:4.4:12 charge:4.6:9.4:12
+#   처형인: executioner h1=43 src=art/heroframes/executioner_idle_run_source.mp4 idle:0.2:2.6:10:pin run:2.9:5.15:10:pin
 #   서리 늑대: frostwolf src=art/heroframes/frostwolf_idle_run_source.mp4 idle:1.0:5.3:10:pin run:6.0:8.5:10:pin src=art/heroframes/frostwolf_s12_attack_source.mp4,zone=own,n=2,st=0 attack:0:10:12 src=art/heroframes/frostwolf_s3_attack_source.mp4,zone=own,n=1,st=2 attack:0:10:12
 #   지금: 둘째 src = art/heroframes/soldier_s3_attack_source.mp4,zone=half,n=1,st=2 attack:0.2:4.4:12 charge:5.2:9.0:12
 # 첫 프레임에서 세 캐릭터 자리(가로 구간)와 바닥선을 잡고, 모든 프레임을 같은 자리·같은 배율로 자른다 (둥실거림이 그대로 남게)
@@ -10,7 +11,7 @@ from PIL import Image
 from scipy import ndimage
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "adv")); from keying import key
 LINE, ARGS = sys.argv[1], sys.argv[2:]
-H1 = 36                                                         # 1단계 키(불꽃 포함) px. 2·3단계는 같은 배율이라 더 크다
+H1 = next((int(a[3:]) for a in ARGS if a.startswith("h1=")), 36); ARGS = [a for a in ARGS if not a.startswith("h1=")]   # h1=43: 이 계보만 더 크게 (처형인은 불꽃·단두대가 커서 몸이 작아 보였다)                                                         # 1단계 키(불꽃 포함) px. 2·3단계는 같은 배율이라 더 크다
 TMP = "/tmp/hero_frames"; os.makedirs(TMP, exist_ok=True)
 def frames(src, t0, t1, fps):
     for f in glob.glob(TMP + "/*.png"): os.remove(f)
