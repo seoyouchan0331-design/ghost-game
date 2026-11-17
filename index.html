@@ -254,7 +254,7 @@ const HELMETS = [
       { name: "다중 사격", cd: 10, icon() { for (const y of [-4, 0, 4]) { R(-6, y, 10, 1, C.cream); R(4, y - 1, 2, 3, C.steel); } },
         use(p) { const full = focusUse(p); startAct(p, { dur: 0.3, pose: "shoot", reach: 6, move: 0.5, events: [{ t: 0.08, fn() {
           if (!full) for (const a of [-0.12, -0.06, 0, 0.06, 0.12]) shot(p, { dmg: 10, vx: 520 * Math.cos(a), vy: 520 * Math.sin(a), look: "arrow", fx: hArrowFx(), farCrit: true });
-          else for (let i = 0; i < 7; i++) { const a = -0.9 + i * 0.1; shot(p, { dmg: 14, vx: 420 * Math.cos(a), vy: 420 * Math.sin(a), look: "arrow", fx: hArrowFx(), farCrit: true, home: 0.35 + i * 0.04 }); }   // 집중: 위로 흩뿌린 화살이 꺾여 적을 쫓는다
+          else for (let i = 0; i < 7; i++) { const a = -0.9 + i * 0.1; shot(p, { dmg: 14, vx: 420 * Math.cos(a), vy: 420 * Math.sin(a), look: "arrow", fx: hArrowFx(), farCrit: true, home: 0.35 + i * 0.04, phase: true, life: 3 }); }   // 집중: 위로 흩뿌린 화살이 꺾여 적을 쫓는다
           spawn({ kind: "gfx", key: full ? "hrel" : "hring", x: p.x + p.dir * 14, y: p.y - 13, dir: p.dir, t: 0, rate: 1.4, add: true }); } }] }); } },
       { name: "관통 사격", cd: 14, icon() { R(-8, 0, 14, 2, C.green3); R(5, -2, 4, 6, C.cream); R(-8, -3, 3, 1, C.white); R(-8, 4, 3, 1, C.white); },
         use(p) { const full = focusUse(p); startAct(p, { dur: 0.3, pose: "shoot", reach: 6, power: true, events: [{ t: 0.06, fn() {
@@ -403,7 +403,7 @@ const giantImg = new Image(); giantImg.src = "assets/giant.png";
 // 골렘 이펙트 시트 (pixelfx로 만든 것: fire/golem-meteor, nature/lava-crater, nature/lava-spire → art/golemfx/golemfx_pack.py). px, py = 착지점
 const GFX = {"meteor": {"w": 238, "h": 300, "cols": 8, "n": 64, "fps": 15, "px": 130, "py": 270}, "crater": {"w": 232, "h": 132, "cols": 8, "n": 47, "fps": 15, "px": 116, "py": 104}, "spire": {"w": 176, "h": 114, "cols": 11, "n": 40, "fps": 15, "px": 88, "py": 98}};
 GFX.lance = {"w": 248, "h": 56, "n": 17, "fps": 30, "px": 8, "py": 28, "L": 224};   // pixelfx melee/spectral-comet (전엔 spectral-lance): 세로로 쌓은 프레임, 창 길이 L 을 돌진 거리만큼 늘려 그린다
-Object.assign(GFX, {"harrow":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hpow":{"w":139,"h":34,"cols":14,"n":12,"fps":30,"px":128,"py":17},"hrel":{"w":71,"h":63,"cols":28,"n":11,"fps":30,"px":15,"py":32},"hring":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"hringw":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"harroww":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hchg":{"w":38,"h":40,"cols":53,"n":18,"fps":30,"px":19,"py":20},"hchg3":{"w":44,"h":43,"cols":46,"n":18,"fps":30,"px":19,"py":21},"hlbolt":{"w":102,"h":13,"cols":20,"n":9,"fps":30,"px":96,"py":6},"hlbeam":{"w":300,"h":50,"cols":6,"n":15,"fps":30,"px":12,"py":25},"himp":{"w":44,"h":24,"cols":46,"n":11,"fps":30,"px":22,"py":18}});   // 사냥꾼: 영상 이펙트를 pixelfx로 (화살·흰 화살·빔 화살·쏘는 고리·모으기) (pixelfx projectiles/emerald-*, art/hunterfx/hunterfx_pack.py)
+Object.assign(GFX, {"harrow":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hpow":{"w":139,"h":34,"cols":14,"n":12,"fps":30,"px":128,"py":17},"hrel":{"w":71,"h":63,"cols":28,"n":11,"fps":30,"px":15,"py":32},"hring":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"hringw":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"harroww":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hchg":{"w":38,"h":40,"cols":53,"n":18,"fps":30,"px":19,"py":20},"hchg3":{"w":44,"h":43,"cols":46,"n":18,"fps":30,"px":19,"py":21},"hlbolt":{"w":102,"h":13,"cols":20,"n":9,"fps":30,"px":96,"py":6},"hlbeam":{"w":300,"h":50,"cols":6,"n":15,"fps":30,"px":12,"py":25},"himp":{"w":44,"h":24,"cols":46,"n":11,"fps":30,"px":22,"py":18},"hrain":{"w":74,"h":15,"cols":27,"n":9,"fps":30,"px":70,"py":7},"hrainw":{"w":74,"h":15,"cols":27,"n":9,"fps":30,"px":70,"py":7}});   // 사냥꾼: 영상 이펙트를 pixelfx로 (화살·흰 화살·빔 화살·쏘는 고리·모으기) (pixelfx projectiles/emerald-*, art/hunterfx/hunterfx_pack.py)
 const gfxImg = {}; for (const k in GFX) { gfxImg[k] = new Image(); gfxImg[k].src = `assets/gfx_${k}.png`; }
 const GFX_METEOR_HIT = 0.8, GFX_SPIRE_UP = 0.2;            // 시트 안에서 운석이 닿는 때, 돌기둥이 솟는 때
 function gfx(key, x, rate = 1) { if (!ready(gfxImg[key])) return false; spawn({ kind: "gfx", key, x, t: 0, rate }); return true; }
@@ -1779,7 +1779,7 @@ function skillsOf(h) {                                   // 무작위 스킬: �
   return p.skPick[h.id].map((i) => h.pool[i]);
 }
 function shot(p, o) {
-  spawn({ kind: "shot", x: p.x + p.dir * 12, y: p.y - 13, x0: p.x, vx: p.dir * o.vx, vy: o.vy ?? 0, dmg: o.dmg, look: o.look, fx: o.fx, farCrit: o.farCrit, home: o.home, sc: o.sc, big: o.big, onWall: o.onWall, life: o.life ?? 1.4, pierce: o.pierce, burn: o.burn, chill: o.chill ?? 0, far: o.far ?? 0, ramp: o.ramp ?? p.helm.ramp, hit: new Set() });
+  spawn({ kind: "shot", x: p.x + p.dir * 12, y: p.y - 13, x0: p.x, vx: p.dir * o.vx, vy: o.vy ?? 0, dmg: o.dmg, look: o.look, fx: o.fx, farCrit: o.farCrit, home: o.home, phase: o.phase, sc: o.sc, big: o.big, onWall: o.onWall, life: o.life ?? 1.4, pierce: o.pierce, burn: o.burn, chill: o.chill ?? 0, far: o.far ?? 0, ramp: o.ramp ?? p.helm.ramp, hit: new Set() });
 }
 // 원형 폭발
 function blast(x, y, r, dmg, ramp) {
@@ -2531,7 +2531,7 @@ function updateObjs(dt) {
     } else if (o.kind === "shot") {
       o.life -= dt; o.x += o.vx * dt; o.y += o.vy * dt;
       if (o.home && (o.hAge = (o.hAge ?? 0) + dt) > 0.12) { let tg = null, bd = 1e9; for (const e of enemies) if (live(e)) { const d = Math.hypot(e.x - o.x, e.y - 14 - o.y); if (d < bd) { bd = d; tg = e; } }   // 다중 사격 집중: 꺾여서 적을 쫓는다
-        if (tg) { const sp = Math.hypot(o.vx, o.vy), ang = Math.atan2(o.vy, o.vx), want = Math.atan2(tg.y - 14 - o.y, tg.x - o.x); let d = want - ang; d = Math.atan2(Math.sin(d), Math.cos(d)); const na = ang + clamp(d, -o.home * 12 * dt, o.home * 12 * dt); o.vx = Math.cos(na) * sp; o.vy = Math.sin(na) * sp; } }
+        if (tg) { const sp = Math.hypot(o.vx, o.vy), ang = Math.atan2(o.vy, o.vx), want = Math.atan2(tg.y - 14 - o.y, tg.x - o.x); let d = want - ang; d = Math.atan2(Math.sin(d), Math.cos(d)); const turn = (8 + o.home * 10) * dt, ns = Math.min(620, sp + 300 * dt), na = ang + clamp(d, -turn, turn); o.vx = Math.cos(na) * ns; o.vy = Math.sin(na) * ns; } }
       if (o.look === "fire" && Math.random() < dt * 60) spark(o.x, o.y + rnd(-2, 2), -o.vx * 0.1, rnd(-40, 10), 0.25, RAMP_FIRE, true);
       if (o.look === "bolt" && Math.random() < dt * 30) spark(o.x, o.y + rnd(-2, 2), -o.vx * 0.1, rnd(-20, 20), 0.2, o.ramp, true);
       if (!o.ghost) for (const e of enemies) if (live(e) && !o.hit.has(e) && Math.abs(e.x - o.x) < (e.type.hw ?? 10) + (o.big ? 8 : 0) && o.y > e.y - (e.type.hh ?? (e.type.low ? 18 : 30)) - (o.big ? 8 : 0) && o.y < e.y + 2 + (o.big ? 8 : 0)) {
@@ -2540,7 +2540,7 @@ function updateObjs(dt) {
         if (o.chill && live(e) && !e.type.boss && !e.type.giant && Math.random() < o.chill) { e.frozen = 2; fxRing(e.x, e.y - 12, 12, ["#0c1430", "#58b4ec", "#9bdcff", "#e8f6ff", "#ffffff"]); }   // 서리 마법사: 빙결
         if (!o.pierce) { o.gone = true; if (o.splash) rainSplash(o); break; }
       }
-      if (o.y >= groundAt(o.x, o.y - 8) || isSolid(o.x, o.y)) { o.gone = true; if (o.splash) rainSplash(o); else dust(o.x, o.y, 0, 2); if (o.onWall) o.onWall(o); }
+      if (!o.phase && (o.y >= groundAt(o.x, o.y - 8) || isSolid(o.x, o.y))) { o.gone = true; if (o.splash) rainSplash(o); else dust(o.x, o.y, 0, 2); if (o.onWall) o.onWall(o); }
       else if (o.x < ROOM_L - 4 || o.x > ROOM_R + 12) { o.gone = true; if (o.onWall) o.onWall(o); }
       if (o.life <= 0) o.gone = true;
     } else if (o.kind === "trap") {
@@ -2555,7 +2555,7 @@ function updateObjs(dt) {
       o.t += dt; const N = o.slots.length;
       while (o.n < N && o.t >= o.n * (o.gap ?? 0.07)) { const tx = o.x0 + (o.x1 - o.x0) * o.slots[o.n]; o.n++;
         let sy = o.gy - 150; while (sy < o.gy - 30 && (isSolid(tx - o.dir * 20, sy) || isSolid(tx, sy + 30))) sy += 8;   // 천장 속에서 생기지 않게
-        spawn({ kind: "shot", x: tx - o.dir * 20, y: sy, x0: tx, vx: o.dir * 120, vy: 1100, dmg: o.dmg ?? 12, splash: o.dmg ?? 12, sc: 1.3, look: "arrow", fx: hArrowFx(), far: 0, ramp: RAMP_LEAF, hit: new Set(), life: 1, above: true, ranged: true }); }
+        spawn({ kind: "shot", x: tx - o.dir * 20, y: sy, x0: tx, vx: o.dir * 120, vy: 1100, dmg: o.dmg ?? 12, splash: o.dmg ?? 12, look: "arrow", fx: Math.max(0, hgOf("hunter")) ? "hrain" : "hrainw", far: 0, ramp: RAMP_LEAF, hit: new Set(), life: 1, above: true, ranged: true }); }
       if (o.n >= N && o.t > o.n * (o.gap ?? 0.07) + 0.3) o.gone = true;
     } else if (o.kind === "torch") {
       o.age += dt; o.vy += 520 * dt; o.x += o.vx * dt; o.y += o.vy * dt;
