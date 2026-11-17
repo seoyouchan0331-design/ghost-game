@@ -2238,7 +2238,7 @@ function updatePlayer(dt) {
   // 대시 (행동을 끊고 나간다)
   if (take("KeyZ") && p.dashes > 0 && !p.dashing) {
     const lance = p.helm.id === "soldier" && p.lanceT > 0;
-    if (!lance) p.dashes--; p.dashHit = new Set(); p.dashing = BASE.dashTime;   // 유령 창기세 중엔 대시 횟수가 줄지 않아 계속 쓸 수 있다 p.invuln = Math.max(p.invuln, BASE.dashInvuln + stat("dashInv")); p.act = null; p.vy = 0;
+    if (!lance) p.dashes--; p.dashHit = new Set(); p.dashing = BASE.dashTime; p.invuln = Math.max(p.invuln, BASE.dashInvuln + stat("dashInv")); p.act = null; p.vy = 0;   // 유령 창기세 중엔 대시 횟수가 줄지 않아 계속 쓸 수 있다
     if (ax) p.dir = ax; p.ghostT = 0; dust(p.x, p.y, -p.dir, 5);
     if (p.helm.id === "soldier") {                                   // 병사 계보: 대시 = 창 찌르기 돌진. 푸른 찌르기 이펙트, 근위 창대장은 유령 불길, 창기세 중엔 더 멀고 크게
       const st = hgOf("soldier"), buff = p.lanceT > 0;
@@ -2334,7 +2334,7 @@ function interact(p) {
     banner = { s: "물건을 새로 들였다", t: 1.2 }; return; }
   const gv = objs.find((o) => o.kind === "grave" && Math.abs(o.x - p.x) < 18);
   if (gv) { gv.gone = true; dropBits(gv.x, FLOOR - 12, gv.val, 8, true); shake(3, 0.15); dust(gv.x, FLOOR, 1, 6); dust(gv.x, FLOOR, -1, 6); fxRing(gv.x, FLOOR - 8, 18, SCRAPC); banner = { s: "투구 무덤을 부쉈다 — 쇳조각", t: 1.6 }; return; }
-  const ex = objs.find((o) => o.kind === "exitgate" && Math.abs(o.x - p.x) < 22);
+  const ex = objs.find((o) => o.kind === "exitgate" && Math.abs(o.x - p.x) < 22 && Math.abs(p.y - FLOOR) < 24);
   if (ex) { if (chapter === 1) { nextChapter(); return; } state = "clear"; return; }
   const evo = objs.find((o) => o.kind === "event" && !o.used && Math.abs(o.x - p.x) < 20);
   if (evo) { if (EVENTS[evo.ev].use(evo, p)) evo.used = true; return; }
@@ -2372,7 +2372,7 @@ function interact(p) {
     else { p.items.push(sh.item); if (sh.item.mod.hp) p.hp = clamp(p.hp + sh.item.mod.hp, 1, maxHp()); banner = { s: `${sh.item.name} — ${sh.item.desc}`, t: 3 }; }
     return;
   }
-  const door = objs.find((o) => o.kind === "door" && Math.abs(o.x - p.x) < 18);
+  const door = objs.find((o) => o.kind === "door" && Math.abs(o.x - p.x) < 18 && Math.abs(p.y - FLOOR) < 24);   // 문은 바닥에 있다: 위층 발판에서는 안 들어가진다
   if (door) { for (const o of objs) if (o.kind === "pickup") p.scrap += SCRAP_OF[o.grade ?? 0];
     for (const o of objs) if ((o.kind === "reveal" && o.taken == null) || (o.pick && !o.gone)) p.gold += itemScrapGold(o.item);   // 두고 간 아이템은 자동 분해
     for (const o of objs) if (o.kind === "coin" || o.kind === "loot") { if (o.scrap || o.look === "scrap") p.scrap += o.val; else p.gold += o.val; }   // 두고 가는 투구는 자동 분해
@@ -3040,7 +3040,7 @@ function drawHudText() {                          // 글자는 화면 해상도�
     if (o.kind === "chest" && o.open < 0) { txt(o.red ? "정예 상자" : "상자", o.x - camX, FLOOR - camY - 26, 11, o.red ? "#ff7a6a" : "#ffd24a", "center"); if (Math.abs(o.x - p.x) < 18) tip("↑ 열기", o.x - camX, FLOOR - camY - 38, "#ffe27a"); }
     if (o.kind === "pickup") { txt(`${HGRADE[o.grade ?? 0].name} ${LINES[o.id] ? LINES[o.id].names[clamp(o.grade ?? 0, 0, LINES[o.id].names.length - 1)] : helmById(o.id).name}`, o.x - camX, FLOOR - camY - 46, 11, HGRADE[o.grade ?? 0].c, "center"); if (Math.abs(o.x - p.x) < 16 && o !== pv) tip(`↑ 바꾸기 · ↓ 분해(쇳조각 ${SCRAP_OF[o.grade ?? 0]})`, o.x - camX, FLOOR - camY - 58, "#ffe27a"); }
     if (o.kind === "smith") { txt("대장장이", o.x - camX, FLOOR - camY - 30, 11, "#ffae35", "center"); if (Math.abs(o.x - p.x) < 18) { const g0 = hgOf(p.helm.id); tip(g0 < 0 ? "빈 투구는 진화 불가" : g0 >= lineMax(p.helm.id) ? `${hName(p.helm)}: 마지막 단계` : LINES[p.helm.id] ? `↑ 진화 → ${LINES[p.helm.id].names[g0 + 1]} (쇳조각 ${AWAKE_COST[g0]})` : `↑ ${hName(p.helm)} 각성 → ${HGRADE[g0 + 1].name} (쇳조각 ${AWAKE_COST[g0]})`, o.x - camX, FLOOR - camY - 44, "#ffe27a"); } }
-    if (o.kind === "door") txt((Math.abs(o.x - p.x) < 18 ? "↑ " : "") + REWARDS[o.reward].name, o.x - camX, FLOOR - camY - 61, 11, REWARDS[o.reward].c, "center");
+    if (o.kind === "door") txt((Math.abs(o.x - p.x) < 18 && Math.abs(p.y - FLOOR) < 24 ? "↑ " : "") + REWARDS[o.reward].name, o.x - camX, FLOOR - camY - 61, 11, REWARDS[o.reward].c, "center");
     if (o.kind === "shop" && !talk) { const nm = o.soul ? SOULS[o.soul].name : o.food === "soup" ? "버섯 수프" : o.food === "meat" ? "구운 고기" : o.potion ? "회복 물약" : o.item.name, ds = o.soul ? `${SOULS[o.soul].desc} / ${SOULS[o.soul].passive}` : o.food === "soup" || o.potion ? "체력 40 회복" : o.food === "meat" ? "이번 판 최대 체력 +10" : o.item.desc;
       const fl = ready(npcImg) && !o.pick, near = Math.abs(o.x - p.x) < 16, nc = o.item ? GRADES[o.item.grade].c : o.soul ? SOULS[o.soul].col : "#fff", pc = p.gold >= o.price ? "#ffd24a" : "#ff6a5a";
       if (fl) { txt(`${o.price}`, o.x - camX + 3, FLOOR - camY - 30, 10, pc, "center"); if (near && o !== pv) { txt(nm, o.x - camX, FLOOR - camY - 64, 11, nc, "center"); tip("↑ " + ds, o.x - camX, FLOOR - camY - 76, "#ffe27a"); } }   // 암시장: 가격 팻말 + 가까이 가면 이름·설명
