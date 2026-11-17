@@ -10,9 +10,10 @@ for f in ImageSequence.Iterator(src):
     r, g, b = t[..., 0], t[..., 1], t[..., 2]; mx = t.max(2); mn = t.min(2); d = mx - mn + 1e-6
     h = np.where(mx == r, ((g - b) / d) % 6, np.where(mx == g, (b - r) / d + 2, (r - g) / d + 4)) / 6
     s = np.where(mx > 0, d / (mx + 1e-6), 0); v = mx
-    h = (200 + (h * 360 - 255) * 0.35) / 360 % 1                                     # 보라~파랑 → 하늘~파랑
+    h = np.clip(212 + (h * 360 - 255) * 0.25, 204, 226) / 360   # 파랑 안에서만                                     # 보라~파랑 → 하늘~파랑
     s = np.clip(s * 1.1, 0, 1); v = np.where(v > 0.55, v ** 0.45, v); s = np.where(v > 0.55, np.maximum(s, 0.12), s)   # 밝은 곳은 더 밝고 살짝 푸르게
-    s = np.where(v < 0.55, np.maximum(s, 0.45), s)                                    # 어두운 조각은 짙은 남색으로
+    s = np.where(v < 0.55, np.maximum(s, 0.45), s)
+    s = np.clip(np.maximum(s * 1.8, 0.6), 0, 1); v = np.minimum(v, 0.9) * np.where(v > 0.55, 1, 0.8); a = np.clip(a * 1.6, 0, 1)   # 더 진한 파랑, 덜 하얗게, 더 불투명                                    # 어두운 조각은 짙은 남색으로
     hi = (h * 6).astype(int) % 6; fr = h * 6 - np.floor(h * 6)
     p_, q_, t_ = v * (1 - s), v * (1 - fr * s), v * (1 - (1 - fr) * s)
     rgb = np.select([hi[..., None] == i for i in range(6)], [np.dstack(x) for x in [(v, t_, p_), (q_, v, p_), (p_, v, t_), (p_, q_, v), (t_, p_, v), (v, p_, q_)]])
