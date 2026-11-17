@@ -1,6 +1,7 @@
 # 한 영상에 나란히 있는 계보 3단계 → 단계·동작별 프레임 시트 (assets/hero_<계보>.png) + 좌표 JSON
 # python3 art/heroframes/hero_cut.py <계보> src=<영상>[,zone=left] <동작:시작초:끝초[:fps][:pin]> ... (src= 여러 번 가능, 한 시트로 합침)
 #   병사: soldier src=art/heroframes/soldier_idle_run_source.mp4 idle:1.1:4:10:pin run:4.6:9.6:10:pin src=art/heroframes/soldier_attack_source.mp4,zone=left,only=2 attack:0.4:3.6:12 charge:5.4:8.8:12 src=art/heroframes/soldier_s12_attack_source.mp4,zone=half,n=2,st=0,white=0 attack:0.2:4.4:12 charge:4.6:9.4:12
+#   서리 늑대: frostwolf src=art/heroframes/frostwolf_idle_run_source.mp4 idle:1.0:5.3:10:pin run:6.0:8.5:10:pin src=art/heroframes/frostwolf_s12_attack_source.mp4,zone=own,n=2,st=0 attack:0:10:12 src=art/heroframes/frostwolf_s3_attack_source.mp4,zone=own,n=1,st=2 attack:0:10:12
 #   지금: 둘째 src = art/heroframes/soldier_s3_attack_source.mp4,zone=half,n=1,st=2 attack:0.2:4.4:12 charge:5.2:9.0:12
 # 첫 프레임에서 세 캐릭터 자리(가로 구간)와 바닥선을 잡고, 모든 프레임을 같은 자리·같은 배율로 자른다 (둥실거림이 그대로 남게)
 import sys, os, json, glob, subprocess
@@ -33,7 +34,10 @@ def setup(src, zone, n=3):
     for x0, x1 in merged:
         ys = np.nonzero(m0[:, x0:x1].any(axis=1))[0]; chars.append({"cx": (x0 + x1) / 2, "gy": ys.max() + 1, "h": ys.max() + 1 - ys.min()})
     Wd = first.shape[1]
-    if zone == "half":                                          # 화면을 캐릭터 수만큼 똑같이 나눈 영상
+    if zone == "own":                                           # 넓게 잘라 두고, 덩어리마다 가장 가까운 캐릭터 것으로 (이펙트가 가운데 선을 넘는 영상)
+        bounds = [(max(0, int(c["cx"] - 360)), min(Wd, int(c["cx"] + 460))) for c in chars]
+        for c in chars: c["own"] = [d["cx"] for d in chars]
+    elif zone == "half":                                          # 화면을 캐릭터 수만큼 똑같이 나눈 영상
         bounds = [(Wd * i // n, Wd * (i + 1) // n) for i in range(n)]
     elif zone == "left":                                          # 공격 영상: 캐릭터 왼쪽 넉넉히부터 다음 캐릭터 직전까지. 덩어리 주인은 아래에서 가린다
         L = [r[0] for r in merged]; bounds = [(max(0, L[0] - 220), L[1] - 10), (L[1] - 220, L[2] - 10), (L[2] - 220, Wd)]
@@ -71,6 +75,9 @@ for tok in ARGS:
             for i in range(n):
                 if sz[i] <= 30: continue
                 x0c, x1c = objs[i][1].start, objs[i][1].stop
+                if "own" in c:                                      # 덩어리 가운데가 다른 캐릭터에 더 가까우면 그 캐릭터 것
+                    mx = bx0 + (x0c + x1c) / 2
+                    if min(c["own"], key=lambda q: abs(q - mx)) != c["cx"]: continue
                 if "left" in c:                                     # 공격 영상: 이 캐릭터 몸 왼쪽 끝보다 오른쪽으로 뻗은 덩어리만, 오른쪽 경계에 닿은 건(옆 캐릭터 것) 버림
                     if bx0 + x1c <= c["left"] + 5: continue
                     if st < 2 and x1c >= sub.shape[1] - 1: continue
