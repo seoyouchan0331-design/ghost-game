@@ -1552,8 +1552,10 @@ function buildTerrain() {
 
 // ---------- 입력 ----------
 const keys = {}, pressed = {};
+const ALIAS = { ShiftLeft: "KeyZ", ShiftRight: "KeyZ" };   // Shift도 대시 (키보드에 따라 ←+↑+Z를 같이 못 누르는 경우가 있다)
 addEventListener("keydown", (e) => {
   if (["Space", "Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.code)) e.preventDefault();
+  if (ALIAS[e.code] && !e.repeat) pressed[ALIAS[e.code]] = 0.12;
   if (!e.repeat) pressed[e.code] = 0.12;        // 눌림을 잠깐 기억해 둔다 (선입력)
   if (e.code === "KeyM" && !e.repeat) { muted = !muted; if (muted) for (const k in SFX) SFX[k].pause(); banner = { s: muted ? "소리 끔 (M)" : "소리 켬 (M)", t: 1 }; }
   keys[e.code] = true;
@@ -3070,7 +3072,7 @@ function drawHudText() {                          // 글자는 화면 해상도�
   ["A", "S"].forEach((kname, i) => { const s = HUD.skill[i]; txt(kname, s.x - 4, s.y, 11, "#ffe27a"); if (cds[i] > 0) txt(cds[i].toFixed(1), s.x + 8, s.y + 12, 13, "#fff", "center"); });
   txt(p.swapCd > 0 ? p.swapCd.toFixed(1) : p.slots[1 - p.active] ? "Space" : "", HUD.sub.x + 7, HUD.sub.y + 23, 10, p.swapCd > 0 ? "#fff" : "#ffe27a", "center");
   txt("Z", HUD.dash.x + 36, HUD.dash.y + 10, 10, "#ffe27a");
-  txt("←→ 이동   C 점프(2단)   Z 대시   X 공격   A·S 스킬   Space 투구 교체   ↑ 줍기·문·구매   ↓+C 발판 내려가기   ↓ 투구 분해   D 영혼   Tab 캐릭터 창   R 성채로", W / 2, H - 5, 11, "#d0c8dc", "center");
+  txt("←→ 이동   C 점프(2단)   Z·Shift 대시   X 공격   A·S 스킬   Space 투구 교체   ↑ 줍기·문·구매   ↓+C 발판 내려가기   ↓ 투구 분해   D 영혼   Tab 캐릭터 창   R 성채로", W / 2, H - 5, 11, "#d0c8dc", "center");
   for (const t of texts) txt(t.s, t.x - camX, t.y - camY, t.big ? 18 : 13, t.c, "center");
 
   for (const o of objs) {
