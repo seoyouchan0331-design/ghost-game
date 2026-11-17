@@ -58,11 +58,6 @@ const buf = mk(W, H), g = buf.getContext("2d");          // 색 레이어 (저�
 const lightC = mk(W, H), lg = lightC.getContext("2d");   // 빛 레이어 (가산 합성)
 const SP = 128, SX = 64, SY = 100;                       // 캐릭터 한 명을 그리는 임시 판과 발 위치
 const spr = mk(SP, SP), sg = spr.getContext("2d", { willReadFrequently: true });
-// 보이드 스프라이트 시트: body = 머리 없는 몸(투구를 얹는다), full = 유령불 머리. 한 칸 48px.
-const voidImg = { body: new Image(), full: new Image() }; voidImg.body.src = "../assets/void_body.png"; voidImg.full.src = "../assets/void_full.png";
-const VOID = { S: 48, feet: [22, 39], rows: { idle: 0, run: 1, punch: 2, jump: 3, dash: 4, slam: 5 } };
-// 프레임마다 [목깃 x, y, 앞주먹 x, y] (발 기준). art/void/void_blender.py가 뽑아 준 값.
-const VOID_ANCHORS = {"idle":[[0,-22,-5,-8],[0,-23,-5,-9],[0,-22,-5,-8],[0,-22,-4,-8]],"run":[[4,-21,-3,-8],[4,-22,3,-9],[4,-22,3,-9],[4,-21,-3,-8],[4,-22,-8,-13],[4,-22,-8,-13]],"punch":[[-3,-22,-10,-10],[8,-20,12,-9],[7,-20,10,-10],[2,-22,0,-9]],"jump":[[1,-22,0,-9],[1,-22,3,-18]],"dash":[[7,-19,-7,-13]],"slam":[[-1,-23,-3,-24],[5,-19,2,-6]]};
 // 보이드 새 디자인 (Higgsfield 시안 → art/void2/void2_cut.py): 자세 5개 몸통 + 따로 떠다니는 장화·투구·장갑
 const VOID2 = {"body_idle":{"r":[0,0,29,32],"eye":[20,11]},"helmet":{"r":[31,0,10,10]},"boot_b":{"r":[43,0,7,12]},"boot_f":{"r":[52,0,8,11]},"body_run":{"r":[62,0,35,27],"eye":[30,11]},"glove_run":{"r":[99,0,9,9]},"body_jump":{"r":[110,0,28,33],"eye":[18,11]},"body_punch":{"r":[140,0,25,30],"eye":[19,11]},"glove_punch":{"r":[167,0,18,8]},"body_dash":{"r":[187,0,39,22],"eye":[34,8]},"body_land":{"r":[228,0,31,24],"eye":[24,8],"noBoots":1},"body_hit":{"r":[261,0,35,27],"eye":[22,8]},"body_upper":{"r":[298,0,26,31],"eye":[16,10]},"body_crouch":{"r":[326,0,26,28],"eye":[20,9],"noBoots":1}};
 const void2Img = new Image(); void2Img.src = "../assets/void2.png";
@@ -304,7 +299,7 @@ const HELMETS = [
         use(p) { const big = enemies.some((e) => live(e) && e.frozen > 0 && Math.abs(e.x - p.x) < 120 && Math.abs(e.y - p.y) < 60);   // 근처에 언 적이 있으면 영상 속 발톱 이펙트까지 두 배로
           startAct(p, { dur: 0.5, pose: "slam", wm: "claw", fxScale: big ? 1.9 : 1, events: [{ t: 0.28, fn() {   // 거대한 얼음 발톱 3줄기, 줄마다 12 + 냉기 1
           const L = big ? 100 : 56;
-          for (let k = 0; k < 3; k++) { melee(p, { x0: 0, x1: L, y0: big ? -64 : -42, y1: 4, dmg: 12, kb: 80, wolf: true, frost: 1 }); fxSwoosh(p.x + p.dir * (L * 0.45 + k * 6), p.y - 18 - k * 6 + (big ? -10 : 0), p.dir, big ? 46 : 28, ICE, false); }
+          for (let k = 0; k < 3; k++) { melee(p, { x0: 0, x1: L, y0: big ? -64 : -42, y1: 4, dmg: 12, kb: 80, wolf: true, frost: 1 }); }   // 이펙트는 영상 속 발톱 (커질 땐 크게)
           shake(big ? 4 : 2, 0.15); if (big) { light(p.x + p.dir * 50, p.y - 20, 70, "#9bdcff", 0.8, 0.2); texts.push({ x: p.x, y: p.y - 50, vy: -30, t: 0.7, s: "거대 발톱!", c: "#9bdcff" }); } } }] }); } },
       { name: "눈보라 포효", cd: 16, icon() { E(0, 0, 6, 6, "#9bdcff"); E(0, 0, 4, 4, "#24202f"); E(0, 0, 2, 2, "#e8f6ff"); },
         use(p) { startAct(p, { dur: 0.7, pose: "cast", wm: "howl", vx: 0, events: [{ t: 0.25, fn() {   // 둘레 즉시 빙결. 이미 언 적은 그 자리에서 깨진다
@@ -482,7 +477,7 @@ const giantImg = new Image(); giantImg.src = "../assets/giant.png";
 // 골렘 이펙트 시트 (pixelfx로 만든 것: fire/golem-meteor, nature/lava-crater, nature/lava-spire → art/golemfx/golemfx_pack.py). px, py = 착지점
 const GFX = {"meteor": {"w": 238, "h": 300, "cols": 8, "n": 64, "fps": 15, "px": 130, "py": 270}, "crater": {"w": 232, "h": 132, "cols": 8, "n": 47, "fps": 15, "px": 116, "py": 104}, "spire": {"w": 176, "h": 114, "cols": 11, "n": 40, "fps": 15, "px": 88, "py": 98}};
 GFX.lance = {"w": 248, "h": 56, "n": 17, "fps": 30, "px": 8, "py": 28, "L": 224};   // pixelfx melee/spectral-comet (전엔 spectral-lance): 세로로 쌓은 프레임, 창 길이 L 을 돌진 거리만큼 늘려 그린다
-Object.assign(GFX, {"wring":{"w":128,"h":60,"cols":13,"n":13,"fps":14,"px":64,"py":47},"wstar":{"w":51,"h":48,"cols":6,"n":6,"fps":14,"px":25,"py":24},"wwind":{"w":80,"h":34,"cols":15,"n":15,"fps":14,"px":40,"py":17},"whit":{"w":54,"h":59,"cols":8,"n":8,"fps":16,"px":27,"py":29},"harrow":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hpow":{"w":139,"h":34,"cols":14,"n":12,"fps":30,"px":128,"py":17},"hrel":{"w":71,"h":63,"cols":28,"n":11,"fps":30,"px":15,"py":32},"hring":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"hringw":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"harroww":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hchg":{"w":38,"h":40,"cols":53,"n":18,"fps":30,"px":19,"py":20},"hchg3":{"w":44,"h":43,"cols":46,"n":18,"fps":30,"px":19,"py":21},"hlbolt":{"w":102,"h":13,"cols":20,"n":9,"fps":30,"px":96,"py":6},"hlbeam":{"w":300,"h":50,"cols":6,"n":15,"fps":30,"px":12,"py":25},"himp":{"w":44,"h":24,"cols":46,"n":11,"fps":30,"px":22,"py":18},"hrain":{"w":74,"h":15,"cols":27,"n":9,"fps":30,"px":70,"py":7},"hrainw":{"w":74,"h":15,"cols":27,"n":9,"fps":30,"px":70,"py":7},"wbite":{"w":136,"h":112,"cols":15,"n":15,"fps":30,"px":68,"py":54},"whowl":{"w":220,"h":125,"cols":9,"n":24,"fps":30,"px":110,"py":97},"wice":{"w":56,"h":58,"cols":9,"n":9,"fps":14,"px":28,"py":56},"wbreak":{"w":56,"h":58,"cols":11,"n":11,"fps":14,"px":28,"py":56},});   // 사냥꾼: 영상 이펙트를 pixelfx로 (화살·흰 화살·빔 화살·쏘는 고리·모으기) (pixelfx projectiles/emerald-*, art/hunterfx/hunterfx_pack.py)
+Object.assign(GFX, {"wring":{"w":128,"h":60,"cols":13,"n":13,"fps":14,"px":64,"py":47},"wstar":{"w":51,"h":48,"cols":6,"n":6,"fps":14,"px":25,"py":24},"wwind":{"w":80,"h":34,"cols":15,"n":15,"fps":14,"px":40,"py":17},"whit":{"w":54,"h":59,"cols":8,"n":8,"fps":16,"px":27,"py":29},"harrow":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hpow":{"w":139,"h":34,"cols":14,"n":12,"fps":30,"px":128,"py":17},"hrel":{"w":71,"h":63,"cols":28,"n":11,"fps":30,"px":15,"py":32},"hring":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"hringw":{"w":24,"h":24,"cols":85,"n":7,"fps":30,"px":6,"py":12},"harroww":{"w":57,"h":15,"cols":35,"n":12,"fps":30,"px":52,"py":8},"hchg":{"w":38,"h":40,"cols":53,"n":18,"fps":30,"px":19,"py":20},"hchg3":{"w":44,"h":43,"cols":46,"n":18,"fps":30,"px":19,"py":21},"hlbolt":{"w":102,"h":13,"cols":20,"n":9,"fps":30,"px":96,"py":6},"hlbeam":{"w":300,"h":50,"cols":6,"n":15,"fps":30,"px":12,"py":25},"himp":{"w":44,"h":24,"cols":46,"n":11,"fps":30,"px":22,"py":18},"hrain":{"w":74,"h":15,"cols":27,"n":9,"fps":30,"px":70,"py":7},"hrainw":{"w":74,"h":15,"cols":27,"n":9,"fps":30,"px":70,"py":7},"whowl":{"w":220,"h":125,"cols":9,"n":24,"fps":30,"px":110,"py":97},"wice":{"w":56,"h":58,"cols":9,"n":9,"fps":14,"px":28,"py":56},"wbreak":{"w":56,"h":58,"cols":11,"n":11,"fps":14,"px":28,"py":56},});   // 사냥꾼: 영상 이펙트를 pixelfx로 (화살·흰 화살·빔 화살·쏘는 고리·모으기) (pixelfx projectiles/emerald-*, art/hunterfx/hunterfx_pack.py)
 const gfxImg = {}; for (const k in GFX) { gfxImg[k] = new Image(); gfxImg[k].src = `../assets/gfx_${k}.png`; }
 const GFX_METEOR_HIT = 0.8, GFX_SPIRE_UP = 0.2;            // 시트 안에서 운석이 닿는 때, 돌기둥이 솟는 때
 function gfx(key, x, rate = 1) { if (!ready(gfxImg[key])) return false; spawn({ kind: "gfx", key, x, t: 0, rate }); return true; }
@@ -631,88 +626,6 @@ function drawGiantHands(e) {
     GPART(pose, h.x, h.y + (pose.includes("open") ? 8 : 0), HSC(pose)); if (e.phase === 2) glow(h.x, h.y - 36, 36, "#ff7a2a", 0.3);
     if (e.flash > 0) { g.save(); g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.4; GPART(pose, h.x, h.y + (pose.includes("open") ? 8 : 0), HSC(pose)); g.restore(); } });
 }
-function golemAI(e, p, dx, ad) {
-  const k = e.phase === 2 ? 1.25 : 1, T = (v) => v / k;
-  e.fist = e.st === "fistRest" ? e.fist : null;
-  if (e.st !== "charge" && Math.abs(p.x - e.x) < e.type.hw - 6 && p.y > e.y - 96) hurtPlayer(10, Math.sign(p.x - e.x) || 1);   // 몸에 닿으면 피해
-  if (e.phase === 1 && e.hp <= e.maxHp / 2) { e.phase = 2; setSt(e, "roar", 1.5); e.invuln = 1.5; shake(5, 0.8); banner = { s: "골렘이 불타오른다!", t: 2 }; e.summonT = 3; }
-  if (e.invuln > 0) e.invuln -= STEP;
-  if (e.phase === 2 && e.st !== "roar" && (e.summonT -= STEP) <= 0) { e.summonT = 15; for (let i = 0; i < 2; i++) { const q = L.spawns[i % L.spawns.length], t = newEnemy("torch", q.x, i); t.gy = t.y = q.y; [t.minX, t.maxX] = span(q.x, q.y); enemies.push(t); } }
-  const fx = () => e.x + e.dir * 58;
-  if (e.st === "walk") {
-    e.dir = Math.sign(dx) || e.dir;
-    if (ad > 140) { e.x = clamp(e.x + e.dir * e.speed * k * STEP, e.minX, e.maxX); e.walkT += STEP; }
-    if (e.t <= 0) {
-      const n = ad < 100 ? "slam" : pick(["slam", "throw", "stomp", ...(e.phase === 2 ? ["charge", "charge"] : [])]);
-      setSt(e, n + "Wind", T({ slam: 1, throw: 0.7, stomp: 0.8, charge: 0.8 }[n])); e.n = 0;
-    }
-  } else if (e.st === "slamWind") { if (e.t <= 0) {                       // 내려치기: 앞쪽 바닥 20, 끝나면 2초간 주먹이 발판
-      setSt(e, "fistRest", 2); const x = fx(); e.fist = { x0: x - 20, x1: x + 20, y: FLOOR - 18 };
-      if (Math.abs(p.x - x) < 30 && p.y > FLOOR - 34) hurtPlayer(20, e.dir);
-      shake(5, 0.3); dust(x, FLOOR, 1, 6); dust(x, FLOOR, -1, 6); fxRing(x, FLOOR, 36, RAMP_FIRE); light(x, FLOOR - 10, 60, "#ffae35", 0.5, 0.3);
-      if (e.phase === 2) for (const o of [-16, 16]) spawn({ kind: "fire", x: x + o, gy: FLOOR, life: 3 });
-    } }
-  else if (e.st === "fistRest") { if (e.t <= 0) setSt(e, "walk", T(1.2)); }
-  else if (e.st === "throwWind") { if (e.t <= 0) setSt(e, "throw", 0); }
-  else if (e.st === "throw") { if (e.t <= 0) {                             // 바위 3개, 0.5초 간격, 던질 때의 보이드 위치로
-      const sx = e.x - e.dir * 10, sy = e.y - 120; spawn({ kind: "rock", x: sx, y: sy, vx: clamp((p.x - sx) / 0.9, -320, 320), vy: -200, age: 0 });
-      e.n++; e.t = T(0.5); if (e.n >= 3) setSt(e, "walk", T(1.3)); } }
-  else if (e.st === "stompWind") { if (e.t <= 0) {                        // 충격파 2번: 점프로 피한다
-      for (const d of [-1, 1]) spawn({ kind: "wave", x: e.x + d * 30, dir: d, age: 0 }); shake(4, 0.25); dust(e.x, FLOOR, 1, 5); dust(e.x, FLOOR, -1, 5);
-      e.n++; if (e.n < 2) e.t = T(0.7); else setSt(e, "walk", T(1.3)); } }
-  else if (e.st === "chargeWind") { if (e.t <= 0) setSt(e, "charge", 4); }
-  else if (e.st === "charge") {                                           // 화염 돌진: 맵 끝까지, 벽에 박으면 3초 기절
-    e.x = clamp(e.x + e.dir * 300 * STEP, e.minX, e.maxX); e.walkT += STEP * 3;
-    if (Math.abs(p.x - e.x) < e.type.hw && p.y > e.y - 96) hurtPlayer(25, e.dir);
-    if (Math.random() < 0.5) spark(e.x - e.dir * 20, e.y - rnd(10, 90), -e.dir * rnd(40, 120), rnd(-60, 0), 0.4, RAMP_FIRE, true);
-    if (e.x <= e.minX || e.x >= e.maxX) { setSt(e, "stunned", 3); shake(7, 0.5); dust(e.x + e.dir * 30, FLOOR, -e.dir, 10); texts.push({ x: e.x, y: e.y - 120, vy: -20, t: 1.5, s: "기절!", c: "#ffe27a" }); }
-  }
-  else if (e.st === "stunned" || e.st === "roar") { if (e.t <= 0) setSt(e, "walk", T(1)); }
-}
-// 골렘 그림 (그림 boss1_parts가 오기 전 임시): 돌 덩어리를 쌓고 상태마다 주먹 위치를 바꾼다
-// 골렘 그림 조각 (boss1_parts → art/boss1/golem_cut.py). 지금 골렘 뼈대(다리·몸통·머리·어깨·팔·주먹 위치)에 조각을 끼워 그린다
-const GOLEM = {"head":[0,0,27,24],"towerB":[29,0,41,42],"towerF":[72,0,41,45],"torso":[115,0,68,43],"armB":[185,0,30,33],"armF":[217,0,28,33],"foreF":[247,0,32,56],"foreB":[281,0,34,51],"pelvis":[317,0,44,26],"legB":[363,0,50,51],"legF":[415,0,47,47],"core":[464,0,13,19]};
-const golImg = new Image(); golImg.src = "../assets/golem.png";
-const golC = mk(260, 200), golG = golC.getContext("2d"), GOX = 130, GOY = 190;
-function drawGolemArt(e, bob, fx, fy) {
-  const c = golG, P = (k, x, y, ang = 0, sy = 1, ax = 0.5, ay = 0.5) => { const q = GOLEM[k]; c.save(); c.translate(GOX + x, GOY + y); c.rotate(ang); c.scale(1, sy); c.drawImage(golImg, q[0], q[1], q[2], q[3], -Math.round(q[2] * ax), -Math.round(q[3] * ay), q[2], q[3]); c.restore(); };
-  const limb = (k, x0, y0, x1, y1) => { const q = GOLEM[k], L = Math.hypot(x1 - x0, y1 - y0); P(k, x0, y0, Math.atan2(y1 - y0, x1 - x0) - Math.PI / 2, clamp(L / q[3], 0.75, 1.35), 0.5, 0); };
-  c.clearRect(0, 0, 260, 200); c.imageSmoothingEnabled = false;
-  const sB = [-30, -84 + bob], sF = [30, -84 + bob], fist = [fx, fy - bob + bob], eF = [sF[0] + (fist[0] - sF[0]) * 0.4, sF[1] + (fist[1] - sF[1]) * 0.4 + 6];
-  limb("armB", sB[0], sB[1], -38, -58 + bob); limb("foreB", -38, -62 + bob, -40, -14 + bob); P("towerB", -30, -96 + bob);   // 뒷팔과 뒤 어깨 탑
-  P("legB", -16, -24, 0, 1); P("legF", 18, -22, 0, 1); P("pelvis", 0, -46 + bob);                                       // 다리·골반
-  P("torso", 0, -72 + bob); P("head", 4, -104 + bob);                                                                    // 몸통·머리
-  limb("armF", sF[0], sF[1], eF[0], eF[1]); limb("foreF", eF[0], eF[1] - 4, fist[0], fist[1] + 14); P("towerF", 32, -96 + bob);   // 앞팔(주먹이 공격 위치로)
-  if (e.phase === 2) { c.globalCompositeOperation = "source-atop"; c.fillStyle = `rgba(255,70,30,${0.22 + 0.08 * Math.sin(time * 9)})`; c.fillRect(0, 0, 260, 200); c.globalCompositeOperation = "source-over"; }
-  if (e.flash > 0) { c.globalCompositeOperation = "source-atop"; c.fillStyle = "#fff"; c.fillRect(0, 0, 260, 200); c.globalCompositeOperation = "source-over"; }
-  g.save(); g.translate(Math.round(e.x), Math.round(e.y)); g.scale(e.dir, 1); g.drawImage(golC, -GOX, -GOY); g.restore();
-}
-function drawGolem(e) {
-  const d = e.dir, fl = e.flash > 0, ph2 = e.phase === 2, st = e.st, tt = time;
-  const col = (c) => (fl ? "#ffffff" : c), S = ["#3b3646", "#565063", "#736c80", "#938ba0"], MOSS = ["#3f6630", "#5f8a42"], CORE = "#ffae35";
-  const rr = (x, y, w, h, c) => R(d > 0 ? x : -x - w, y, w, h, col(c)), ee = (x, y, rx, ry, c) => E(d * x, y, rx, ry, col(c));
-  const bob = st === "stomp" || st === "stompWind" ? -3 + Math.round(Math.sin(tt * 30)) : st === "chargeWind" ? 8 : st === "stunned" ? 6 : st === "roar" ? Math.round(Math.sin(tt * 40) * 2) : Math.round(Math.sin(e.walkT * 6));
-  const [fx, fy] = { slamWind: [24, -134], slam: [58, -14], fistRest: [58, -14], throwWind: [-26, -124], throw: [34, -100], chargeWind: [50, -34], charge: [52, -50], stunned: [44, -20] }[st] ?? [42, -40];
-  if (ready(golImg)) { drawGolemArt(e, bob, fx, fy); if (ph2) for (const sx of [-30, 32]) world(e.x, e.y, () => flame(d * sx, -112 + bob, 4, 12, tt + sx, FIRE)); }
-  else world(e.x, e.y, () => {
-    rr(-28, -32, 22, 32, S[1]); rr(-28, -32, 22, 4, S[2]); rr(6, -32, 22, 32, S[0]); rr(6, -32, 22, 4, S[1]); rr(-30, -6, 26, 6, S[0]); rr(4, -6, 26, 6, S[0]);   // 다리
-    at(0, bob, () => {
-      ee(-34, -86, 15, 13, S[0]); for (let i = 0; i < 4; i++) ee(-40, -74 + i * 10, 9, 7, S[0]); ee(-40, -34, 15, 12, S[1]);   // 뒷팔
-      rr(-32, -44, 64, 16, S[0]); ee(0, -70, 36, 30, S[1]); ee(-4, -74, 30, 24, S[2]); ee(-12, -86, 14, 8, S[3]);              // 몸통
-      for (const [x, y, w] of [[-28, -96, 16], [14, -50, 12], [-30, -58, 8]]) { rr(x, y, w, 3, MOSS[1]); rr(x + 2, y + 3, 3, 5, MOSS[0]); rr(x + w - 5, y + 3, 2, 7, MOSS[0]); }
-      if (ph2) for (const [x, y, h] of [[-14, -90, 18], [18, -78, 14], [-22, -60, 12], [8, -40, 8]]) { rr(x, y, 2, h, "#ff7a2a"); rr(x + 1, y + 3, 1, h - 6, "#ffe27a"); }
-      ee(6, -56, 10, 10, "#7a2a10"); ee(6, -56, 8, 8, st === "stunned" && (tt * 8 | 0) % 2 ? "#fff2b0" : CORE); ee(4, -58, 3, 3, "#fff2b0");   // 가슴 핵
-      rr(-16, -116, 32, 22, S[1]); rr(-16, -116, 32, 4, S[2]); rr(-12, -120, 24, 5, S[2]); rr(3, -108, 5, 3, ph2 ? "#ff5a2a" : CORE); rr(10, -108, 5, 3, ph2 ? "#ff5a2a" : CORE);   // 머리
-      ee(30, -86, 15, 13, S[1]); ee(28, -90, 10, 7, S[2]);                                                                      // 앞 어깨
-      for (let i = 1; i < 6; i++) { const u = i / 6; ee(30 + (fx - 30) * u, -86 + (fy - bob - -86) * u, 9, 8, S[1]); }
-      ee(fx, fy - bob, 16, 14, S[1]); ee(fx - 2, fy - bob - 4, 11, 8, S[2]); rr(fx - 8, fy - bob - 10, 6, 2, S[3]);           // 앞 주먹
-      if (ph2) for (const sx of [-34, 30]) flame(d * sx, -100, 4, 12, tt + sx, FIRE);
-    });
-  });
-  glow(e.x + d * 6, e.y - 56 + bob, 26, CORE, st === "stunned" ? 0.8 : 0.45); glow(e.x + d * 12, e.y - 106 + bob, 14, ph2 ? "#ff5a2a" : CORE, 0.4);
-  if (ph2) glow(e.x, e.y - 60, 70, "#ff5a2a", 0.18 + 0.05 * Math.sin(tt * 9));
-  if (st === "slamWind" || st === "throwWind" || st === "stompWind" || st === "chargeWind") glow(e.x, e.y - 60, 60, "#ff3a2a", 0.15 + 0.12 * Math.sin(tt * 30));   // 예고 동작: 붉게 깜빡임
-}
 // 모험가 그림 (Higgsfield, 대기 자세 한 장씩 → art/adv/adv_cut.py). 걷기·공격은 코드로 기울이고 들썩여서 표현한다
 const ADV_SPR = {"adv_sword":{"r":[0,0,27,38],"face":-1},"adv_archer":{"r":[29,0,27,36],"face":-1},"adv_cleric":{"r":[58,0,26,38],"face":1},"adv_mage":{"r":[86,0,31,38],"face":1},"adv_thief":{"r":[119,0,31,34],"face":-1},"adv_warrior":{"r":[152,0,43,42],"face":-1}};
 const advImg = new Image(); advImg.src = "../assets/adv.png";
@@ -785,7 +698,6 @@ const advFace = (e, dx) => { e.dir = Math.sign(dx) || e.dir; };
 // 모험가 공통 규칙: 체력 50%에서 기를 모아 필살기 (모으는 동안 최대 체력 12%를 깎으면 캔슬) → 쓰든 캔슬되든 그로기.
 // 체력 30%에서 포션을 마신다 (멈춰 서서 받는 피해 1.5배). 챕터별 인원: 1명, 2명, 3명, 4챕터는 3명 중 1명 각성, 5챕터는 없음.
 let chapter = 1;
-const ADV_COUNT = [0, 1, 2, 2, 1, 0];
 const MIDBOSS = [[], ["adv_sword"], ["adv_thief", "adv_cleric"], ["adv_archer", "adv_mage"], ["adv_sword"], []];   // 챕터별 고정 모험가 (4챕터는 각성 검사 혼자)
 const ULT_CANCEL = 0.12, GROGGY = 3, GROGGY_CANCEL = 4;
 function strike(x, delay, dmg, r, c, opt) { spawn({ kind: "strike", x, gy: groundAt(x, FLOOR - 2), t: delay, max: delay, dmg, r, c, ...opt }); }
@@ -1650,7 +1562,6 @@ function goCastle() {
   spawn({ kind: "elder", x: 230 }); spawn({ kind: "gate", x: L.w - 70 }); banner = { s: "성채", t: 2 };
 }
 function endRun() { meta.stones += player?.stones ?? 0; saveMeta(); goCastle(); }
-const reset = () => (state === "castle" ? startRun() : endRun());
 function updateCastle() {
   if (take("ArrowLeft")) castleSel = [(castleSel[0] + 2) % 3, Math.min(castleSel[1], 3)];
   if (take("ArrowRight")) castleSel = [(castleSel[0] + 1) % 3, castleSel[1]];
@@ -2394,10 +2305,10 @@ function basicAttack(p) {
     if (step.fire) return step.fire(p);
     const thrust = step.pose === "thrust";
     const longR = helm.id === "soldier" && hgOf("soldier") >= 2 ? (empowered ? 90 : 96) : 0;   // 근위 창대장: 불길·반달 이펙트만큼 길게
-    const nHit = melee(p, { x0: empowered && longR ? -30 : 0, x1: longR || step.reach + 8, y0: empowered && longR ? -70 : -26, y0: -26, y1: 0, dmg: step.dmg, heavy: step.heavy || empowered, mult: empowered ? b.nth.mult : 1, kb: step.heavy ? 150 : 80 });
+    const nHit = melee(p, { x0: empowered && longR ? -30 : 0, x1: longR || step.reach + 8, y0: empowered && longR ? -70 : -26, y1: 0, dmg: step.dmg, heavy: step.heavy || empowered, mult: empowered ? b.nth.mult : 1, kb: step.heavy ? 150 : 80 });
     if (nHit && helm.id === "thief" && Math.random() < 0.15) dropCoins(p.x + p.dir * 16, p.y - 10, 3, 1);   // 좀도둑: 때리면 금화
     if (nHit && helm.id === "soldier" && hgOf("soldier") >= 2 && p.rushG < 1) { p.rushG = Math.min(1, (p.rushG ?? 0) + 0.2 * nHit); if (p.rushG >= 1) { banner = { s: "돌진 게이지 가득! (A)", t: 1 }; fxRing(p.x, p.y - 12, 16, RAMP_IRON); } }
-    fxSwoosh(p.x + p.dir * (thrust ? step.reach + 6 : step.reach + 4), p.y - 11, p.dir, thrust ? step.reach : 9 + (step.heavy ? 3 : 0), helm.ramp, thrust);
+    if (!HERO[helm.id]) fxSwoosh(p.x + p.dir * (thrust ? step.reach + 6 : step.reach + 4), p.y - 11, p.dir, thrust ? step.reach : 9 + (step.heavy ? 3 : 0), helm.ramp, thrust);   // 영상 프레임 투구는 영상 속 베기만
     if (empowered) light(p.x + p.dir * step.reach, p.y - 12, 34, helm.ramp[3], 0.6, 0.15);
   } }] });
 }
@@ -3379,7 +3290,6 @@ function sellOwnedItem(it) {
   const p = player, n = itemScrapGold(it); p.items.splice(p.items.indexOf(it), 1); p.gold += n; p.hp = Math.min(p.hp, maxHp());
   texts.push({ x: p.x, y: p.y - 44, vy: -30, t: 1, s: `+${n}G`, c: "#ffd24a" }); banner = { s: `${it.name} 분해 — 금화 ${n}`, t: 1.6 }; menuSel = Math.min(menuSel, 2 + Math.max(0, p.items.length - 1)); if (!p.items.length) menuSel = 0;
 }
-const ITEM_COL = { phys: "#d8423a", magic: "#a070e0", crit: "#ffe27a", hp: "#8fc05a", gold: "#ffd24a", skill: "#f2701f", speed: "#63c8ea", basic: "#c9783a", aspd: "#b5efff", swapHeal: "#ff9ad0" };
 function drawMenu() {
   if (menuT <= 0) return;
   const c = sctx, e = 1 - Math.pow(1 - menuT, 3), X = 90, Y = 56, PW = 780, PH = 428, p = player;
