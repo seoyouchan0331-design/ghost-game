@@ -427,14 +427,14 @@ const HELMETS = [
         use(p) { if (p.gold < 10) { banner = { s: "금화가 모자라 (10 필요)", t: 1.2 }; const H = helmById("thief"), i = H.skills.findIndex((k) => k.name === "금화 던지기"); if (i >= 0) cdsOf("thief")[i] = 0.3; return; }   // 금화 10개를 써서 닿으면 크게 터지는 금화 10개를 던진다
           p.gold -= 10; startAct(p, { dur: 0.36, pose: "cast", wm: "throw" }); snd("coin");
           for (let i = 0; i < 10; i++) spawn({ kind: "tcoin", tag: "금화 던지기", x: p.x + p.dir * 8, y: p.y - 18, vx: p.dir * rnd(140, 330), vy: -rnd(60, 230), t: 0, thrown: true, front: true }); } },
-      { name: "주머니 찢기", cd: 8, icon() { R(-6, -1, 12, 2, C.steel); R(-3, -5, 6, 4, "#8a5a2a"); R(-1, -3, 2, 2, "#ffd24a"); },
+      { name: "주머니 찢기", get cd() { return hgOf("thief") >= 2 ? 8 + EX_PICK3[3] : 8; }, icon() { R(-6, -1, 12, 2, C.steel); R(-3, -5, 6, 4, "#8a5a2a"); R(-1, -3, 2, 2, "#ffd24a"); },
         use(p) { const hit = new Set(), robbed = new Set(), long = hgOf("thief") >= 2, P = EX_PICK3, D = long ? P[3] : 0.45;   // 무적 단검 난무: 맞은 적에게서 터지는 금화 4개 (1%로 금화 +100 대박), 5초 동안 맞을 때마다 금화 1개. 3단계는 칼 돌리기 → 연속 베기 → X자 → 칼을 망토에 넣는 순간 금화가 한꺼번에
           for (const e of enemies) e.pickDone = false; p.invuln = Math.max(p.invuln, D); startAct(p, { dur: D, pose: "punch", wm: "flurry", vx: 0, pick: true, tick() {
-          const t = p.act.t, on = !long || (t >= P[0] && t < P[2]); if (long && t >= P[0] && t < P[1]) p.vx = p.dir * 40;
+          const t = p.act.t, on = !long || (t >= P[0] && t < P[2]); if (long && t >= P[0] && t < P[1]) p.vx = p.dir * 20;
           if (on) { melee(p, { x0: -6, x1: 30, y0: -30, y1: 2, dmg: 5, once: hit, kb: 20 }); if ((t * 30 | 0) % (long ? 8 : 5) === 0) hit.clear();   // 3단계는 길어서 다시 맞는 간격을 늘림
             for (const e of enemies) if (live(e) && hit.has(e) && !e.pickDone) { e.pickDone = true; e.pickT = 5; robbed.add(e); if (!long) dropTCoins(e, 4); if (Math.random() < 0.01) { p.gold += 100; texts.push({ x: e.x, y: e.y - 56, vy: -30, t: 1.2, s: "대박! 금화 +100", c: "#ffd24a" }); } }
             if (Math.random() < 0.6) fxSwoosh(p.x + p.dir * rnd(10, 26), p.y - rnd(8, 24), p.dir, long ? 16 : 12, RAMP_GOLD, long); }
-          if (long && !p.act.snap && t >= P[2] + 0.3) { p.act.snap = true; shake(3, 0.15); snd("coin"); light(p.x, p.y - 20, 40, "#ffd24a", 0.7, 0.2);   // 칼을 망토에 "착" — 그 순간 털린 적마다 금화가 한꺼번에
+          if (long && !p.act.snap && t >= (P[2] + P[3]) / 2) { p.act.snap = true; shake(3, 0.15); snd("coin"); light(p.x, p.y - 20, 40, "#ffd24a", 0.7, 0.2);   // 칼을 망토에 "착" — 그 순간 털린 적마다 금화가 한꺼번에
             for (const e of robbed) if (live(e)) { dropTCoins(e, 4); texts.push({ x: e.x, y: e.y - 50, vy: -30, t: 0.8, s: "털렸다!", c: "#ffd24a" }); } }
           } }); } },
       { name: "뒤구르기", cd: 20, icon() { E(-2, 1, 5, 4, "#5a5866"); E(3, -1, 4, 4, "#7a7886"); },
@@ -1895,7 +1895,7 @@ function dropTCoins(e, n) {                              // 적에게서 떨어�
   const k = Math.min(n, 24);
   for (let i = 0; i < k; i++) spawn({ kind: "tcoin", tag: "금화 폭발", x: e.x + rnd(-4, 4), y: e.y - 20, vx: rnd(-110, 110), vy: -rnd(120, 260), t: 0, val: i < k - 1 ? 1 : n - (k - 1), front: true });
 }
-const EX_PICK3 = [0.45, 1.2, 2.1, 2.7];   // 괴도 3단계 주머니 찢기 각 막이 끝나는 시각 (초)
+const EX_PICK3 = [14, 56, 92, 116].map((n) => n / 12);   // 괴도 3단계 주머니 찢기 각 막이 끝나는 시각 (초). 영상 원래 속도(12장/초) 그대로: 칼 돌리기 14장, 연속 베기 42장, 묘기·X자 36장, 칼 넣기·모자 24장
 const exEnh = () => ((player.execSouls ?? 0) >= 60 ? 2 : (player.execSouls ?? 0) >= 20 ? 1 : 0);   // 처형인 원혼 강화 단계 (20·60개)
 function gainSoul(e, n) {                                // 원혼: 처형인을 쓰고 있을 때 처치하면 확률로, 처형하면 반드시. 푸른 원혼이 떠올라 처형인에게 빨려 든다
   const k = Math.min(n, 5), y = e.y - (e.type.hh ?? 30) * 0.6;
