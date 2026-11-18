@@ -428,9 +428,9 @@ const HELMETS = [
           p.gold -= 10; startAct(p, { dur: 0.3, pose: "cast" }); snd("coin");
           for (let i = 0; i < 10; i++) spawn({ kind: "tcoin", x: p.x + p.dir * 8, y: p.y - 18, vx: p.dir * rnd(140, 330), vy: -rnd(60, 230), t: 0, thrown: true, front: true }); } },
       { name: "주머니 찢기", cd: 8, icon() { R(-6, -1, 12, 2, C.steel); R(-3, -5, 6, 4, "#8a5a2a"); R(-1, -3, 2, 2, "#ffd24a"); },
-        use(p) { p.invuln = Math.max(p.invuln, 0.5); const hit = new Set(); for (const e of enemies) e.pickDone = false; startAct(p, { dur: 0.45, pose: "punch", vx: 120, pick: true, tick() {   // 무적 단검 난무: 맞은 적에게서 금화 10개 (1%로 100개), 5초 동안 맞을 때마다 금화 1개
-          const n0 = hit.size; melee(p, { x0: -6, x1: 30, y0: -30, y1: 2, dmg: 6, once: hit, kb: 30 }); if ((p.act.t * 30 | 0) % 3 === 0) { hit.clear(); }
-          for (const e of enemies) if (live(e) && !e.pickDone && hit.has(e)) { e.pickDone = true; e.pickT = 5; const n = Math.random() < 0.01 ? 100 : 10; dropTCoins(e, n); if (n === 100) texts.push({ x: e.x, y: e.y - 56, vy: -30, t: 1, s: "대박!", c: "#ffd24a" }); }
+        use(p) { p.invuln = Math.max(p.invuln, 0.5); const hit = new Set(); for (const e of enemies) e.pickDone = false; startAct(p, { dur: 0.45, pose: "punch", vx: 120, pick: true, tick() {   // 무적 단검 난무: 맞은 적에게서 터지는 금화 4개 (1%로 금화 +100 대박), 5초 동안 맞을 때마다 금화 1개
+          const n0 = hit.size; melee(p, { x0: -6, x1: 30, y0: -30, y1: 2, dmg: 5, once: hit, kb: 20 }); if ((p.act.t * 30 | 0) % 5 === 0) { hit.clear(); }
+          for (const e of enemies) if (live(e) && !e.pickDone && hit.has(e)) { e.pickDone = true; e.pickT = 5; dropTCoins(e, 4); if (Math.random() < 0.01) { p.gold += 100; texts.push({ x: e.x, y: e.y - 56, vy: -30, t: 1.2, s: "대박! 금화 +100", c: "#ffd24a" }); } }
           if (Math.random() < 0.6) fxSwoosh(p.x + p.dir * rnd(10, 26), p.y - rnd(8, 24), p.dir, 12, RAMP_GOLD, false); } });
  } },
       { name: "뒤구르기", cd: 20, icon() { E(-2, 1, 5, 4, "#5a5866"); E(3, -1, 4, 4, "#7a7886"); },
@@ -1331,7 +1331,7 @@ const LINES = {
   frostwolf: { names: ["얼어붙은 늑대 가죽", "서리 늑대", "겨울 늑대왕"], add: ["냉기 3 → 빙결, 언 적 깨기 2배, 깨면 사냥 본능 (공격·이동 +20%)", "깨질 때 파편이 옆 적에게 냉기 1", "평타마다 얼음 늑대 정령이 같이 할퀸다 · 사냥 본능 +30%"] },
   hunter: { names: ["사냥꾼 두건", "레인저 모자", "숲의 정령 궁수"], add: ["멀수록 치명타 확률 (최대 +50%)", "X 꾹: 집중 — 다 모이면 강한 화살, 스킬도 강화", "주변에 적이 없으면 집중이 빨라진다 · 초록 레이저"] },
   smith: { names: ["대장장이 두건", "불꽃 대장장이 두건", "모루의 주인"], add: ["맞힐 때마다 열기 (피해 +4%씩, 최대 5)", "열기 5에서 망치에 화상", "모루 낙하가 모루 3개"] },
-  thief: { names: ["떠돌이 도둑 복면", "괴도의 깃털 모자", "밤의 괴도 실크햇"], add: ["평타 15%로 금화 2개, 적에게서 떨어진 금화는 터진다", "금화 폭발이 커진다 (피해 +3)", "금화 폭발이 더 커진다 (피해 +3)"] },
+  thief: { names: ["떠돌이 도둑 복면", "괴도의 깃털 모자", "밤의 괴도 실크햇"], add: ["평타 15%로 금화 2개, 적에게서 떨어진 금화는 터진다 (5)", "금화 폭발이 커진다 (7)", "금화 폭발이 더 커진다 (9)"] },
   wood: { names: ["나무꾼 모자", "숲지기 두건", "고목의 투구"], add: ["30% 확률로 한 번 더 벰", "때리면 20% 확률로 가시덩굴", "가시덩굴이 방 전체 적에게, 오래 묶음"] },
   shield: { names: ["방패병 투구", "성벽 수비대 투구"], add: ["받는 피해 -10%", "버티는 동안 맞으면 주변에 충격파 (20)"] },
   mage: { names: ["견습 마법사 고깔", "서리 마법사 고깔", "빙하 대마법사 관", "겨울 왕관"], add: ["스킬 쿨타임 -15%", "마법탄 10% 확률 빙결", "주변 냉기: 가까운 적에게 초당 피해 4", "30초마다 모든 적 2초 빙결"] },
@@ -2437,7 +2437,6 @@ function basicAttack(p) {
     const thrust = step.pose === "thrust";
     const longR = helm.id === "soldier" && hgOf("soldier") >= 2 ? (empowered ? 90 : 96) : 0;   // 근위 창대장: 불길·반달 이펙트만큼 길게
     const nHit = melee(p, { x0: empowered && longR ? -30 : 0, x1: longR || step.reach + 8, y0: empowered && longR ? -70 : -26, y1: 0, dmg: step.dmg, heavy: step.heavy || empowered, mult: empowered ? b.nth.mult : 1, kb: step.heavy ? 150 : 80 });
-    if (nHit && helm.id === "thief" && Math.random() < 0.15) dropCoins(p.x + p.dir * 16, p.y - 10, 3, 1);   // 좀도둑: 때리면 금화
     if (nHit && helm.id === "soldier" && hgOf("soldier") >= 2 && p.rushG < 1) { p.rushG = Math.min(1, (p.rushG ?? 0) + 0.2 * nHit); if (p.rushG >= 1) { banner = { s: "돌진 게이지 가득! (A)", t: 1 }; fxRing(p.x, p.y - 12, 16, RAMP_IRON); } }
     if (!HERO[helm.id]) fxSwoosh(p.x + p.dir * (thrust ? step.reach + 6 : step.reach + 4), p.y - 11, p.dir, thrust ? step.reach : 9 + (step.heavy ? 3 : 0), helm.ramp, thrust);   // 영상 프레임 투구는 영상 속 베기만
     if (empowered) light(p.x + p.dir * step.reach, p.y - 12, 34, helm.ramp[3], 0.6, 0.15);
@@ -2814,8 +2813,8 @@ function updateObjs(dt) {
         if (o.y >= gy && o.vy > 0) { o.y = gy; o.land = o.t; }
         if (o.thrown && enemies.some((e) => live(e) && Math.abs(e.x - o.x) < 8 + (e.type.hw ?? 7) && o.y > e.y - (e.type.hh ?? 30) && o.y < e.y + 4)) o.land = o.t;
         if (isSolid(o.x, o.y - 2)) { o.vx *= -0.5; } }
-      if (o.land != null && o.t - o.land > 0.18) { o.gone = true; const g0 = Math.max(0, hgOf("thief")), r = 18 + g0 * 5;
-        for (const e of enemies) if (live(e) && Math.abs(e.x - o.x) < r + (e.type.hw ?? 7) && Math.abs(e.y - (e.type.hh ?? 30) * 0.5 - o.y) < r + 12) damage(e, 10 + g0 * 3, { dir: Math.sign(e.x - o.x) || 1, kb: 40, quiet: false, noProc: true });
+      if (o.land != null && o.t - o.land > 0.18) { o.gone = true; const g0 = Math.max(0, hgOf("thief")), r = 15 + g0 * 4;
+        for (const e of enemies) if (live(e) && Math.abs(e.x - o.x) < r + (e.type.hw ?? 7) && Math.abs(e.y - (e.type.hh ?? 30) * 0.5 - o.y) < r + 12) damage(e, 5 + g0 * 2, { dir: Math.sign(e.x - o.x) || 1, kb: 30, quiet: false, noProc: true });
         fxRing(o.x, o.y - 4, r, RAMP_GOLD); flashes.push({ kind: "burst", x: o.x, y: o.y - 6, r: r * 0.6, t: 0, ramp: RAMP_GOLD }); light(o.x, o.y - 6, r * 2, "#ffd24a", 0.6, 0.15); snd("blast", 0.4);
         if (!o.thrown && Math.random() < 0.3) dropCoins(o.x, o.y - 4, 1, 1); }   // 터진 금화는 30%만 주울 수 있는 금화 1로 남는다 (금화가 너무 쌓이지 않게)
     } else if (o.kind === "tsmoke") {                            // 뒤구르기 연막: 3초 동안 안의 적에게 0.5초마다 6, 안에 있으면 모든 공격을 피한다
@@ -2843,7 +2842,7 @@ function updateObjs(dt) {
       if (o.age > 0.45 && (d < 50 || (phase === "clear" && o.age > 1))) { const sp = Math.min(320, 120 + o.age * 160); o.vx += (dx / d * sp - o.vx) * Math.min(1, 10 * dt); o.vy += (dy / d * sp - o.vy) * Math.min(1, 10 * dt); o.x += o.vx * dt; o.y += o.vy * dt; o.mag = true; }
       else { o.vy += 640 * dt; o.x += o.vx * dt; if (isSolid(o.x, o.y - 3)) { o.x -= o.vx * dt; o.vx *= -0.6; } o.y += o.vy * dt;
         const gy = groundAt(o.x, o.y - 8); if (o.y >= gy && o.vy > 0) { o.y = gy; if (o.vy > 70) { o.vy *= -0.42; o.vx *= 0.7; } else { o.vy = 0; o.vx *= Math.max(0, 1 - 8 * dt); } } }
-      if (o.age > 0.3 && Math.abs(dx) < 9 && Math.abs(dy) < 14) { o.gone = true; snd(o.scrap ? "scrap" : "coin"); collectPop(o.x, o.y - 3, o.scrap ? SCRAPC : COIN); if (o.scrap) { p.scrap += o.val; gainText("scrap", o.val, "#c8ccd6"); } else { p.gold += o.val; gainText("gold", o.val, "#ffd24a"); if (p.helm.id === "thief" && hgOf("thief") >= 2) blast(o.x, o.y - 4, 26, 10, RAMP_GOLD); } }
+      if (o.age > 0.3 && Math.abs(dx) < 9 && Math.abs(dy) < 14) { o.gone = true; snd(o.scrap ? "scrap" : "coin"); collectPop(o.x, o.y - 3, o.scrap ? SCRAPC : COIN); if (o.scrap) { p.scrap += o.val; gainText("scrap", o.val, "#c8ccd6"); } else { p.gold += o.val; gainText("gold", o.val, "#ffd24a"); } }
     } else if (o.kind === "loot") {                              // 금화 자루·쇳조각 더미: 하늘에서 떨어지고, 닿으면 터져서 흩어진다
       o.age += dt;
       if (o.age > 0.35 && Math.abs(p.x - o.x) < 14 && p.y > FLOOR - 30) { o.gone = true; dropBits(o.x, FLOOR - 4, o.val, o.look === "gold" ? 16 : 8, o.look === "scrap"); shake(2, 0.12);
