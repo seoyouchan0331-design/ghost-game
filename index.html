@@ -3258,6 +3258,11 @@ function render() {
     blit(drawEnemySprite(e), e.x, e.y, e.dir);
     if (e.type.over) e.type.over(e);
     if (e.chillN > 0 && !e.dead && !(e.frozen > 0)) drawChill(e);
+    if (player.helm.id === "executioner" && live(e) && !e.type.dummy && execLow(e) && !(e.sentT > 0)) {   // 처형 대상 표시: 머리 위 붉은 해골 (처형 공격에 맞으면 즉사)
+      const yy = Math.round(e.y) - (e.type.hh ?? (e.type.low ? 16 : 30)) - 20 + Math.round(Math.sin(time * 6) * 1), xx = Math.round(e.x), pl = 0.6 + 0.4 * Math.sin(time * 8);
+      glow(xx, yy + 3, 9, "#c94a3a", 0.35 * pl);
+      const SK = ["..kkkkk..", ".krrrrrk.", "krrrrrrrk", "krkkrkkrk", "krkkrkkrk", "krrrkrrrk", ".krrrrrk.", "..krkrk..", "...kkk..."];
+      for (let r = 0; r < SK.length; r++) for (let c = 0; c < 9; c++) { const ch = SK[r][c]; if (ch === ".") continue; g.fillStyle = ch === "k" ? "#1a0808" : r < 2 ? "#ff9a7a" : "#c94a3a"; g.fillRect(xx - 4 + c, yy - 4 + r, 1, 1); } }
     if (e.sentT > 0 && !e.dead) { const yy = Math.round(e.y) - (e.type.hh ?? (e.type.low ? 16 : 30)) - 18, xx = Math.round(e.x), on = e.sentT < 1 ? (time * 10 | 0) % 2 : 1;   // 사형 선고 표식 (올가미는 동그라미)
       if (on) { g.fillStyle = "#1a0808"; g.fillRect(xx - 4, yy - 4, 9, 9); g.fillStyle = "#c94a3a"; if (e.sentX) { g.fillRect(xx - 3, yy - 3, 7, 1); g.fillRect(xx - 3, yy + 3, 7, 1); g.fillRect(xx - 3, yy - 3, 1, 7); g.fillRect(xx + 3, yy - 3, 1, 7); } else for (let i = -3; i <= 3; i++) { g.fillRect(xx + i, yy + i, 1, 1); g.fillRect(xx + i, yy - i, 1, 1); } } }
     if (e.neckT > 0 && !e.dead) { e.neckT -= 1 / 60; g.fillStyle = "#c94a3a"; g.fillRect(Math.round(e.x) - 6, Math.round(e.y) - (e.type.hh ?? (e.type.low ? 16 : 30)) + 4, 13, 1); }   // 집행 자세: 목에 붉은 선
