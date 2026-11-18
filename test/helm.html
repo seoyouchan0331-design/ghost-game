@@ -3598,10 +3598,10 @@ window.__game = { get cam() { return [camX, camY]; }, set chapter(v) { chapter =
 
 <div id="hpanel"></div>
 <div id="dpm" style="display:none;font:13px/1.6 monospace;color:#ffe27a;text-align:center;max-width:960px"></div>
-<div id="help"><span id="state"></span><span><kbd>Q</kbd>/<kbd>E</kbd> 투구 바꾸기</span><span><kbd>W</kbd> 진화</span><span><kbd>Shift</kbd>+<kbd>W</kbd> 퇴화</span><span><kbd>F</kbd> 적 다시</span><span><kbd>T</kbd> 쿨타임 없애기</span><span><kbd>0</kbd> 무적</span><span><kbd>H</kbd> 허수아비</span></div>
+<div id="help"><span id="state"></span><span><kbd>Q</kbd>/<kbd>E</kbd> 투구 바꾸기</span><span><kbd>W</kbd> 진화</span><span><kbd>Shift</kbd>+<kbd>W</kbd> 퇴화</span><span><kbd>F</kbd> 적 다시</span><span><kbd>T</kbd> 쿨타임 없애기</span><span><kbd>0</kbd> 무적</span><span><kbd>H</kbd> 허수아비</span><span><kbd>Space</kbd> 교체 (교체 스킬)</span></div>
 <script>
 // 투구 시험장: HELMETS 목록을 그대로 읽어 버튼을 만든다 (투구가 추가되면 자동으로 늘어남). 진화 단계는 계보 길이(lineMax)만큼
-const TEST = { god: true, nocd: false, id: "empty", dummy: false };
+const TEST = { god: true, nocd: false, id: "empty", dummy: false, sub: "soldier" };   // sub: 교체 칸 투구 (Space로 바꿔 교체 스킬 시험)
 // 허수아비 DPM: 첫 타부터 60초 동안 준 피해를 잰다. 끝나면 기록에 남는다 (투구·단계·스킬별)
 const DUMMY = { e: null, total: 0, t0: 0, last: [], done: false, log: [] };
 try { DUMMY.log = JSON.parse(localStorage.getItem("dpmLog") || "[]"); } catch (err) {}
@@ -3630,7 +3630,7 @@ function diagApply() {
   if (DIAG.noFx) { flashes.length = 0; lights.length = 0; sparks.length = 0; } requestAnimationFrame(diagLoop); })();
 { let n = 0, t0 = performance.now(), worst = 0, last = t0; (function fl(t) { n++; worst = Math.max(worst, t - last); last = t; if (t - t0 > 1000) { const el = document.getElementById("fps"); if (el) el.textContent = `${n} fps · 가장 긴 프레임 ${worst | 0}ms`; n = 0; worst = 0; t0 = t; } requestAnimationFrame(fl); })(t0); }
 const HL = () => HELMETS;
-function tEquip(id, g) { const p = player; TEST.id = id; if (TEST.dummy) { DUMMY.total = 0; DUMMY.t0 = 0; DUMMY.last = []; DUMMY.done = false; } p.slots[p.active] = id; if (id !== "empty") p.hg[id] = clamp(g ?? p.hg[id] ?? 0, 0, lineMax(id)); p.cds[id] = [0, 0]; p.act = null; p.combo = 0; fxSwap(p); draw(); }
+function tEquip(id, g) { const p = player; TEST.id = id; { const o = 1 - p.active; if (TEST.sub && TEST.sub !== id) { p.slots[o] = TEST.sub; if (TEST.sub !== "empty" && p.hg[TEST.sub] == null) p.hg[TEST.sub] = 0; p.cds[TEST.sub] = p.cds[TEST.sub] || [0, 0]; } else p.slots[o] = null; } if (TEST.dummy) { DUMMY.total = 0; DUMMY.t0 = 0; DUMMY.last = []; DUMMY.done = false; } p.slots[p.active] = id; if (id !== "empty") p.hg[id] = clamp(g ?? p.hg[id] ?? 0, 0, lineMax(id)); p.cds[id] = [0, 0]; p.act = null; p.combo = 0; fxSwap(p); draw(); }
 function grade(d) { const id = TEST.id; if (id === "empty") return; tEquip(id, (player.hg[id] ?? 0) + d); }
 function respawn() { const p = player; enemies = []; for (let i = 0; i < 4; i++) { const id = ["militia", "shield", "hound", "torch"][i]; const e = newEnemy(id, p.x + 70 + i * 34, i); e.gy = e.y = p.y; e.minX = p.x + 40; e.maxX = p.x + 260; e.hp = e.maxHp = 600; enemies.push(e); } }
 function helmTest() { startRun(); room = 1; enemies = []; player.x = 80; player.y = FLOOR; startRoom(); L = buildRoom(FLAT); ROOM_R = L.w - 20; buildTerrain(); player.x = 80; player.y = FLOOR; objs = []; respawn(); phase = "fight"; tEquip(TEST.id); }
@@ -3638,6 +3638,9 @@ function draw() {
   const el = document.getElementById("hpanel"); el.innerHTML = "";
   const btn = (txt, on, fn) => { const b = document.createElement("button"); b.textContent = txt; if (on) b.className = "on"; b.onclick = () => { fn(); document.getElementById("screen").focus(); }; el.appendChild(b); };
   for (const h of HL()) btn(h.name, h.id === TEST.id, () => tEquip(h.id));
+  const sepS = document.createElement("div"); sepS.className = "sep"; el.appendChild(sepS);
+  { const lb = document.createElement("span"); lb.textContent = "교체 칸 (Space):"; lb.style.cssText = "align-self:center;color:#b0a8ba"; el.appendChild(lb); }
+  for (const h of HL()) if (h.id !== TEST.id) btn("↔ " + h.name, h.id === TEST.sub, () => { TEST.sub = h.id; tEquip(TEST.id); });
   const sep = document.createElement("div"); sep.className = "sep"; el.appendChild(sep);
   if (TEST.id !== "empty") { const mx = lineMax(TEST.id); for (let g = 0; g <= mx; g++) { const nm = LINES[TEST.id] ? LINES[TEST.id].names[g] : HGRADE[g].name; btn(`${g + 1}단계 ${nm}`, (player.hg[TEST.id] ?? 0) === g, () => tEquip(TEST.id, g)); } }
   btn(TEST.god ? "무적 켜짐" : "무적 꺼짐", TEST.god, () => { TEST.god = !TEST.god; draw(); });
@@ -3660,6 +3663,7 @@ addEventListener("keydown", (ev) => {
 });
 setInterval(() => { const p = player; if (!p) return; if (TEST.god) { p.hp = maxHp(); p.invuln = Math.max(p.invuln, 0.2); } if (TEST.nocd) { const c = p.cds[TEST.id]; if (c) { c[0] = 0; c[1] = 0; } p.swapCd = 0; }
   if (TEST.dummy) dummyTick(); else if (enemies.filter((e) => !e.dead).length === 0) respawn();
+  if (p.helm.id !== TEST.id && p.slots.includes(TEST.id)) { const prev = TEST.id; TEST.id = p.helm.id; TEST.sub = prev; draw(); }   // Space로 교체하면 두 칸이 서로 바뀐 것으로
   const h = p.helm; document.getElementById("state").textContent = `${hName(h)} · ${h.id === "empty" ? "기본" : HGRADE[hgOf(h.id)].name} · 투구 ${HL().length}종`; }, 100);
 setTimeout(() => { helmTest(); draw(); }, 400);
 </script>
