@@ -354,7 +354,7 @@ const HELMETS = [
     ],
     swap: { name: "단두대 낙하", use(p) {        // 무적으로 나타나며 위에서 칼날 낙하 30 (처형 판정)
       p.invuln = Math.max(p.invuln, 0.4); startAct(p, { dur: 0.35, pose: "slam", wm: "raise", events: [{ t: 0.15, fn() {
-        execHit(p, { x0: -10, x1: 40, y0: -60, y1: 4, dmg: 30, kb: 60, heavy: true }, true); flashes.push({ kind: "bolt", x1: p.x + p.dir * 18, y1: p.y - 120, x2: p.x + p.dir * 18, y2: p.y, t: 0 }); shake(4, 0.2); } }] });
+        execHit(p, { x0: -10, x1: 40, y0: -60, y1: 4, dmg: 30, kb: 60, heavy: true }, true); } }] }); guilloDrop(p.x + p.dir * 18, p.y, 1, 0.15);
     } },
   },
   {
@@ -1838,6 +1838,10 @@ function freezeNow(e) { if (e.type.boss || e.type.giant) { e.chillN = 0; return;
   const hh = e.type.hh ?? (e.type.low ? 16 : 30); spawn({ kind: "gfx", key: "wstar", x: e.x, y: e.y - hh * 0.5, t: 0, rate: 1.4, add: true, front: true, sc: iceK(e) }); light(e.x, e.y - hh * 0.5, 40 * iceK(e), "#9bdcff", 0.8, 0.2); shake(2, 0.1);   // 결정이 터지듯 자라며 봉인
   for (let i = 0; i < 10; i++) spark(e.x, e.y - hh * 0.5, rnd(-120, 120), rnd(-140, 20), 0.35, ICE, true); }   // 얼음 덩어리는 그릴 때 (pixelfx frost-encase)
 function addFrost(e, n) { if (!live(e) || e.frozen > 0) return; e.chillN = (e.chillN ?? 0) + n; e.chillT = time; spark(e.x + rnd(-5, 5), e.y - rnd(8, 24), 0, -30, 0.35, ICE, true); if (e.chillN >= 3) freezeNow(e); }
+const EXEC_ART = {"marks":{"s":22,"n":6},"guillo":[[0,0,52,82],[53,0,27,45],[81,0,29,65],[111,0,44,19],[156,0,51,43]]};   // art/exec/exec_cut.py
+const exMarkImg = new Image(); exMarkImg.src = "../assets/exec_marks.png"; const exGuilloImg = new Image(); exGuilloImg.src = "../assets/exec_guillo.png";
+function drawMark(i, x, y) { if (!ready(exMarkImg)) return false; const S2 = EXEC_ART.marks.s; g.drawImage(exMarkImg, i * S2, 0, S2, S2, Math.round(x - S2 / 2), Math.round(y - S2 / 2), S2, S2); return true; }   // 0 처형 대상, 1 낙인, 2 올가미, 3~5 밝은 것
+function guilloDrop(x, y, sc = 1, imp = 0.15) { spawn({ kind: "guillo", x, y, sc, imp, t: 0, hit: false, front: true }); }   // 단두대: 틀이 박히고 → imp초에 칼날이 떨어지고 → 사라진다
 const exEnh = () => ((player.execSouls ?? 0) >= 60 ? 2 : (player.execSouls ?? 0) >= 20 ? 1 : 0);   // 처형인 원혼 강화 단계 (20·60개)
 function gainSoul(e, n) {                                // 원혼: 처형인을 쓰고 있을 때 처치하면 확률로, 처형하면 반드시. 하나당 이번 판 공격력 +1%
   const p = player, before = exEnh(); p.execSouls = (p.execSouls ?? 0) + n;
@@ -1848,7 +1852,7 @@ function gainSoul(e, n) {                                // 원혼: 처형인을
 const execLow = (e, k = 1) => e.hp / e.maxHp <= (e.type.boss || e.type.mid || e.type.giant ? 0.1 : 0.3) * k;   // k: 완벽한 집행은 기준이 높아진다   // 처형 대상: 체력 30% 이하 (모험가·보스 10%)
 function execute(e) {                                    // 처형: 즉사 (보스·거대 적은 즉사 대신 큰 피해)
   if (!live(e)) return; const big = e.type.boss || e.type.giant; snd("execute"); e.executed = true;
-  if (hgOf("executioner") >= 2 && player.helm.id === "executioner") { flashes.push({ kind: "bolt", x1: e.x, y1: e.y - 140, x2: e.x, y2: e.y - 8, t: 0 }); shake(6, 0.3); texts.push({ x: e.x, y: e.y - 66, vy: -30, t: 0.9, s: "단두대!", c: "#ffe8e0" }); }   // 3단계: 처형할 때 단두대 칼날이 떨어진다
+  if (hgOf("executioner") >= 2 && player.helm.id === "executioner") { guilloDrop(e.x, e.gy ?? e.y, clamp(((e.type.hh ?? 30) + 30) / 60, 0.8, 1.6), 0.1); shake(6, 0.3); texts.push({ x: e.x, y: e.y - 66, vy: -30, t: 0.9, s: "단두대!", c: "#ffe8e0" }); }   // 3단계: 처형할 때 단두대 칼날이 떨어진다
   damage(e, big ? Math.round(e.maxHp * 0.08) : e.hp + 999, { heavy: true, dir: Math.sign(e.x - player.x) || 1, kb: 120 });
   texts.push({ x: e.x, y: e.y - 50, vy: -40, t: 0.8, s: "처형!", c: "#ff7a6a" }); light(e.x, e.y - 20, 50, "#c94a3a", 0.8, 0.2); shake(4, 0.2);
   for (let i = 0; i < 14; i++) spark(e.x, e.y - 20, rnd(-160, 160), rnd(-200, 20), 0.4, EXEC, false);
@@ -2683,6 +2687,9 @@ function updateObjs(dt) {
       if (o.age > 0.3) for (const e of enemies) if (live(e) && Math.abs(e.x - o.x) < 11 && Math.abs(e.y - o.gy) < 4) {   // 밟으면 1.5초 속박 + 20
         damage(e, 20, { dir: 0, kb: 0, stun: 1.5, ramp: RAMP_LEAF, y: FLOOR - 6, above: true }); e.vx = 0; o.gone = true; shake(2, 0.1); break;
       }
+    } else if (o.kind === "guillo") {
+      o.t += dt; if (!o.hit && o.t >= o.imp) { o.hit = true; shake(5, 0.2); snd("execute"); for (let i = 0; i < 12; i++) spark(o.x, o.y - 6, rnd(-140, 140), -rnd(40, 180), 0.4, EXEC, false); light(o.x, o.y - 20, 50, "#ff9a7a", 0.7, 0.2); }
+      if (o.t > o.imp + 0.55) o.gone = true;
     } else if (o.kind === "icepath") {                           // 서리 질주 얼음길: 0.5초마다 위의 적에게 냉기 1, 나는 위에서 빨라진다
       o.t += dt; o.tk -= dt; const a = Math.min(o.x0, o.x1), b = Math.max(o.x0, o.x1); if (o.t >= o.life) o.gone = true;
       if (o.tk <= 0) { o.tk = 0.5; for (const e of enemies) if (live(e) && e.x > a - 4 && e.x < b + 4 && Math.abs(e.y - o.gy) < 10) addFrost(e, 1); }
@@ -2846,6 +2853,14 @@ function drawObjs(back, front) {                          // front: 보이드 �
         world(o.x, o.y, () => { for (let d = 18; d > 0; d -= 3) { const rr = Math.max(0, r - 1 - ((d / 6) | 0)); E(-ux * d, -uy * d + Math.sin(time * 30 + d) * 1.2, rr, rr, cols[0]); } E(0, 0, r, r, cols[0]); E(0, 0, r - 1, r - 1, cols[1]); E(ux, uy, r - 2, r - 2, cols[2]); R(ux * 2, uy * 2, 1, 1, "#fff"); });
         glow(o.x, o.y, fire ? 22 : 16, cols[1], 0.55);
       }
+    } else if (o.kind === "guillo") {
+      if (ready(exGuilloImg)) { const B = EXEC_ART.guillo, sc = o.sc, end = o.imp + 0.55, al = clamp(Math.min(o.t / 0.06, (end - o.t) / 0.18), 0, 1);
+        const part = (i, cx, by, a2 = al) => { const b = B[i], w = b[2] * sc, h = b[3] * sc; g.globalAlpha = a2; g.drawImage(exGuilloImg, b[0], b[1], b[2], b[3], Math.round(cx - w / 2), Math.round(by - h), Math.round(w), Math.round(h)); };
+        const top = o.y - B[0][3] * sc, rest = o.y - 18 * sc, drop = clamp((o.t - o.imp * 0.3) / (o.imp * 0.7), 0, 1);
+        part(0, o.x, o.y + Math.round((1 - clamp(o.t / 0.08, 0, 1)) * -16));   // 틀: 위에서 쿵 박힌다
+        if (!o.hit) part(drop > 0 ? 2 : 1, o.x, top + B[1][3] * sc + 8 * sc + (rest - top - B[1][3] * sc - 8 * sc) * drop * drop);   // 칼날: 위에서 가속해 떨어진다
+        else { part(1, o.x, rest); const dt2 = o.t - o.imp; if (dt2 < 0.35) part(4, o.x, o.y + 2, al * (1 - dt2 / 0.35)); }   // 박힌 칼날 + 부서진 조각
+        g.globalAlpha = 1; }
     } else if (o.kind === "icepath") {
       const a = Math.min(o.x0, o.x1), b = Math.max(o.x0, o.x1), k = Math.min(1, (o.life - o.t) / 0.5);
       g.globalAlpha = 0.85 * k; g.fillStyle = "#3a7ad0"; g.fillRect(Math.round(a), Math.round(o.gy) - 2, Math.round(b - a), 2); g.fillStyle = "#e8f6ff"; g.fillRect(Math.round(a), Math.round(o.gy) - 3, Math.round(b - a), 1);
@@ -3261,10 +3276,10 @@ function render() {
     if (player.helm.id === "executioner" && live(e) && !e.type.dummy && execLow(e) && !(e.sentT > 0)) {   // 처형 대상 표시: 머리 위 붉은 해골 (처형 공격에 맞으면 즉사)
       const yy = Math.round(e.y) - (e.type.hh ?? (e.type.low ? 16 : 30)) - 20 + Math.round(Math.sin(time * 6) * 1), xx = Math.round(e.x), pl = 0.6 + 0.4 * Math.sin(time * 8);
       glow(xx, yy + 3, 9, "#c94a3a", 0.35 * pl);
-      const SK = ["..kkkkk..", ".krrrrrk.", "krrrrrrrk", "krkkrkkrk", "krkkrkkrk", "krrrkrrrk", ".krrrrrk.", "..krkrk..", "...kkk..."];
-      for (let r = 0; r < SK.length; r++) for (let c = 0; c < 9; c++) { const ch = SK[r][c]; if (ch === ".") continue; g.fillStyle = ch === "k" ? "#1a0808" : r < 2 ? "#ff9a7a" : "#c94a3a"; g.fillRect(xx - 4 + c, yy - 4 + r, 1, 1); } }
+      if (!drawMark(((time * 3) | 0) % 2 ? 3 : 0, xx, yy)) { const SK = ["..kkkkk..", ".krrrrrk.", "krrrrrrrk", "krkkrkkrk", "krkkrkkrk", "krrrkrrrk", ".krrrrrk.", "..krkrk..", "...kkk..."];
+        for (let r = 0; r < SK.length; r++) for (let c = 0; c < 9; c++) { const ch = SK[r][c]; if (ch === ".") continue; g.fillStyle = ch === "k" ? "#1a0808" : r < 2 ? "#ff9a7a" : "#c94a3a"; g.fillRect(xx - 4 + c, yy - 4 + r, 1, 1); } } }
     if (e.sentT > 0 && !e.dead) { const yy = Math.round(e.y) - (e.type.hh ?? (e.type.low ? 16 : 30)) - 18, xx = Math.round(e.x), on = e.sentT < 1 ? (time * 10 | 0) % 2 : 1;   // 사형 선고 표식 (올가미는 동그라미)
-      if (on) { g.fillStyle = "#1a0808"; g.fillRect(xx - 4, yy - 4, 9, 9); g.fillStyle = "#c94a3a"; if (e.sentX) { g.fillRect(xx - 3, yy - 3, 7, 1); g.fillRect(xx - 3, yy + 3, 7, 1); g.fillRect(xx - 3, yy - 3, 1, 7); g.fillRect(xx + 3, yy - 3, 1, 7); } else for (let i = -3; i <= 3; i++) { g.fillRect(xx + i, yy + i, 1, 1); g.fillRect(xx + i, yy - i, 1, 1); } } }
+      if (on && drawMark((e.sentX ? 2 : 1) + (e.sentT < 1 ? 3 : 0), xx, yy - 3)) {} else if (on) { g.fillStyle = "#1a0808"; g.fillRect(xx - 4, yy - 4, 9, 9); g.fillStyle = "#c94a3a"; if (e.sentX) { g.fillRect(xx - 3, yy - 3, 7, 1); g.fillRect(xx - 3, yy + 3, 7, 1); g.fillRect(xx - 3, yy - 3, 1, 7); g.fillRect(xx + 3, yy - 3, 1, 7); } else for (let i = -3; i <= 3; i++) { g.fillRect(xx + i, yy + i, 1, 1); g.fillRect(xx + i, yy - i, 1, 1); } } }
     if (e.neckT > 0 && !e.dead) { e.neckT -= 1 / 60; g.fillStyle = "#c94a3a"; g.fillRect(Math.round(e.x) - 6, Math.round(e.y) - (e.type.hh ?? (e.type.low ? 16 : 30)) + 4, 13, 1); }   // 집행 자세: 목에 붉은 선
     if (e.frozen > 0 && !e.dead && ready(gfxImg.wice)) { if (e.iceAt == null) e.iceAt = time; const G2 = GFX.wice, f = Math.min(G2.n - 1, Math.floor((time - e.iceAt) * G2.fps)), k = iceK(e), w = (e.type.hw ?? (e.type.low ? 12 : 8)) > 11 ? 1.5 : 1;
       g.save(); g.translate(Math.round(e.x), Math.round(e.y) + 1); g.scale(k * w, k); g.globalAlpha = 0.78; g.drawImage(gfxImg.wice, (f % G2.cols) * G2.w, Math.floor(f / G2.cols) * G2.h, G2.w, G2.h, -G2.px, -G2.py, G2.w, G2.h); g.restore();
