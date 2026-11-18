@@ -1861,11 +1861,20 @@ const EX_STEPS = [
 ], EX_STEPS3 = [...EX_STEPS,
   { dur: 0.8, get hitT() { return 0.8 * exHit().t3; }, pose: "slam", reach: 44, wm: "t3", lunge: 90, fire(p) { execHit(p, { x0: -6, x1: 56, y0: -50, y1: 6, dmg: 48, kb: 200, heavy: true }, true); shake(5, 0.25); dust(p.x + p.dir * 40, p.y, p.dir, 8); hitstop = Math.max(hitstop, 0.08); } },   // 3단계 마무리: 크게 휘둘러 앞으로 내려찍기
 ];
+const BLOOD = ["#1a0404", "#4a0a0a", "#8a1414", "#c42020", "#ff5a4a"];
+function bloodSplat(e, dir, dmg) {                       // 처형인 피격: 맞은 쪽 반대로 피가 튀고 떨어진다 (세게 맞을수록 많이)
+  const n = 5 + Math.min(12, Math.round(dmg / 5)), y = e.y - (e.type.hh ?? (e.type.low ? 16 : 30)) * 0.55;
+  for (let i = 0; i < n; i++) spark(e.x + rnd(-3, 3), y + rnd(-4, 4), dir * rnd(40, 200) + rnd(-30, 30), -rnd(40, 220), rnd(0.35, 0.7), BLOOD, false);
+  for (let i = 0; i < 3; i++) puff(e.x + dir * rnd(2, 10), y + rnd(-4, 4), dir * rnd(20, 60), -rnd(5, 25), rnd(0.2, 0.35), i ? "#8a1414" : "#c42020", rnd(2, 3));
+}
 const exEnh = () => ((player.execSouls ?? 0) >= 60 ? 2 : (player.execSouls ?? 0) >= 20 ? 1 : 0);   // 처형인 원혼 강화 단계 (20·60개)
-function gainSoul(e, n) {                                // 원혼: 처형인을 쓰고 있을 때 처치하면 확률로, 처형하면 반드시. 하나당 이번 판 공격력 +1%
+function gainSoul(e, n) {                                // 원혼: 처형인을 쓰고 있을 때 처치하면 확률로, 처형하면 반드시. 푸른 원혼이 떠올라 처형인에게 빨려 든다
+  const k = Math.min(n, 5), y = e.y - (e.type.hh ?? 30) * 0.6;
+  for (let i = 0; i < k; i++) spawn({ kind: "exsoul", x: e.x + rnd(-6, 6), y: y + rnd(-6, 6), vx: rnd(-50, 50), vy: -rnd(50, 110), age: -i * 0.07, val: i === k - 1 ? n - (k - 1) : 1, ph: rnd(0, 6), front: true });
+}
+function addSouls(n) {                                   // 원혼이 처형인에게 닿을 때: 하나당 이번 판 공격력 +1%, 20·60개에서 스킬 강화
   const p = player, before = exEnh(); p.execSouls = (p.execSouls ?? 0) + n;
-  for (let i = 0; i < 6; i++) spark(e.x, e.y - 18, rnd(-40, 40), -rnd(60, 140), 0.6, EXEC, true);
-  texts.push({ x: e.x, y: e.y - 40, vy: -30, t: 0.7, s: `원혼 +${n}`, c: "#ff9a7a" });
+  texts.push({ x: p.x, y: p.y - 46, vy: -30, t: 0.6, s: `원혼 +${n}`, c: "#9bdcff" });
   if (exEnh() > before) { banner = { s: `원혼 ${p.execSouls}개 — 처형인 스킬 강화 ${exEnh()}단계!`, t: 2 }; snd("evolve"); }
 }
 const execLow = (e, k = 1) => e.hp / e.maxHp <= (e.type.boss || e.type.mid || e.type.giant ? 0.1 : 0.3) * k;   // k: 완벽한 집행은 기준이 높아진다   // 처형 대상: 체력 30% 이하 (모험가·보스 10%)
@@ -1962,6 +1971,7 @@ function damage(e, base, o = {}) {
   const wasFrozen = shard > 0; let bled = false;
   e.hp -= dmg + shard; e.flash = 0.1; if (e.ward > 0) e.ward -= dmg;
   if (!o.quiet) snd(blocked ? "block" : crit ? "crit" : o.heavy ? "hitH" : o.ranged ? "hitR" : "hit");
+  if (!o.quiet && !blocked && p.helm.id === "executioner" && !e.type.dummy) bloodSplat(e, o.dir ?? p.dir, dmg);   // 처형인: 맞을 때마다 피가 튄다
   if (o.burn && !(e.burn > 0)) { e.burn = 6; e.burnT = 2; }
   if (!o.quiet && !o.noProc && !blocked && e.hp > 0) {         // 각인: 적중 시 확률 효과
     if (cr("powder", 2) && Math.random() < (cr("powder", 4) ? 0.2 : 0.1)) {
@@ -2770,6 +2780,12 @@ function updateObjs(dt) {
       if (o.stage === 2 && o.t > 4.6) { o.stage = 3; banner = { s: "마을 수호 골렘 — 처치", t: 3 }; }
       if (o.stage === 3 && o.t > 5.8) { o.stage = 4; dropCoins(o.cx, FLOOR - 40, 160 * goldMult(), 20); const lg = freeItems().filter((x) => x.grade === 3);
         spawn({ kind: "chest", x: o.cx - 60, item: lg.length ? pick(lg) : rollChestItem("elite"), red: false, gold: 0, open: -1, age: 0 }); spawn({ kind: "exitgate", x: L.w - 50 }); }
+    } else if (o.kind === "exsoul") {                            // 처형인 원혼: 잠깐 떠올라 흔들리다가, 휘어지며 점점 빨라져 처형인에게 빨려 든다
+      o.age += dt; if (o.age < 0) { } else if (o.age < 0.35) { o.vy += -40 * dt; o.vx *= 1 - 3 * dt; o.vy *= 1 - 2 * dt; o.x += o.vx * dt + Math.sin(o.age * 14 + o.ph) * 0.4; o.y += o.vy * dt; }
+      else { const dx = p.x - o.x, dy = p.y - 18 - o.y, d = Math.hypot(dx, dy) || 1, sp = 60 + (o.age - 0.35) * 520;
+        o.vx += (dx / d * sp - o.vx) * Math.min(1, dt * 3.5); o.vy += (dy / d * sp - o.vy) * Math.min(1, dt * 3.5); o.x += o.vx * dt; o.y += o.vy * dt;
+        if (d < 10) { o.gone = true; collectPop(p.x, p.y - 18, ["#0a1a33", "#1f4a8a", "#3f8ae0", "#9bdcff", "#ffffff"]); snd("coin"); addSouls(o.val); } }
+      if (o.age > 0 && Math.random() < 0.6) puff(o.x - (o.vx || 0) * 0.02, o.y + 2, -(o.vx || 0) * 0.15, -(o.vy || 0) * 0.15 + 8, rnd(0.25, 0.4), Math.random() < 0.5 ? "#3f8ae0" : "#9bdcff", rnd(1, 2));   // 흐르는 푸른 꼬리
     } else if (o.kind === "soulfly") {                           // 깨진 핵의 빛줄기: 휘어져 보이드에게 빨려 든다
       o.age += dt; const dx = p.x - o.x, dy = p.y - 16 - o.y, d = Math.hypot(dx, dy) || 1, sp = 80 + o.age * 500;
       o.vx += (dx / d * sp - o.vx) * Math.min(1, dt * 3); o.vy += (dy / d * sp - o.vy) * Math.min(1, dt * 3); o.x += o.vx * dt; o.y += o.vy * dt;
@@ -2975,6 +2991,13 @@ function drawObjs(back, front) {                          // front: 보이드 �
       o.hands.forEach((h, i) => { if (!h.gone) { const ps = (i ? "R_" : "L_") + (h.pose.includes("_") ? h.pose.split("_")[1] : h.pose); GPART(ps, h.x, h.y, HSC(ps)); } });
       if (!ready(collapseImg) && (o.stage >= 3 || o.t > 3.6)) { const a = Math.min(1, (o.t - 3.6) / 0.8); g.globalAlpha = a; GPART("rubble", o.cx, FLOOR + 6, 1); g.globalAlpha = 1; }
       if (o.core && o.stage === 1) { const f = ((time * 20) | 0) % 2; glow(o.core.x, o.core.y, 30, "#ffae35", f ? 1 : 0.5); g.fillStyle = f ? "#fff6c8" : "#ffae35"; g.fillRect(Math.round(o.core.x) - 3, Math.round(o.core.y) - 4, 6, 8); }
+    } else if (o.kind === "exsoul") {   // 작은 유령: 둥근 머리, 흔들리는 꼬리, 까만 두 눈, 푸른 빛
+      if (o.age >= 0) { const X = Math.round(o.x), Y = Math.round(o.y), dir = Math.abs(o.vx) > 5 ? Math.sign(o.vx) : 1, w = Math.round(Math.sin(time * 18 + o.ph) * 1.5);
+        glow(X, Y, 10, "#3f8ae0", 0.55);
+        g.fillStyle = "#1f4a8a"; g.fillRect(X - 3, Y - 3, 7, 6); g.fillRect(X - 2, Y - 4, 5, 1); g.fillRect(X - dir * 2 - 1 + w, Y + 3, 4, 2); g.fillRect(X - dir * 4 + w, Y + 5, 2, 2);
+        g.fillStyle = "#9bdcff"; g.fillRect(X - 2, Y - 3, 5, 4); g.fillRect(X - 1, Y - 4, 3, 1); g.fillRect(X - dir * 2 + w, Y + 3, 2, 1);
+        g.fillStyle = "#ffffff"; g.fillRect(X - 1, Y - 3, 2, 1);
+        g.fillStyle = "#0a1a33"; g.fillRect(X + dir * 1 - 1, Y - 1, 1, 2); g.fillRect(X + dir * 1 + 1, Y - 1, 1, 2); }
     } else if (o.kind === "soulfly") {
       glow(o.x, o.y, 8, "#ffae35", 0.7); g.fillStyle = "#fff6c8"; g.fillRect(Math.round(o.x) - 1, Math.round(o.y) - 1, 2, 2);
     } else if (o.kind === "exitgate" && ready(castleImg.props)) {
