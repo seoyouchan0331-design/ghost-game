@@ -9,12 +9,12 @@ s = open("index.html").read(); k = s.index(f"{LINE}: ", s.index("const HERO = {"
 H, _ = json.JSONDecoder().raw_decode(s[k:]); B = H["boxes"]
 sheet = np.asarray(Image.open(f"assets/hero_{LINE}.png").convert("RGBA")).astype(float); done = set(); n = 0
 for S in H["stages"]:
-    if "attack" not in S: continue
+    if "attack" not in S and "basic" not in S: continue
     R = 260; U = np.zeros((2 * R, 2 * R), bool)          # 대기·달리기 때 유령불(청록)이 있던 자리 = 몸의 불꽃. 거기 밖의 청록은 모두 이펙트
     for ci, ox, oy in S["idle"]["f"] + S["run"]["f"]:
         x, y, w, h = B[ci]; cc = sheet[y:y + h, x:x + w]; U[R + oy:R + oy + h, R + ox:R + ox + w] |= (cc[..., 3] > 0) & (cc[..., 1] > cc[..., 0] + 25) & (cc[..., 2] > cc[..., 0] + 10)
     U = ndimage.binary_dilation(U, iterations=int(sys.argv[3]) if len(sys.argv) > 3 else 2)
-    for ci, ox, oy in S["attack"]["f"]:
+    for ci, ox, oy in S.get("attack", {"f": []})["f"] + S.get("basic", {"f": []})["f"]:
         if ci in done: continue
         done.add(ci); x, y, w, h = B[ci]; c = sheet[y:y + h, x:x + w]
         r, g, b, a = c[..., 0], c[..., 1], c[..., 2], c[..., 3]
