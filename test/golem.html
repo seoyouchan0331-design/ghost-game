@@ -330,10 +330,10 @@ const HELMETS = [
         use(p) { startAct(p, { dur: 0.55, pose: "slam", wm: "slam", events: [{ t: 0.55 * exHit().slam, fn() {   // 내려찍기 40 (원혼 강화1: 50, 강화2: 맞은 적이 1명뿐이면 +50%)
           const E = exEnh(); execHit(p, { x0: 0, x1: 42, y0: -44, y1: 4, dmg: E >= 1 ? 50 : 40, kb: 120, heavy: true }, true, E >= 2 ? (k) => (k === 1 ? 1.5 : 1) : null); shake(4, 0.2); dust(p.x + p.dir * 30, p.y, p.dir, 6); } }] }); } },
       { name: "사형 선고", cd: 16, icon() { R(-7, 0, 12, 2, "#c94a3a"); E(4, -3, 3, 3, "#c94a3a"); E(4, -3, 1, 1, C.dark); },
-        use(p) { const hit = new Set(), W = 0.28, D = 0.11;   // 선딜레이 0.28초(웅크리고 연기가 모인다, 앞쪽에 붉은 선) → 0.11초 만에 검은 연기로 번쩍 돌진(무적, 몸은 사라지고 두 눈만) → 뒤에서 연기가 펑. 지나간 적에게 낙인, 3초 뒤 폭발 20 (강화1: 30, 강화2: 처형 대상은 올가미 → 3초 뒤 처형)
+        use(p) { const hit = new Set(), W = 0.28, D = 0.11;   // 선딜레이 0.28초(웅크리고 연기가 모인다, 앞쪽에 붉은 선) → 0.11초 만에 검은 연기로 번쩍 돌진(무적, 몸은 사라지고 두 눈만) → 뒤에서 연기가 펑. 지나간 적에게 12 + 낙인, 3초 뒤 폭발 45 (둘레 48 안은 절반) (강화1: 60, 강화2: 처형 대상은 올가미 → 3초 뒤 처형)
           spawn({ kind: "gfx", key: "xsmoke", x: p.x, y: p.y, dir: p.dir, t: 0, rate: 1, front: true });   // pixelfx shadow/smoke-dash (모이기 0.28 → 돌진 0.11 → 펑)
           startAct(p, { dur: W + D + 0.16, pose: "slam", wm: "stance", vx: 0, hide: true, tick() {
-          const a = p.act, mark = (e) => { if (live(e) && !hit.has(e)) { hit.add(e); damage(e, 8, { dir: p.dir, kb: 30 }); e.sentT = 3; e.sentX = exEnh() >= 2 && execLow(e); e.sentD = exEnh() >= 1 ? 30 : 20; for (let i = 0; i < 8; i++) spark(e.x, e.y - 18, rnd(-80, 80), -rnd(30, 120), 0.4, EXEC, true); } };
+          const a = p.act, mark = (e) => { if (live(e) && !hit.has(e)) { hit.add(e); damage(e, 12, { dir: p.dir, kb: 30 }); e.sentT = 3; e.sentX = exEnh() >= 2 && execLow(e); e.sentD = exEnh() >= 1 ? 60 : 45; for (let i = 0; i < 8; i++) spark(e.x, e.y - 18, rnd(-80, 80), -rnd(30, 120), 0.4, EXEC, true); } };
           if (a.t < W) { a.vx = 0; const q = a.t / W; p.invuln = Math.max(p.invuln, 0.1);   // 선딜레이: 연기가 몸으로 빨려 들고, 갈 길에 붉은 선
                         a.tele = q; return; }
           if (!a.go) { a.go = true; a.tele = 0; a.smoke = true; snd("dash"); shake(3, 0.12); }
@@ -2644,8 +2644,12 @@ function updateEnemy(e, dt) {
   if (e.wound > 0) { e.wound -= dt; if (Math.random() < dt * 4) spark(e.x + rnd(-4, 4), e.y - rnd(6, 20), 0, 20, 0.3, ["#2a0808", "#8e2a2a", "#d8423a", "#ff7a6a", "#ffd0c8"]); }   // 상처: 5초 안에 또 걸리면 출혈
   if (e.pickT > 0) e.pickT -= dt;
   if (e.sentT > 0) { e.sentT -= dt; if (e.sentT <= 0) {           // 사형 선고: 3초 뒤 폭발 (올가미면 처형)
-      for (const t of enemies) if (live(t) && Math.hypot(t.x - e.x, t.y - e.y) < 40) damage(t, e.sentD ?? 20, { dir: Math.sign(t.x - e.x) || 1, kb: 80 });
-      if (e.sentX || execLow(e)) execute(e); fxRing(e.x, e.y, 34, EXEC); if (e.dead) return; } }
+      const D0 = e.sentD ?? 45, ey = e.y - (e.type.hh ?? 30) * 0.5;   // 표식 폭발: 표식이 찍힌 적은 전부, 둘레 48 안의 다른 적은 절반
+      damage(e, D0, { dir: Math.sign(e.x - player.x) || 1, kb: 120, heavy: true });
+      for (const t of enemies) if (t !== e && live(t) && Math.hypot(t.x - e.x, t.y - e.y) < 48) damage(t, Math.round(D0 * 0.5), { dir: Math.sign(t.x - e.x) || 1, kb: 90 });
+      fxRing(e.x, e.y, 44, EXEC); fxShock(e.x, e.y, 56, EXEC); flashes.push({ kind: "burst", x: e.x, y: ey, r: 18, t: 0, ramp: EXEC }); light(e.x, ey, 70, "#ff3a2a", 0.9, 0.25);
+      for (let i = 0; i < 16; i++) spark(e.x, ey, rnd(-200, 200), rnd(-220, 40), rnd(0.3, 0.55), EXEC, false); shake(4, 0.2); snd("execute");
+      if (live(e) && (e.sentX || execLow(e))) execute(e); if (e.dead) return; } }
   if (e.frozen > 0) { e.frozen -= dt; return; }                  // 빙결: 행동 정지, 다음 피격 시 해제
   if (e.stun > 0) { e.stun -= dt; return; }
   e.t -= dt * (e.awake ? 1.4 : 1) * (e.auraT > 0 ? 1.3 : 1); if (e.auraT > 0) e.auraT -= dt;
