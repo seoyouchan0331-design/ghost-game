@@ -3,7 +3,7 @@
 <style>
   :root { --bg: #0b0a10; --fg: #d0c8dc; --dim: #9a91ad; --panel: #1d1827; --line: #342d44; color-scheme: dark; }
   html, body { height: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--fg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; overflow: hidden; box-sizing: border-box;
+  body { margin: 0; background: var(--bg); color: var(--fg); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; overflow-x: hidden; overflow-y: auto; box-sizing: border-box;
     padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); font: 13px/1.5 system-ui, sans-serif; }
   canvas { max-width: 100%; max-height: calc(100% - 64px); aspect-ratio: 16 / 9; width: auto; height: auto; image-rendering: pixelated; background: #000; outline: none; }
   #help { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: center; color: var(--dim); max-width: 960px; }
@@ -430,7 +430,7 @@ const HELMETS = [
       { name: "금화 던지기", cd: 6, icon() { for (const [x, y] of [[-4, 2], [0, -2], [4, 1]]) { E(x, y, 2, 2, "#ffd24a"); R(x - 1, y - 1, 1, 1, "#fff6c8"); } },
         use(p) { if (p.gold < 10) { banner = { s: "금화가 모자라 (10 필요)", t: 1.2 }; const H = helmById("thief"), i = H.skills.findIndex((k) => k.name === "금화 던지기"); if (i >= 0) cdsOf("thief")[i] = 0.3; return; }   // 금화 10개를 써서 닿으면 크게 터지는 금화 10개를 던진다
           p.gold -= 10; startAct(p, { dur: 0.36, pose: "cast", wm: "throw" }); snd("coin");
-          for (let i = 0; i < 10; i++) spawn({ kind: "tcoin", x: p.x + p.dir * 8, y: p.y - 18, vx: p.dir * rnd(140, 330), vy: -rnd(60, 230), t: 0, thrown: true, front: true }); } },
+          for (let i = 0; i < 10; i++) spawn({ kind: "tcoin", tag: "금화 던지기", x: p.x + p.dir * 8, y: p.y - 18, vx: p.dir * rnd(140, 330), vy: -rnd(60, 230), t: 0, thrown: true, front: true }); } },
       { name: "주머니 찢기", cd: 8, icon() { R(-6, -1, 12, 2, C.steel); R(-3, -5, 6, 4, "#8a5a2a"); R(-1, -3, 2, 2, "#ffd24a"); },
         use(p) { p.invuln = Math.max(p.invuln, 0.5); const hit = new Set(); for (const e of enemies) e.pickDone = false; startAct(p, { dur: 0.45, pose: "punch", wm: "flurry", vx: 120, pick: true, tick() {   // 무적 단검 난무: 맞은 적에게서 터지는 금화 4개 (1%로 금화 +100 대박), 5초 동안 맞을 때마다 금화 1개
           const n0 = hit.size; melee(p, { x0: -6, x1: 30, y0: -30, y1: 2, dmg: 5, once: hit, kb: 20 }); if ((p.act.t * 30 | 0) % 5 === 0) { hit.clear(); }
@@ -438,7 +438,7 @@ const HELMETS = [
           if (Math.random() < 0.6) fxSwoosh(p.x + p.dir * rnd(10, 26), p.y - rnd(8, 24), p.dir, 12, RAMP_GOLD, false); } });
  } },
       { name: "뒤구르기", cd: 20, icon() { E(-2, 1, 5, 4, "#5a5866"); E(3, -1, 4, 4, "#7a7886"); },
-        use(p) { spawn({ kind: "tsmoke", x: p.x, y: p.y, t: 0, tk: 0 }); p.invuln = Math.max(p.invuln, 0.45); startAct(p, { dur: 0.42, pose: "ram", wm: "roll", vx: -300 }); dust(p.x, p.y, p.dir, 5); } },   // 연막(3초, 안의 적에게 계속 피해, 안에 있으면 모든 공격 회피) + 무적 뒤구르기
+        use(p) { spawn({ kind: "tsmoke", tag: "뒤구르기 (연막)", x: p.x, y: p.y, t: 0, tk: 0 }); p.invuln = Math.max(p.invuln, 0.45); startAct(p, { dur: 0.42, pose: "ram", wm: "roll", vx: -300 }); dust(p.x, p.y, p.dir, 5); } },   // 연막(3초, 안의 적에게 계속 피해, 안에 있으면 모든 공격 회피) + 무적 뒤구르기
       { name: "뒷치기", cd: 12, icon() { R(-6, 0, 12, 2, C.steel); R(4, -1, 3, 1, C.white); E(-4, -3, 2, 2, "#9a70e0"); },
         use(p) { const tg = enemies.filter((e) => live(e) && !e.type.giant && Math.abs(e.y - (e.gy ?? e.y)) < 4 && Math.abs(e.x - p.x) < 240).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];   // 땅에 있는 가장 가까운 적의 등 뒤로 순간이동해 단검 (반드시 치명타), 50% 기절, 금화 10개
           if (!tg) { banner = { s: "뒤를 노릴 적이 없어", t: 1 }; return; }
@@ -1817,7 +1817,7 @@ function startWave(reinforce) {
     const gq = L.spawns.filter((q) => !q.ledge), q = gq.length ? pick(gq) : pick(L.spawns), e = newEnemy("banner", q.x); e.gy = e.y = q.y; [e.minX, e.maxX] = span(q.x, q.y); e.x = clamp(e.x, e.minX, e.maxX);
     e.elite = true; e.hp = e.maxHp = Math.round(e.maxHp * 1.8); enemies.push(e); }
 }
-const spawn = (o) => { objs.push(o); return o; };
+const spawn = (o) => { if (o.tag === undefined) o.tag = curTag; objs.push(o); return o; };   // tag: 이 물체가 준 피해의 출처 (전투 분석)
 const setSt = (e, st, t) => { e.st = st; e.t = t; e.tMax = t; };
 function walkTo(e, dx, k = 1, face) { const d = Math.sign(dx) || 1; e.dir = face || d; e.x += d * e.speed * k * STEP; e.walkT += STEP * k; }
 const hitsPlayer = (e, a, b) => { const p = player, x0 = Math.min(e.x + e.dir * a, e.x + e.dir * b), x1 = Math.max(e.x + e.dir * a, e.x + e.dir * b); return p.x + 6 > x0 && p.x - 6 < x1 && p.y > e.y - 28 && p.y - 26 < e.y; };
@@ -1826,7 +1826,8 @@ const live = (e) => !e.dead && e.born <= 0;
 // =====================================================================================
 //  행동 도구 — 투구 목록의 use()가 쓰는 부품
 // =====================================================================================
-function startAct(p, a) { p.act = { t: 0, ei: 0, events: [], reach: 0, ...a }; }
+let curTag = null, objTag = null;   // 지금 쓰는 기술 이름 (전투 분석: 피해가 어느 기술에서 났는지)
+function startAct(p, a) { p.act = { t: 0, ei: 0, events: [], reach: 0, tag: curTag, ...a }; }
 
 // 앞쪽 상자 안의 적을 때린다. x0..x1은 바라보는 방향 기준.
 function melee(p, o) {
@@ -1892,7 +1893,7 @@ function thiefStab(p, dmg, x1) {                        // 괴도 평타: 맞으
 }
 function dropTCoins(e, n) {                              // 적에게서 떨어지는 금화: 튀어 올랐다 떨어져서 터진다 (마법 피해), 터진 뒤엔 금화 1로 주울 수 있다
   const k = Math.min(n, 24);
-  for (let i = 0; i < k; i++) spawn({ kind: "tcoin", x: e.x + rnd(-4, 4), y: e.y - 20, vx: rnd(-110, 110), vy: -rnd(120, 260), t: 0, val: i < k - 1 ? 1 : n - (k - 1), front: true });
+  for (let i = 0; i < k; i++) spawn({ kind: "tcoin", tag: "금화 폭발", x: e.x + rnd(-4, 4), y: e.y - 20, vx: rnd(-110, 110), vy: -rnd(120, 260), t: 0, val: i < k - 1 ? 1 : n - (k - 1), front: true });
 }
 const exEnh = () => ((player.execSouls ?? 0) >= 60 ? 2 : (player.execSouls ?? 0) >= 20 ? 1 : 0);   // 처형인 원혼 강화 단계 (20·60개)
 function gainSoul(e, n) {                                // 원혼: 처형인을 쓰고 있을 때 처치하면 확률로, 처형하면 반드시. 푸른 원혼이 떠올라 처형인에게 빨려 든다
@@ -1992,11 +1993,13 @@ function damage(e, base, o = {}) {
   if (e.groggy && !o.quiet) mult *= 2;                                                     // 거대 골렘 그로기                    // 사냥 2
   if (e.type.backHit && !o.quiet && o.sx != null && (o.sx - e.x) * e.dir < 0) { mult *= 1.5; texts.push({ x: e.x, y: e.y - 52, vy: -40, t: 0.5, s: "등 뒤!", c: "#ffae35" }); }   // 중갑 기사: 등 뒤 1.5배
   const blocked = (!!e.type.shield || e.st === "guard") && !stat("pierce") && e.stun <= 0 && !e.frozen && !o.above && !o.quiet && o.sx != null && (o.sx - e.x) * e.dir > 0;   // 방패 정면
+  const dmgTag = o.tag || objTag || (p.act && p.act.tag) || "기타";
   const dmg = Math.max(1, Math.round(base * mult * (1 + atkBonus) * (crit ? BASE.critMult + (cr("hunt", 4) ? 0.5 : 0) : 1) * (blocked ? 0.2 : 1) * (e.st === "potion" ? 1.5 : 1) * (e.auraT > 0 ? 0.7 : 1) * (e.ward > 0 ? 0.5 : 1)));
   if (e.st === "charge") { e.chargeDmg += dmg; if (e.chargeDmg >= e.maxHp * ULT_CANCEL) { advGroggy(e, GROGGY_CANCEL); fxRing(e.x, e.y - 20, 30, RAMP_GHOST); hitstop = 0.12; shake(4, 0.25); texts.push({ x: e.x, y: e.y - 70, vy: -30, t: 1, s: "캔슬!", c: "#63c8ea" }); } }
   const armor = e.st === "charge" || e.st === "potion" || e.st === "leap" || !!e.type.sarmor;
   const wasFrozen = shard > 0; let bled = false;
   e.hp -= dmg + shard; e.flash = 0.1; if (e.ward > 0) e.ward -= dmg;
+  if (window.__onDmg) window.__onDmg(e, dmg + shard, dmgTag, crit, !!o.quiet);   // 투구 시험장 전투 분석
   if (!o.quiet) snd(blocked ? "block" : crit ? "crit" : o.heavy ? "hitH" : o.ranged ? "hitR" : "hit");
   if (!o.quiet && !blocked && p.helm.id === "executioner" && !e.type.dummy) bloodSplat(e, o.dir ?? p.dir, dmg);
   if (e.pickT > 0 && !o.noProc && !o.quiet && p.helm.id === "thief" && e.hp > 0 && !(p.act && p.act.pick) && time - (e.pickLast ?? -9) > 0.4) { e.pickLast = time; dropTCoins(e, 1); }   // 주머니 찢긴 적: 5초 동안 맞을 때마다 금화 1 (0.4초에 한 번, 주머니 찢기 도중엔 안 나옴)   // 처형인: 맞을 때마다 피가 튄다
@@ -2356,7 +2359,7 @@ function updatePlayer(dt) {
     if (stat("swapRoot")) for (const e of enemies) if (live(e) && !e.type.boss && Math.abs(e.x - p.x) < 70) { e.stun = Math.max(e.stun, 1); fxRing(e.x, e.y, 12, RAMP_GHOST); }
     const nh = p.helm; p.cds[nh.id] = [0, 0];       // 들어온 투구는 스킬 쿨 초기화
     if (ax) p.dir = ax;
-    p.src = "swap"; p.hp = Math.min(maxHp(), p.hp + stat("swapHeal")); fxSwap(p); nh.swap.use(p);
+    p.src = "swap"; p.hp = Math.min(maxHp(), p.hp + stat("swapHeal")); fxSwap(p); curTag = "교체: " + nh.swap.name; nh.swap.use(p);
   }
   // 영혼 (D): 불도마뱀 = 3초 불길, 돌거북 = 3초 방어 후 폭발
   p.soulCd = Math.max(0, (p.soulCd ?? 0) - dt);
@@ -2403,10 +2406,10 @@ function updatePlayer(dt) {
     p.vx = ax * speed * (p.helm.id === "hunter" && (p.drawT ?? 0) > 0.25 ? 0.6 : 1); if (ax) p.dir = ax;   // 사냥꾼: 모으는 동안은 천천히 걷는다
     if (keys.ArrowDown && p.ground && tileAt(p.x, p.y + 2) === "=" && take("KeyC")) { p.dropT = 0.25; p.ground = false; }   // ↓+점프: 발판 아래로
     else if (take("KeyC") && p.jumps > 0) { snd(p.ground ? "jump" : "jump2"); p.vy = BASE.jumpV * (p.jumps === BASE.jumps ? 1 : 0.9); if (!p.ground) fxRing(p.x, p.y, 12, RAMP_GHOST); else dust(p.x, p.y, 0, 3); p.jumps--; p.ground = false; }
-    if (take("KeyA") && cds[0] <= 0) { cds[0] = clockReset(skillCd(helm, 0)); snd("cast"); p.src = "skill"; p.skKey = "KeyA"; helm.skills[0].use(p); if (helm.id === "soldier" && hgOf("soldier") >= 2 && p.rushG >= 1) { p.rushG = 0; p.rushChain = 2; } }
+    if (take("KeyA") && cds[0] <= 0) { cds[0] = clockReset(skillCd(helm, 0)); snd("cast"); p.src = "skill"; p.skKey = "KeyA"; curTag = helm.skills[0].name; helm.skills[0].use(p); if (helm.id === "soldier" && hgOf("soldier") >= 2 && p.rushG >= 1) { p.rushG = 0; p.rushChain = 2; } }
     if (p.rushChain > 0 && !p.act && helm.id === "soldier") { p.rushChain--; p.src = "skill"; helm.skills[0].use(p); }   // 근위 창대장: 게이지 가득일 때 창 돌격 3연속
     else if (sLocked(helm.id) && take("KeyS")) banner = { s: "두 번째 스킬은 명품부터 (대장장이에게 각성)", t: 1.4 };
-    else if (!sLocked(helm.id) && take("KeyS") && cds[1] <= 0) { cds[1] = clockReset(skillCd(helm, 1)); snd("cast"); p.src = "skill"; p.skKey = "KeyS"; helm.skills[1].use(p); }
+    else if (!sLocked(helm.id) && take("KeyS") && cds[1] <= 0) { cds[1] = clockReset(skillCd(helm, 1)); snd("cast"); p.src = "skill"; p.skKey = "KeyS"; curTag = helm.skills[1].name; helm.skills[1].use(p); }
     else if (take("KeyX")) basicAttack(p);
     else if (take("ArrowUp")) interact(p);
     else if (take("ArrowDown")) { const rv = objs.find((o) => o.kind === "reveal" && o.taken == null && o.t > 0.4 && Math.abs(o.x - p.x) < 18); if (rv) breakItem(rv);
@@ -2430,7 +2433,7 @@ function updatePlayer(dt) {
   if (p.ground && Math.abs(p.vx) > 10 && !p.act) p.walkT += dt; else p.walkT = 0;
 }
 function basicAttack(p) {
-  const helm = p.helm, b = helm.basic, step = b.steps[p.combo % b.steps.length];
+  const helm = p.helm, b = helm.basic, step = b.steps[p.combo % b.steps.length]; curTag = `평타 ${(p.combo % b.steps.length) + 1}타`;
   const n = (p.counts[helm.id] = (p.counts[helm.id] ?? 0) + 1);
   const empowered = b.steps.some((q) => q.fin) ? !!step.fin : !!b.nth && n % b.nth.every === 0;   // 마무리 단계가 있으면 그 단계만 강화 (병사: 3연타 마지막)
   p.combo = (p.combo + 1) % b.steps.length;
@@ -2646,11 +2649,12 @@ function updateEnemy(e, dt) {
   if (e.poison > 0) { e.poison -= dt; e.poisonT -= dt; if (Math.random() < dt * 6) puff(e.x + rnd(-5, 5), e.y - rnd(4, 20), 0, -20, 0.4, "#7ad04a", 1.5);
     if (e.poisonT <= 0) { e.poisonT += 0.5; damage(e, 3 * (cr("poison", 4) ? 2 : 1), { quiet: true }); if (e.dead) return; } }
   if (e.wound > 0) { e.wound -= dt; if (Math.random() < dt * 4) spark(e.x + rnd(-4, 4), e.y - rnd(6, 20), 0, 20, 0.3, ["#2a0808", "#8e2a2a", "#d8423a", "#ff7a6a", "#ffd0c8"]); }   // 상처: 5초 안에 또 걸리면 출혈
+  objTag = null;   // 적 갱신 중 피해(화상·낙인 등)는 물체 꼬리표를 물려받지 않는다
   if (e.pickT > 0) e.pickT -= dt;
   if (e.sentT > 0) { e.sentT -= dt; if (e.sentT <= 0) {           // 사형 선고: 3초 뒤 폭발 (올가미면 처형)
       const D0 = e.sentD ?? 45, ey = e.y - (e.type.hh ?? 30) * 0.5;   // 표식 폭발: 표식이 찍힌 적은 전부, 둘레 48 안의 다른 적은 절반
-      damage(e, D0, { dir: Math.sign(e.x - player.x) || 1, kb: 120, heavy: true });
-      for (const t of enemies) if (t !== e && live(t) && Math.hypot(t.x - e.x, t.y - e.y) < 48) damage(t, Math.round(D0 * 0.5), { dir: Math.sign(t.x - e.x) || 1, kb: 90 });
+      damage(e, D0, { dir: Math.sign(e.x - player.x) || 1, kb: 120, heavy: true, tag: "사형 선고 (낙인 폭발)" });
+      for (const t of enemies) if (t !== e && live(t) && Math.hypot(t.x - e.x, t.y - e.y) < 48) damage(t, Math.round(D0 * 0.5), { dir: Math.sign(t.x - e.x) || 1, kb: 90, tag: "사형 선고 (낙인 폭발)" });
       fxRing(e.x, e.y, 44, EXEC); fxShock(e.x, e.y, 56, EXEC); flashes.push({ kind: "burst", x: e.x, y: ey, r: 18, t: 0, ramp: EXEC }); light(e.x, ey, 70, "#ff3a2a", 0.9, 0.25);
       for (let i = 0; i < 16; i++) spark(e.x, ey, rnd(-200, 200), rnd(-220, 40), rnd(0.3, 0.55), EXEC, false); shake(4, 0.2); snd("execute");
       if (live(e) && (e.sentX || execLow(e))) execute(e); if (e.dead) return; } }
@@ -2693,8 +2697,8 @@ function drawEnemySprite(e) {
 //  떠 있는 물체: 던진 투구, 창벽, 떨어지는 창, 화살·마법탄, 덫, 화살비, 횃불, 불길, 보상, 문
 // =====================================================================================
 function updateObjs(dt) {
-  const p = player;
-  for (const o of objs) {
+  const p = player; objTag = null;
+  for (const o of objs) { objTag = o.tag;   // 물체가 주는 피해는 그 물체를 만든 기술의 것
     if (o.kind === "helm") {
       o.age += dt;
       if (!o.rest) {
@@ -2900,6 +2904,7 @@ function updateObjs(dt) {
     }
   }
   objs = objs.filter((o) => !o.gone);
+  objTag = null;
 }
 function spearUp(x, tipY, baseY) {
   g.fillStyle = C.line; g.fillRect(x - 1, tipY + 5, 4, baseY - tipY - 5); g.fillStyle = C.wood; g.fillRect(x, tipY + 5, 2, baseY - tipY - 5); g.fillStyle = C.wood2; g.fillRect(x, tipY + 5, 1, baseY - tipY - 5);
@@ -3597,28 +3602,44 @@ window.__game = { get cam() { return [camX, camY]; }, set chapter(v) { chapter =
 </script>
 
 <div id="hpanel"></div>
-<div id="dpm" style="display:none;font:13px/1.6 monospace;color:#ffe27a;text-align:center;max-width:960px"></div>
+<div id="dpm" style="display:none;position:fixed;right:8px;top:8px;width:340px;max-height:calc(100vh - 16px);overflow:auto;z-index:20;background:rgba(20,16,30,0.92);border:1px solid #342d44;border-radius:8px;padding:8px 10px;font:12px/1.5 system-ui,sans-serif;color:#d0c8dc;box-sizing:border-box"></div>
 <div id="help"><span id="state"></span><span><kbd>Q</kbd>/<kbd>E</kbd> 투구 바꾸기</span><span><kbd>W</kbd> 진화</span><span><kbd>Shift</kbd>+<kbd>W</kbd> 퇴화</span><span><kbd>F</kbd> 적 다시</span><span><kbd>T</kbd> 쿨타임 없애기</span><span><kbd>0</kbd> 무적</span><span><kbd>H</kbd> 허수아비</span><span><kbd>Space</kbd> 교체 (교체 스킬)</span></div>
 <script>
 // 투구 시험장: HELMETS 목록을 그대로 읽어 버튼을 만든다 (투구가 추가되면 자동으로 늘어남). 진화 단계는 계보 길이(lineMax)만큼
 const TEST = { god: true, nocd: false, id: "empty", dummy: false, sub: "soldier" };   // sub: 교체 칸 투구 (Space로 바꿔 교체 스킬 시험)
-// 허수아비 DPM: 첫 타부터 60초 동안 준 피해를 잰다. 끝나면 기록에 남는다 (투구·단계·스킬별)
-const DUMMY = { e: null, total: 0, t0: 0, last: [], done: false, log: [] };
+// 허수아비 전투 분석 (메이플 전투분석 방식): 첫 타부터 정해진 시간 동안 기술별 피해·비율·타수·최대·평균·치명을 잰다. 오른쪽 위에 겹쳐 띄운다 (화면이 밀리지 않게)
+const DUMMY = { e: null, t0: 0, dur: 60, done: false, by: {}, sec: [], total: 0, log: [] };
 try { DUMMY.log = JSON.parse(localStorage.getItem("dpmLog") || "[]"); } catch (err) {}
+function dummyReset() { Object.assign(DUMMY, { t0: 0, done: false, by: {}, sec: [], total: 0 }); }
 function dummyStart() { const p = player; TEST.dummy = true; waveN = 0; enemies = [];   // waveN 0: 증원 웨이브가 안 나오게
-  objs = objs.filter((o) => o.kind !== "coin");
-  const e = newEnemy("dummy", p.x + 70, 0); e.gy = e.y = p.y; e.minX = e.maxX = e.x; e.hp = e.maxHp; enemies.push(e); DUMMY.e = e; DUMMY.total = 0; DUMMY.t0 = 0; DUMMY.last = []; DUMMY.done = false; draw(); }
+  objs = objs.filter((o) => o.kind !== "coin" && o.kind !== "tcoin");
+  const e = newEnemy("dummy", p.x + 70, 0); e.gy = e.y = p.y; e.minX = e.maxX = e.x; e.hp = e.maxHp; enemies.push(e); DUMMY.e = e; dummyReset(); draw(); }
 function dummyStop() { TEST.dummy = false; DUMMY.e = null; document.getElementById("dpm").style.display = "none"; respawn(); draw(); }
+window.__onDmg = (e, dmg, tag, crit) => {   // 게임이 피해를 줄 때마다 부른다
+  if (!TEST.dummy || e !== DUMMY.e || DUMMY.done) return; const now = performance.now() / 1000;
+  if (!DUMMY.t0) DUMMY.t0 = now; const s2 = Math.floor(now - DUMMY.t0); if (s2 >= DUMMY.dur) return;
+  const r = DUMMY.by[tag] || (DUMMY.by[tag] = { dmg: 0, hits: 0, crit: 0, max: 0 }); r.dmg += dmg; r.hits++; if (crit) r.crit++; r.max = Math.max(r.max, dmg);
+  DUMMY.sec[s2] = (DUMMY.sec[s2] || 0) + dmg; DUMMY.total += dmg;
+};
 function dummyTick() {
-  const el = document.getElementById("dpm"), e = DUMMY.e; if (!TEST.dummy || !e) return; el.style.display = "block";
-  const now = performance.now() / 1000, d = e.maxHp - e.hp; e.hp = e.maxHp;
-  if (d > 0 && !DUMMY.done) { if (!DUMMY.t0) DUMMY.t0 = now; DUMMY.total += d; DUMMY.last.push([now, d]); }
-  DUMMY.last = DUMMY.last.filter((q) => now - q[0] < 5);
-  const el2 = DUMMY.t0 ? Math.min(60, now - DUMMY.t0) : 0, dps = el2 > 0.5 ? DUMMY.total / el2 : 0, d5 = DUMMY.last.reduce((a, q) => a + q[1], 0) / 5;
-  const p = player, h = p.helm, who = `${hName(h)} ${h.id === "empty" ? "" : hgOf(h.id) + 1 + "단계"} [${h.skills.map((s) => s.name).join("·")}]`;
-  if (DUMMY.t0 && el2 >= 60 && !DUMMY.done) { DUMMY.done = true; DUMMY.log.unshift({ who, dpm: Math.round(DUMMY.total), dps: Math.round(dps) }); DUMMY.log = DUMMY.log.slice(0, 30); try { localStorage.setItem("dpmLog", JSON.stringify(DUMMY.log)); } catch (err) {} }
-  el.innerHTML = `🎯 ${who}<br>${DUMMY.t0 ? (DUMMY.done ? "측정 끝 (60초)" : `측정 중 ${el2.toFixed(1)}초 / 60초`) : "첫 타를 때리면 60초 측정 시작"} · 총 피해 <b>${Math.round(DUMMY.total)}</b> · 평균 DPS <b>${dps.toFixed(1)}</b> · 최근 5초 DPS ${d5.toFixed(1)} · 예상 DPM <b>${Math.round(dps * 60)}</b>`
-    + (DUMMY.log.length ? "<br><span style='color:#b0a8ba'>기록 (최근순): " + DUMMY.log.slice(0, 8).map((r) => `${r.who} ${r.dpm}`).join(" | ") + "</span>" : "");
+  const el = document.getElementById("dpm"), e = DUMMY.e; if (!TEST.dummy || !e) return; el.style.display = "block"; e.hp = e.maxHp;
+  const now = performance.now() / 1000, el2 = DUMMY.t0 ? Math.min(DUMMY.dur, now - DUMMY.t0) : 0, dps = el2 > 0.5 ? DUMMY.total / el2 : 0;
+  const p = player, h = p.helm, sub = p.slots[1 - p.active], who = `${hName(h)} ${h.id === "empty" ? "" : hgOf(h.id) + 1 + "단계"} [${(h.skills || []).map((s) => s.name).join("·")}]${sub ? " + 교체 " + hName(helmById(sub)) : ""}`;
+  if (DUMMY.t0 && el2 >= DUMMY.dur && !DUMMY.done) { DUMMY.done = true; DUMMY.log.unshift({ who, dur: DUMMY.dur, total: Math.round(DUMMY.total), dpm: Math.round(DUMMY.total / DUMMY.dur * 60) }); DUMMY.log = DUMMY.log.slice(0, 30); try { localStorage.setItem("dpmLog", JSON.stringify(DUMMY.log)); } catch (err) {} }
+  const rows = Object.entries(DUMMY.by).sort((a, b) => b[1].dmg - a[1].dmg), T = DUMMY.total || 1, fmt = (n) => Math.round(n).toLocaleString();
+  const cols = ["#e85a4a", "#e8a33a", "#d8d04a", "#6ac86a", "#4ab0e8", "#9a7ae8", "#e87ac8", "#a0a0a0"];
+  let html = `<div style="color:#ffe27a;font-weight:bold">🎯 전투 분석</div><div style="color:#b0a8ba">${who}</div>`;
+  html += `<div>${DUMMY.t0 ? (DUMMY.done ? `<b style="color:#8fe08a">측정 끝</b> (${DUMMY.dur}초)` : `측정 중 <b>${el2.toFixed(1)}</b> / ${DUMMY.dur}초`) : "첫 타를 때리면 측정 시작"}</div>`;
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin:6px 0"><div>총 피해<br><b style="font-size:15px;color:#fff">${fmt(DUMMY.total)}</b></div><div>DPS<br><b style="font-size:15px;color:#fff">${dps.toFixed(1)}</b></div><div>DPM<br><b style="font-size:15px;color:#ffe27a">${fmt(dps * 60)}</b></div></div>`;
+  const mx = Math.max(1, ...DUMMY.sec.map((v) => v || 0)), n = DUMMY.dur;   // 초당 피해 막대 (시간 흐름)
+  html += `<div style="display:flex;align-items:flex-end;gap:1px;height:40px;background:#120e1a;padding:2px;border-radius:4px;margin-bottom:6px">` + Array.from({ length: n }, (_, i) => `<div title="${i}초: ${fmt(DUMMY.sec[i] || 0)}" style="flex:1;height:${Math.round(((DUMMY.sec[i] || 0) / mx) * 100)}%;background:${i < el2 ? "#e8a33a" : "#3a3248"};min-height:1px"></div>`).join("") + `</div>`;
+  html += `<table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="color:#9a91ad;text-align:right"><th style="text-align:left">기술</th><th>피해</th><th>비율</th><th>타수</th><th>최대</th><th>평균</th><th>치명</th></tr>`;
+  rows.forEach(([k, r], i) => { const pc = (r.dmg / T) * 100, c = cols[i % cols.length];
+    html += `<tr style="text-align:right;border-top:1px solid #2a2436"><td style="text-align:left;max-width:96px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"><span style="color:${c}">■</span> ${k}</td><td>${fmt(r.dmg)}</td><td>${pc.toFixed(1)}%</td><td>${r.hits}</td><td>${fmt(r.max)}</td><td>${fmt(r.dmg / r.hits)}</td><td>${Math.round((r.crit / r.hits) * 100)}%</td></tr>`;
+    html += `<tr><td colspan="7"><div style="height:4px;background:#2a2436;border-radius:2px"><div style="height:4px;width:${pc}%;background:${c};border-radius:2px"></div></div></td></tr>`; });
+  html += `</table>`;
+  if (DUMMY.log.length) html += `<div style="margin-top:6px;color:#9a91ad">기록 (최근순)</div>` + DUMMY.log.slice(0, 6).map((r) => `<div style="font-size:11px">${r.who}<br><span style="color:#ffe27a">DPM ${fmt(r.dpm)}</span> · ${r.dur ?? 60}초 ${fmt(r.total ?? r.dpm)}</div>`).join("");
+  el.innerHTML = html;
 }
 // 렉 원인 찾기 스위치: 하나씩 꺼 보고 어느 걸 껐을 때 매끄러워지는지 본다
 const DIAG = { noStop: false, noFx: false, noFrames: false, noCancel: false }, ORIG = { glow, fxHit, spark, HERO: { ...HERO } };
@@ -3630,7 +3651,7 @@ function diagApply() {
   if (DIAG.noFx) { flashes.length = 0; lights.length = 0; sparks.length = 0; } requestAnimationFrame(diagLoop); })();
 { let n = 0, t0 = performance.now(), worst = 0, last = t0; (function fl(t) { n++; worst = Math.max(worst, t - last); last = t; if (t - t0 > 1000) { const el = document.getElementById("fps"); if (el) el.textContent = `${n} fps · 가장 긴 프레임 ${worst | 0}ms`; n = 0; worst = 0; t0 = t; } requestAnimationFrame(fl); })(t0); }
 const HL = () => HELMETS;
-function tEquip(id, g) { const p = player; TEST.id = id; { const o = 1 - p.active; if (TEST.sub && TEST.sub !== id) { p.slots[o] = TEST.sub; if (TEST.sub !== "empty" && p.hg[TEST.sub] == null) p.hg[TEST.sub] = 0; p.cds[TEST.sub] = p.cds[TEST.sub] || [0, 0]; } else p.slots[o] = null; } if (TEST.dummy) { DUMMY.total = 0; DUMMY.t0 = 0; DUMMY.last = []; DUMMY.done = false; } p.slots[p.active] = id; if (id !== "empty") p.hg[id] = clamp(g ?? p.hg[id] ?? 0, 0, lineMax(id)); p.cds[id] = [0, 0]; p.act = null; p.combo = 0; fxSwap(p); draw(); }
+function tEquip(id, g) { const p = player; TEST.id = id; { const o = 1 - p.active; if (TEST.sub && TEST.sub !== id) { p.slots[o] = TEST.sub; if (TEST.sub !== "empty" && p.hg[TEST.sub] == null) p.hg[TEST.sub] = 0; p.cds[TEST.sub] = p.cds[TEST.sub] || [0, 0]; } else p.slots[o] = null; } if (TEST.dummy) dummyReset(); p.slots[p.active] = id; if (id !== "empty") p.hg[id] = clamp(g ?? p.hg[id] ?? 0, 0, lineMax(id)); p.cds[id] = [0, 0]; p.act = null; p.combo = 0; fxSwap(p); draw(); }
 function grade(d) { const id = TEST.id; if (id === "empty") return; tEquip(id, (player.hg[id] ?? 0) + d); }
 function respawn() { const p = player; enemies = []; for (let i = 0; i < 4; i++) { const id = ["militia", "shield", "hound", "torch"][i]; const e = newEnemy(id, p.x + 70 + i * 34, i); e.gy = e.y = p.y; e.minX = p.x + 40; e.maxX = p.x + 260; e.hp = e.maxHp = 600; enemies.push(e); } }
 function helmTest() { startRun(); room = 1; enemies = []; player.x = 80; player.y = FLOOR; startRoom(); L = buildRoom(FLAT); ROOM_R = L.w - 20; buildTerrain(); player.x = 80; player.y = FLOOR; objs = []; respawn(); phase = "fight"; tEquip(TEST.id); }
@@ -3647,7 +3668,7 @@ function draw() {
   btn(TEST.nocd ? "쿨타임 없음" : "쿨타임 있음", TEST.nocd, () => { TEST.nocd = !TEST.nocd; draw(); });
   btn("적 다시 (F)", false, () => { if (TEST.dummy) dummyStop(); else respawn(); });
   btn(TEST.dummy ? "✔ 허수아비 (H: 다시 재기)" : "허수아비 DPM (H)", TEST.dummy, dummyStart);
-  if (TEST.dummy) { btn("허수아비 끄기", false, dummyStop); btn("기록 지우기", false, () => { DUMMY.log = []; try { localStorage.removeItem("dpmLog"); } catch (err) {} }); }
+  if (TEST.dummy) { for (const d of [30, 60, 180]) btn(`${d}초 측정`, DUMMY.dur === d, () => { DUMMY.dur = d; dummyReset(); draw(); }); btn("다시 재기", false, () => { dummyReset(); }); btn("허수아비 끄기", false, dummyStop); btn("기록 지우기", false, () => { DUMMY.log = []; try { localStorage.removeItem("dpmLog"); } catch (err) {} }); }
   const sep2 = document.createElement("div"); sep2.className = "sep"; el.appendChild(sep2);
   btn(DIAG.noStop ? "✔ 히트스톱 꺼짐" : "히트스톱 끄기", DIAG.noStop, () => { DIAG.noStop = !DIAG.noStop; draw(); });
   btn(DIAG.noFx ? "✔ 이펙트 꺼짐" : "이펙트 끄기", DIAG.noFx, () => { DIAG.noFx = !DIAG.noFx; diagApply(); draw(); });
