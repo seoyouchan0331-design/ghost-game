@@ -319,7 +319,7 @@ const HELMETS = [
     } },
   },
   {
-    id: "executioner", name: "녹슨 처형인 두건", atk: "무거운 2연타 22·32 (느림), 3단계는 3타 마무리 48", passive: "체력 30% 이하(모험가·보스 10%) 적은 처형 스킬에 즉사", grade: "녹슨", type: "파워", ramp: EXEC, wip: true,   // 시험 중: 대기·달리기 영상만. 공격 영상이 오면 동작·이펙트를 바꾼다 (원혼 수집은 아직)
+    id: "executioner", name: "녹슨 처형인 두건", atk: "무거운 2연타 22·32 (느림), 3단계는 3타 마무리 48", passive: "체력 30% 이하(모험가·보스 10%) 적은 처형 스킬에 즉사", grade: "녹슨", type: "파워", ramp: EXEC,
     draw(t) {
       flame(-1, -19, 2, 5, t, GHOST);
       for (let i = 0; i < 9; i++) R(-6 + Math.floor(i * 0.7), -10 - i, 13 - Math.floor(i * 1.4), 1, i % 3 ? "#2c2730" : "#3a3440");
