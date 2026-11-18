@@ -327,7 +327,7 @@ const HELMETS = [
     get skills() { return skillsOf(this); },     // 4개 중 2개 무작위 (S는 명품부터)
     pool: [
       { name: "목 베기", cd: 10, icon() { R(-1, -7, 3, 10, "#d8d8d8"); R(-4, 3, 9, 2, "#8e2a2a"); },
-        use(p) { startAct(p, { dur: 0.55, pose: "slam", wm: "slam", events: [{ t: 0.32, fn() {   // 내려찍기 40 (원혼 강화1: 50, 강화2: 맞은 적이 1명뿐이면 +50%)
+        use(p) { startAct(p, { dur: 0.55, pose: "slam", wm: "slam", events: [{ t: 0.55 * exHit().slam, fn() {   // 내려찍기 40 (원혼 강화1: 50, 강화2: 맞은 적이 1명뿐이면 +50%)
           const E = exEnh(); execHit(p, { x0: 0, x1: 42, y0: -44, y1: 4, dmg: E >= 1 ? 50 : 40, kb: 120, heavy: true }, true, E >= 2 ? (k) => (k === 1 ? 1.5 : 1) : null); shake(4, 0.2); dust(p.x + p.dir * 30, p.y, p.dir, 6); } }] }); } },
       { name: "사형 선고", cd: 16, icon() { R(-7, 0, 12, 2, "#c94a3a"); E(4, -3, 3, 3, "#c94a3a"); E(4, -3, 1, 1, C.dark); },
         use(p) { const hit = new Set(), W = 0.28, D = 0.11;   // 선딜레이 0.28초(웅크리고 연기가 모인다, 앞쪽에 붉은 선) → 0.11초 만에 검은 연기로 번쩍 돌진(무적, 몸은 사라지고 두 눈만) → 뒤에서 연기가 펑. 지나간 적에게 낙인, 3초 뒤 폭발 20 (강화1: 30, 강화2: 처형 대상은 올가미 → 3초 뒤 처형)
@@ -343,16 +343,18 @@ const HELMETS = [
           if (a.hide) { a.hide = false; a.smoke = false; a.vx = 0; }   // 다시 나타남 (펑은 이펙트가)
           a.vx = 0; } }); } },
       { name: "대학살", cd: 30, icon() { E(0, 0, 7, 7, "#9a9a9a"); E(0, 0, 4, 4, "#24202f"); R(-1, -8, 2, 4, "#d8d8d8"); },
-        use(p) { startAct(p, { dur: 0.6, pose: "slam", wm: "spin", events: [{ t: 0.3, fn() {   // 무적 큰 회전 베기 45 (강화1: 55, 강화2: 맞은 적 1명당 15초 공격력 +10%). 3단계는 사슬에 건 칼이라 범위가 넓다 (92)
-          p.invuln = Math.max(p.invuln, 0.35); const R3 = hgOf("executioner") >= 2 ? 92 : 56, E = exEnh(), n = execHit(p, { x0: -R3, x1: R3, y0: -46, y1: 6, dmg: E >= 1 ? 55 : 45, kb: 160, heavy: true }, true);
-          if (E >= 2 && n) { p.massT = 15; p.massN = n; texts.push({ x: p.x, y: p.y - 56, vy: -30, t: 0.9, s: `공격력 +${n * 10}% (15초)`, c: "#ff9a7a" }); } shake(4, 0.25); } }] }); } },
+        use(p) { p.invuln = Math.max(p.invuln, 0.65); const sw = (first) => () => {   // 무적 큰 회전 베기 2번 (영상 속 회전에 맞춰), 한 번에 45의 60% (강화1: 55, 강화2: 맞은 적 1명당 15초 공격력 +10%). 3단계는 사슬에 건 칼이라 범위 92
+          const R3 = hgOf("executioner") >= 2 ? 92 : 56, E = exEnh(), n = execHit(p, { x0: -R3, x1: R3, y0: -46, y1: 6, dmg: Math.round((E >= 1 ? 55 : 45) * 0.6), kb: first ? 60 : 170, heavy: !first }, true); shake(first ? 2 : 4, 0.2);
+          if (!first && E >= 2 && n) { p.massT = 15; p.massN = n; texts.push({ x: p.x, y: p.y - 56, vy: -30, t: 0.9, s: `공격력 +${n * 10}% (15초)`, c: "#ff9a7a" }); } };
+          const H = exHit().spin; startAct(p, { dur: 0.6, pose: "slam", wm: "spin", events: [{ t: 0.6 * H[0], fn: sw(true) }, { t: 0.6 * H[1], fn: sw(false) }] }); } },
       { name: "집행 자세", cd: 14, icon() { R(-7, -1, 14, 2, "#d8d8d8"); R(-7, -4, 2, 8, "#5a3a24"); R(5, 2, 3, 1, "#c94a3a"); },
         use(p) { const key = p.skKey; startAct(p, { dur: 2.2, pose: "slam", wm: "stance", vx: 0, armor: true, tick() {   // 누르고 있으면 어깨에 메고 버티기 (최대 1.5초, 슈퍼아머) → 놓으면 가로 참격 30~70. 1.35~1.5초에 놓으면 완벽한 집행 (처형 기준 50%)
           const a = p.act;
           if (!a.cut) { const held = key && keys[key] && a.t < 1.5;
             if (held || a.t < 0.15) { if (Math.random() < 0.3 + a.t * 0.4) spark(p.x + p.dir * rnd(10, 80), p.y - 22, 0, 0, 0.2, EXEC, true); for (const e of enemies) if (live(e) && (e.x - p.x) * p.dir > 0 && Math.abs(e.x - p.x) < 90 && Math.abs(e.y - p.y) < 40) e.neckT = 0.1;
               if (a.t >= 1.35 && !a.ping) { a.ping = true; light(p.x, p.y - 30, 40, "#ffe8e0", 0.9, 0.15); snd("ui"); } return; }
-            const q = clamp(a.t / 1.5, 0, 1), perfect = a.t >= 1.35; a.cut = true; a.cutT = a.t; a.dur = a.t + 0.3;
+            a.q = clamp(a.t / 1.5, 0, 1); a.perfect = a.t >= 1.35; a.cut = true; a.cutT = a.t; a.dur = a.t + 0.32; return; }
+          if (!a.hitDone && a.t >= a.cutT + 0.3 * exHit().cleave) { a.hitDone = true; const q = a.q, perfect = a.perfect;   // 가로 베기: 칼이 닿는 프레임에 피해
             const n0 = enemies.filter((e) => e.dead).length;
             execHit(p, { x0: 0, x1: 90, y0: -40, y1: 4, dmg: Math.round(30 + 40 * q), kb: 180, heavy: true }, true, null, perfect ? 50 / 30 : 1); shake(perfect ? 7 : 5, 0.25);
             if (perfect) { hitstop = 0.2; texts.push({ x: p.x, y: p.y - 60, vy: -30, t: 0.9, s: "완벽한 집행!", c: "#ffe8e0" });
@@ -1848,11 +1850,16 @@ const EXEC_ART = {"marks":{"s":22,"n":6},"guillo":[[0,0,52,82],[53,0,27,45],[81,
 const exMarkImg = new Image(); exMarkImg.src = "../assets/exec_marks.png"; const exGuilloImg = new Image(); exGuilloImg.src = "../assets/exec_guillo.png";
 function drawMark(i, x, y) { if (!ready(exMarkImg)) return false; const S2 = EXEC_ART.marks.s; g.drawImage(exMarkImg, i * S2, 0, S2, S2, Math.round(x - S2 / 2), Math.round(y - S2 / 2), S2, S2); return true; }   // 0 처형 대상, 1 낙인, 2 올가미, 3~5 밝은 것
 function guilloDrop(x, y, sc = 1, imp = 0.42, onHit) { spawn({ kind: "guillo", x, y, sc, imp, onHit, t: 0, hit: false, front: true }); }   // 단두대: 틀이 쿵 박히고(0~0.12초) → 칼날이 꼭대기에 매달려 잠깐 → 떨어짐(마지막 0.16초) → imp초에 쾅 → 사라진다
+const EX_HIT = [   // 처형인: 영상 구간에서 칼이 닿는 순간 (동작 시간 대비 비율). 평타 1·2타는 앞을 빠르게 재생하므로 (프레임 비율)^(1/0.65)
+  { t1: 0.34, t2: 0.28, slam: 0.64, spin: [0.29, 0.55], cleave: 0.5 },
+  { t1: 0.34, t2: 0.28, slam: 0.64, spin: [0.29, 0.55], cleave: 0.5 },
+  { t1: 0.48, t2: 0.34, t3: 0.42, slam: 0.56, spin: [0.14, 0.45], cleave: 0.33 },
+], exHit = () => EX_HIT[clamp(hgOf("executioner"), 0, 2)];
 const EX_STEPS = [
-  { dur: 0.5, hitT: 0.24, pose: "slam", reach: 32, wm: "t1", fire(p) { execHit(p, { x0: 0, x1: 34, y0: -34, y1: 4, dmg: 22, kb: 90 }); shake(1.5, 0.08); } },
-  { dur: 0.6, hitT: 0.3, pose: "slam", reach: 36, wm: "t2", fire(p) { execHit(p, { x0: -4, x1: 40, y0: -40, y1: 4, dmg: 32, kb: 150, heavy: true }, true); shake(2.5, 0.12); } },
+  { dur: 0.5, get hitT() { return 0.5 * exHit().t1; }, pose: "slam", reach: 32, wm: "t1", fire(p) { execHit(p, { x0: 0, x1: 34, y0: -34, y1: 4, dmg: 22, kb: 90 }); shake(1.5, 0.08); } },
+  { dur: 0.6, get hitT() { return 0.6 * exHit().t2; }, pose: "slam", reach: 36, wm: "t2", fire(p) { execHit(p, { x0: -4, x1: 40, y0: -40, y1: 4, dmg: 32, kb: 150, heavy: true }, true); shake(2.5, 0.12); } },
 ], EX_STEPS3 = [...EX_STEPS,
-  { dur: 0.8, hitT: 0.5, pose: "slam", reach: 44, wm: "t3", lunge: 90, fire(p) { execHit(p, { x0: -6, x1: 56, y0: -50, y1: 6, dmg: 48, kb: 200, heavy: true }, true); shake(5, 0.25); dust(p.x + p.dir * 40, p.y, p.dir, 8); hitstop = Math.max(hitstop, 0.08); } },   // 3단계 마무리: 크게 휘둘러 앞으로 내려찍기
+  { dur: 0.8, get hitT() { return 0.8 * exHit().t3; }, pose: "slam", reach: 44, wm: "t3", lunge: 90, fire(p) { execHit(p, { x0: -6, x1: 56, y0: -50, y1: 6, dmg: 48, kb: 200, heavy: true }, true); shake(5, 0.25); dust(p.x + p.dir * 40, p.y, p.dir, 8); hitstop = Math.max(hitstop, 0.08); } },   // 3단계 마무리: 크게 휘둘러 앞으로 내려찍기
 ];
 const exEnh = () => ((player.execSouls ?? 0) >= 60 ? 2 : (player.execSouls ?? 0) >= 20 ? 1 : 0);   // 처형인 원혼 강화 단계 (20·60개)
 function gainSoul(e, n) {                                // 원혼: 처형인을 쓰고 있을 때 처치하면 확률로, 처형하면 반드시. 하나당 이번 판 공격력 +1%
