@@ -330,13 +330,19 @@ const HELMETS = [
         use(p) { startAct(p, { dur: 0.55, pose: "slam", wm: "slam", events: [{ t: 0.32, fn() {   // 내려찍기 40 (원혼 강화1: 50, 강화2: 맞은 적이 1명뿐이면 +50%)
           const E = exEnh(); execHit(p, { x0: 0, x1: 42, y0: -44, y1: 4, dmg: E >= 1 ? 50 : 40, kb: 120, heavy: true }, true, E >= 2 ? (k) => (k === 1 ? 1.5 : 1) : null); shake(4, 0.2); dust(p.x + p.dir * 30, p.y, p.dir, 6); } }] }); } },
       { name: "사형 선고", cd: 16, icon() { R(-7, 0, 12, 2, "#c94a3a"); E(4, -3, 3, 3, "#c94a3a"); E(4, -3, 1, 1, C.dark); },
-        use(p) { const hit = new Set(); for (let i = 0; i < 26; i++) puff(p.x + rnd(-8, 8), p.y - rnd(0, 34), rnd(-60, 60), -rnd(10, 70), rnd(0.35, 0.7), i % 4 ? "#120c14" : "#3a1418", rnd(2, 5));   // 무적 검은 연기로 변해 돌진하며 낙인 (몸은 사라지고 두 눈만), 3초 뒤 폭발 20 (강화1: 30, 강화2: 처형 대상은 올가미 → 3초 뒤 처형)
-          snd("dash"); startAct(p, { dur: 0.36, pose: "thrust", wm: "smoke", smoke: true, vx: 400, tick() {
-          p.invuln = Math.max(p.invuln, 0.15); const n0 = hit.size; melee(p, { x0: -14, x1: 22, y0: -38, y1: 4, dmg: 8, once: hit, kb: 20 });
-          [...hit].slice(n0).forEach((e) => { if (live(e)) { e.sentT = 3; e.sentX = exEnh() >= 2 && execLow(e); e.sentD = exEnh() >= 1 ? 30 : 20; snd("hit"); spark(e.x, e.y - 18, 0, -60, 0.4, EXEC, true); } });
-          for (let i = 0; i < 6; i++) puff(p.x - p.dir * rnd(0, 16), p.y - rnd(2, 34), -p.dir * rnd(30, 110), rnd(-25, 10), rnd(0.3, 0.55), i % 3 ? "#120c14" : "#2a1018", rnd(2, 4));
-          if (Math.random() < 0.5) spark(p.x - p.dir * 6, p.y - rnd(6, 28), -p.dir * rnd(40, 100), rnd(-20, 20), 0.3, EXEC, true);
-          if (p.act && p.act.t + STEP >= p.act.dur) for (let i = 0; i < 22; i++) puff(p.x + rnd(-8, 8), p.y - rnd(0, 34), rnd(-50, 50), -rnd(10, 60), rnd(0.35, 0.6), i % 4 ? "#120c14" : "#3a1418", rnd(2, 5)); } }); } },
+        use(p) { const hit = new Set(), W = 0.28, D = 0.11;   // 선딜레이 0.28초(웅크리고 연기가 모인다, 앞쪽에 붉은 선) → 0.11초 만에 검은 연기로 번쩍 돌진(무적, 몸은 사라지고 두 눈만) → 뒤에서 연기가 펑. 지나간 적에게 낙인, 3초 뒤 폭발 20 (강화1: 30, 강화2: 처형 대상은 올가미 → 3초 뒤 처형)
+          startAct(p, { dur: W + D + 0.16, pose: "slam", wm: "stance", vx: 0, tick() {
+          const a = p.act, mark = (e) => { if (live(e) && !hit.has(e)) { hit.add(e); damage(e, 8, { dir: p.dir, kb: 30 }); e.sentT = 3; e.sentX = exEnh() >= 2 && execLow(e); e.sentD = exEnh() >= 1 ? 30 : 20; for (let i = 0; i < 8; i++) spark(e.x, e.y - 18, rnd(-80, 80), -rnd(30, 120), 0.4, EXEC, true); } };
+          if (a.t < W) { a.vx = 0; const q = a.t / W; p.invuln = Math.max(p.invuln, 0.1);   // 선딜레이: 연기가 몸으로 빨려 들고, 갈 길에 붉은 선
+            if (Math.random() < 0.7) { const ang = rnd(0, 6.28), r = 30 - q * 20; puff(p.x + Math.cos(ang) * r, p.y - 16 + Math.sin(ang) * r * 0.7, -Math.cos(ang) * 60, -Math.sin(ang) * 40, 0.3, "#120c14", rnd(2, 4)); }
+            a.tele = q; return; }
+          if (!a.go) { a.go = true; a.tele = 0; a.smoke = true; snd("dash"); shake(3, 0.12); for (let i = 0; i < 18; i++) puff(p.x + rnd(-8, 8), p.y - rnd(0, 32), rnd(-70, 40) * p.dir, -rnd(10, 60), rnd(0.35, 0.6), i % 4 ? "#120c14" : "#3a1418", rnd(2, 5)); }
+          if (a.t < W + D) { a.vx = 1150; p.invuln = Math.max(p.invuln, 0.15); a.smoke = true;   // 순식간에 앞으로 (지나간 자리 전체에 연기 꼬리)
+            const x0 = p.x - p.dir * 40; for (const e of enemies) if (live(e) && Math.abs(e.y - p.y) < 34 && (e.x - x0) * p.dir > -8 && (e.x - p.x) * p.dir < 18 + (e.type.hw ?? 7)) mark(e);
+            for (let i = 0; i < 7; i++) puff(p.x - p.dir * rnd(0, 46), p.y - rnd(4, 30), -p.dir * rnd(10, 60), rnd(-15, 15), rnd(0.3, 0.6), i % 3 ? "#120c14" : "#2a1018", rnd(2, 5));
+            spark(p.x - p.dir * rnd(0, 40), p.y - rnd(6, 28), -p.dir * rnd(40, 120), rnd(-20, 20), 0.3, EXEC, true); return; }
+          if (a.smoke) { a.smoke = false; a.vx = 0; for (let i = 0; i < 22; i++) puff(p.x + rnd(-8, 8), p.y - rnd(0, 34), rnd(-60, 60), -rnd(10, 60), rnd(0.35, 0.6), i % 4 ? "#120c14" : "#3a1418", rnd(2, 5)); }   // 다시 나타남
+          a.vx = 0; } }); } },
       { name: "대학살", cd: 30, icon() { E(0, 0, 7, 7, "#9a9a9a"); E(0, 0, 4, 4, "#24202f"); R(-1, -8, 2, 4, "#d8d8d8"); },
         use(p) { startAct(p, { dur: 0.6, pose: "slam", wm: "spin", events: [{ t: 0.3, fn() {   // 무적 큰 회전 베기 45 (강화1: 55, 강화2: 맞은 적 1명당 15초 공격력 +10%). 3단계는 사슬에 건 칼이라 범위가 넓다 (92)
           p.invuln = Math.max(p.invuln, 0.35); const R3 = hgOf("executioner") >= 2 ? 92 : 56, E = exEnh(), n = execHit(p, { x0: -R3, x1: R3, y0: -46, y1: 6, dmg: E >= 1 ? 55 : 45, kb: 160, heavy: true }, true);
@@ -3312,6 +3318,8 @@ function render() {
   drawObjs(false);
   const p = player;
   shadow(p.x, 10, groundAt(p.x, p.y - 1));
+  if (p.act && p.act.tele > 0) { const q = p.act.tele, L = Math.round(30 + q * 100), y0 = Math.round(p.y - 14);   // 사형 선고 선딜레이: 갈 길에 붉은 선이 뻗는다
+    g.globalAlpha = 0.35 + 0.5 * q; g.fillStyle = "#c94a3a"; for (let i = 8; i < L; i += 3) g.fillRect(Math.round(p.x + p.dir * i), y0, 2, 1); g.fillStyle = "#ff9a7a"; g.fillRect(Math.round(p.x + p.dir * L) - 1, y0 - 1, 3, 3); g.globalAlpha = 1; }
   if (p.act && p.act.smoke) { const ey = Math.round(p.y - 26), ex = Math.round(p.x + p.dir * 2); glow(ex, ey, 10, "#63f0e0", 0.5); g.fillStyle = "#63f0e0"; g.fillRect(ex - 3, ey, 2, 2); g.fillRect(ex + 2, ey, 2, 2); }   // 사형 선고: 연기 속 두 눈만
   else if (!(p.blink > 0 && ((time * 20) | 0) % 2)) { const ps = drawPlayerSprite(p); if (ps === hc) { g.save(); g.translate(Math.round(p.x), Math.round(p.y)); g.scale(p.dir, 1); g.drawImage(hc, -HX, -HY); g.restore(); } else blit(ps, p.x, p.y, p.dir); }
   if (p.wfx && p.act && p.act.wm === "claw" && p.helm.id === "frostwolf" && ready(heroFxImg.frostwolf)) {   // 빙하 발톱: 영상 속 발톱 이펙트를 몸과 따로, 커질 땐 크게
