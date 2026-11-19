@@ -17,5 +17,12 @@ for mv, M in H["stages"][ST].items():
             gold = m & (r > 140) & (g > 90) & (b < 100) & (r > b + 60)
             dark = m & (rgb.mean(2) < 60) & ~gold
             nearGold = ndimage.binary_dilation(gold, iterations=2); out = ndimage.binary_dilation(~np.pad(m, 1, constant_values=False))[1:-1, 1:-1]
-            kill = dark & nearGold & out; n += int(kill.sum()); c[kill, 3] = 0
+            navy = dark & (b > r + 4) & (rgb.mean(2) < 48)                     # 영상 바탕색(짙은 남색): 금화 곁이면 바깥에 안 닿아도 지운다 (구멍 메우기로 칠해진 것)
+            kill = dark & nearGold & (out | navy); n += int(kill.sum()); c[kill, 3] = 0
+        if mv == "throw3":                                                     # 금화 던지기 영상: 머리 위로 날아간 금화는 지운다 (금화는 게임이 따로 던진다)
+            m = c[..., 3] > 0; r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]; gold = m & (r > 140) & (g > 90) & (b < 100) & (r > b + 60)
+            lab, k2 = ndimage.label(ndimage.binary_dilation(gold, iterations=1) & m)
+            for i in range(1, k2 + 1):
+                rr = lab == i
+                if np.nonzero(rr)[0].mean() < 0.3 * h: c[rr, 3] = 0; n += int(rr.sum())
 Image.fromarray(sheet).save(f"assets/hero_{LINE}.png", optimize=True); print("halo px", n)

@@ -4,13 +4,13 @@
 import sys, json, numpy as np
 from PIL import Image
 from scipy import ndimage
-LINE, ST = sys.argv[1], int(sys.argv[2]); IT = int(sys.argv[3]) if len(sys.argv) > 3 else 2
+LINE, ST = sys.argv[1], int(sys.argv[2]); IT = 2; MV = sys.argv[3].split(",") if len(sys.argv) > 3 else None   # 동작 이름들만 (예: throw3)
 s = open("index.html").read(); k = s.index(f"{LINE}: ", s.index("const HERO = {")) + len(LINE) + 2
 H, _ = json.JSONDecoder().raw_decode(s[k:]); B = H["boxes"]
 sheet = np.asarray(Image.open(f"assets/hero_{LINE}.png").convert("RGBA")).copy(); done = set(); n = 0
 HAT = np.array([28, 24, 40])
 for mv, M in H["stages"][ST].items():
-    if not isinstance(M, dict) or "f" not in M: continue
+    if not isinstance(M, dict) or "f" not in M or (MV and mv not in MV): continue
     for ci, ox, oy in M["f"]:
         if ci in done: continue
         done.add(ci); x, y, w, h = B[ci]; c = sheet[y:y + h, x:x + w]; m = c[..., 3] > 0
@@ -19,5 +19,8 @@ for mv, M in H["stages"][ST].items():
         r_, g_, b_ = [c[..., i].astype(int) for i in range(3)]; teal = m & (g_ > r_ + 25) & (b_ > r_ + 15)
         tl = ndimage.uniform_filter(teal.astype(float), 5, mode="constant"); opq = ndimage.uniform_filter(m.astype(float), 5, mode="constant")
         add &= (tl / np.maximum(opq, 1e-3)) < 0.3                       # 불꽃(청록) 사이 틈은 메우지 않는다
+        gold = m & (r_ > 140) & (g_ > 90) & (b_ < 100) & (r_ > b_ + 60); ng = ndimage.binary_dilation(gold, iterations=4)
+        add &= ~ng                                                        # 금화 곁은 메우지 않는다 (금화와 몸 사이가 검게 막힌다)
+        old = m & ng & (np.abs(c[..., :3].astype(int) - HAT).sum(2) == 0); c[old, 3] = 0   # 예전에 금화 곁에 칠한 모자색은 걷어 낸다
         c[add, :3] = HAT; c[add, 3] = 255; n += int(add.sum())
 Image.fromarray(sheet).save(f"assets/hero_{LINE}.png", optimize=True); print("filled px", n)
