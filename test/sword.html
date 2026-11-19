@@ -427,7 +427,7 @@ const HELMETS = [
       { name: "주머니 찢기", get cd() { return hgOf("thief") >= 2 ? 8 + EX_PICK3[3] : 8; }, icon() { R(-6, -1, 12, 2, C.steel); R(-3, -5, 6, 4, "#8a5a2a"); R(-1, -3, 2, 2, "#ffd24a"); },
         use(p) { const hit = new Set(), robbed = new Set(), long = hgOf("thief") >= 2, P = EX_PICK3, D = long ? P[3] : 0.45;   // 무적 단검 난무: 맞은 적에게서 터지는 금화 4개 (1%로 금화 +100 대박), 5초 동안 맞을 때마다 금화 1개. 3단계는 칼 돌리기 → 연속 베기 → X자 → 칼을 망토에 넣는 순간 금화가 한꺼번에
           for (const e of enemies) e.pickDone = false; p.invuln = Math.max(p.invuln, D); startAct(p, { dur: D, pose: "punch", wm: "flurry", vx: 0, pick: true, tick() {
-          const t = p.act.t, on = !long || (t >= P[0] && t < P[2]); p.act.vx = long && t >= P[0] && t < P[1] ? 20 : 0;
+          const t = p.act.t, u3 = (t - P[1]) / (P[2] - P[1]), toss = long && u3 > (71 - 55) / 36 && u3 < (78 - 55) / 36, on = !long || (t >= P[0] && t < P[2] && !toss); p.act.vx = long && t >= P[0] && t < P[1] ? 20 : 0;   // toss: 3막에서 단검을 하늘로 던져 올린 동안(영상 71~78장)은 손에 칼이 없어 공격하지 않는다
           if (on) { const n0 = hit.size; melee(p, { x0: -6, x1: 30, y0: -30, y1: 2, dmg: 5, once: hit, kb: 20 }); [...hit].slice(n0).forEach((e) => tHitFx(e, p.dir, 0.5)); if ((t * 30 | 0) % (long ? 8 : 5) === 0) hit.clear();   // 3단계는 길어서 다시 맞는 간격을 늘림
             for (const e of enemies) if (live(e) && hit.has(e) && !e.pickDone) { e.pickDone = true; e.pickT = 5; robbed.add(e); if (!long) dropTCoins(e, 4); if (Math.random() < 0.01) { p.gold += 100; texts.push({ x: e.x, y: e.y - 56, vy: -30, t: 1.2, s: "대박! 금화 +100", c: "#ffd24a" }); } }
             const cyc = ((t * 30 | 0) / (long ? 8 : 5)) | 0;   // 단검 궤적: 다시 맞는 박자마다 금빛 베기 한 줄 (위아래 번갈아)
