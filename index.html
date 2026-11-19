@@ -44,6 +44,7 @@
    ===================================================================================== */
 
 // ---------- 기본 설정 ----------
+const BAL_ON = window.BAL_ON === true;   // 밸런스 시험안: 투구 시험장에서만 켠다 (본게임은 원래 수치)
 const W = 480, H = 270, SCALE = 2, FLOOR = 238, ROOM_L = 20, TS = 16;
 let ROOM_R = W - 20, camX = 0, camY = 0, L = null, slowT = 0, layoutPool = [];   // L = 지금 방의 프리팹
 const GRAV = 1100, STEP = 1 / 120;
@@ -274,7 +275,7 @@ const HELMETS = [
     } },
   },
   {
-    id: "frostwolf", name: "얼어붙은 늑대 가죽", atk: "할퀴기 3연타 9·9·14 (빠름, 냉기)", passive: "냉기 3이면 빙결, 언 적을 치면 깨짐 (1.6배) · 깨면 사냥 본능", grade: "녹슨", type: "스피드", ramp: ICE,
+    id: "frostwolf", name: "얼어붙은 늑대 가죽", atk: "할퀴기 3연타 9·9·14 (빠름, 냉기)", passive: "냉기 3이면 빙결, 언 적을 치면 깨짐 (2배) · 깨면 사냥 본능", grade: "녹슨", type: "스피드", ramp: ICE,
     draw(t) {
       flame(-1, -17, 2, 5, t, GHOST);
       E(0, -11, 7, 6, "#8a8f9c"); E(-1, -12, 5, 4, "#b8bcc8"); R(-6, -19, 3, 5, "#8a8f9c"); R(3, -19, 3, 5, "#8a8f9c"); R(-5, -18, 1, 3, "#e8ecf4"); R(4, -18, 1, 3, "#e8ecf4");
@@ -378,7 +379,7 @@ const HELMETS = [
           p.gold -= 10; const g3 = hgOf("thief") >= 2, D = g3 ? THF3.throw[0] : 0.36;   // 금화는 영상에서 손을 뿌리는 순간에 나간다
           startAct(p, { dur: D, pose: "cast", wm: "throw", events: [{ t: D * (g3 ? THF3.throw[1] : 0.75), fn() { snd("coin");
           for (let i = 0; i < 10; i++) spawn({ kind: "tcoin", tag: "금화 던지기", x: p.x + p.dir * (g3 ? 12 : 8), y: p.y - (g3 ? 36 : 18), vx: p.dir * rnd(140, 330), vy: -rnd(60, 230), t: 0, thrown: true, front: true }); } }] }); } },
-      { name: "주머니 찢기", get cd() { return hgOf("thief") >= 2 ? 6 + EX_PICK3[3] : 8; }, icon() { R(-6, -1, 12, 2, C.steel); R(-3, -5, 6, 4, "#8a5a2a"); R(-1, -3, 2, 2, "#ffd24a"); },
+      { name: "주머니 찢기", get cd() { return hgOf("thief") >= 2 ? (BAL_ON ? 6 : 8) + EX_PICK3[3] : 8; }, icon() { R(-6, -1, 12, 2, C.steel); R(-3, -5, 6, 4, "#8a5a2a"); R(-1, -3, 2, 2, "#ffd24a"); },
         use(p) { const hit = new Set(), robbed = new Set(), long = hgOf("thief") >= 2, P = EX_PICK3, D = long ? P[3] : 0.45;   // 무적 단검 난무: 맞은 적에게서 터지는 금화 4개 (1%로 금화 +100 대박), 5초 동안 맞을 때마다 금화 1개. 3단계는 칼 돌리기 → 연속 베기 → X자 → 칼을 망토에 넣는 순간 금화가 한꺼번에
           for (const e of enemies) e.pickDone = false; p.invuln = Math.max(p.invuln, D); startAct(p, { dur: D, pose: "punch", wm: "flurry", vx: 0, pick: true, tick() {
           const t = p.act.t, u3 = (t - P[1]) / (P[2] - P[1]), toss = long && u3 > (71 - 55) / 36 && u3 < (91 - 55) / 36, on = !long || (t >= P[0] && t < P[2] && !toss); p.act.vx = long && t >= P[0] && t < P[1] ? 20 : 0;   // toss: 3막에서 단검을 하늘로 던져 올린 동안(영상 71~78장)은 손에 칼이 없어 공격하지 않는다
@@ -389,7 +390,7 @@ const HELMETS = [
             if (long && !p.act.fl && t >= P[1]) { p.act.fl = true; spawn({ kind: "gfx", key: "tflurry", x: p.x + p.dir * 6, y: p.y - 4, dir: p.dir, t: 0, rate: 1, sc: 0.6, front: true }); } }   // 3막 묘기·꿰뚫기: 단검 난무
           if (long && t < P[2]) for (const e of robbed) if (live(e) && !e.type.giant && !e.type.boss && !e.type.dummy && Math.abs(e.x - p.x) < 70 && Math.abs(e.y - p.y) < 30) {   // 3단계: 맞은 적을 단검에 걸린 채 앞으로 끌고 간다 (긴 난무 내내 맞도록)
             const tx = p.x + p.dir * 20; e.x += (tx - e.x) * Math.min(1, STEP * 10); e.vx = 0; }
-          if (long && !p.act.fin && u3 >= (80 - 55) / 36) { p.act.fin = true; const fin = new Set(); melee(p, { x0: -10, x1: 40, y0: -40, y1: 4, dmg: 40, once: fin, kb: 80, heavy: true });   // 던져 올린 단검을 받아 한 번에 크게 X자로 벤다 (영상 80장): 한 번만, 이펙트 강화
+          if (long && !p.act.fin && u3 >= (80 - 55) / 36) { p.act.fin = true; const fin = new Set(); melee(p, { x0: -10, x1: 40, y0: -40, y1: 4, dmg: BAL_ON ? 40 : 24, once: fin, kb: 80, heavy: true });   // 던져 올린 단검을 받아 한 번에 크게 X자로 벤다 (영상 80장): 한 번만, 이펙트 강화
             for (const e of fin) { robbed.add(e); spawn({ kind: "gfx", key: "tcrit", x: e.x, y: e.y - 4, dir: p.dir, t: 0, rate: 1, sc: 0.6, front: true }); }
             spawn({ kind: "gfx", key: "tslash", x: p.x + p.dir * 2, y: p.y + 4, dir: p.dir, t: 0, rate: 1.1, sc: 1.05, front: true }); spawn({ kind: "gfx", key: "tslash", x: p.x + p.dir * 4, y: p.y - 50, dir: -p.dir, t: 0, rate: 1.1, sc: -1.0, front: true });
             shake(4, 0.2); hitstop = Math.max(hitstop ?? 0, 0.08); light(p.x + p.dir * 18, p.y - 20, 60, "#ffd24a", 1, 0.25); snd("crit"); }
@@ -1261,7 +1262,7 @@ const AWAKE_COST = [10, 30, 100], SCRAP_OF = [5, 15, 40, 80];
 const LINES = {
   soldier: { names: ["병사 투구", "창병 투구", "근위 창대장 투구"], add: ["3번째 공격 1.5배", "대시가 공격이 된다 (닿은 적 14)", "때릴수록 돌진 게이지, 가득 차면 창 돌격 3연속 · S 유령 창기세"] },
   executioner: { names: ["녹슨 처형인 두건", "처형인", "단두대의 집행자"], add: ["체력 30% 이하 적 처형 (모험가·보스 10%)", "(원혼 수집은 공격 영상과 함께)", "처형할 때 단두대 연출 (공격 영상과 함께)"] },
-  frostwolf: { names: ["얼어붙은 늑대 가죽", "서리 늑대", "겨울 늑대왕"], add: ["냉기 3 → 빙결, 언 적 깨기 1.6배, 깨면 사냥 본능 (공격·이동 +20%)", "깨질 때 파편이 가장 가까운 적 1마리에게 냉기 1", "평타마다 얼음 늑대 정령이 같이 할퀸다 · 사냥 본능 +30%"] },
+  frostwolf: { names: ["얼어붙은 늑대 가죽", "서리 늑대", "겨울 늑대왕"], add: ["냉기 3 → 빙결, 언 적 깨기 2배, 깨면 사냥 본능 (공격·이동 +20%)", "깨질 때 파편이 옆 적에게 냉기 1", "평타마다 얼음 늑대 정령이 같이 할퀸다 · 사냥 본능 +30%"] },
   hunter: { names: ["사냥꾼 두건", "레인저 모자", "숲의 정령 궁수"], add: ["멀수록 치명타 확률 (최대 +50%)", "X 꾹: 집중 — 다 모이면 강한 화살, 스킬도 강화", "주변에 적이 없으면 집중이 빨라진다 · 초록 레이저"] },
   thief: { names: ["떠돌이 도둑 복면", "괴도의 깃털 모자", "밤의 괴도 실크햇"], add: ["평타 15%로 금화 2개, 적에게서 떨어진 금화는 터진다 (5)", "금화 폭발이 커진다 (7)", "금화 폭발이 더 커진다 (9)"] },
 };
@@ -1804,6 +1805,7 @@ const BAL = { skill: 1.8, basic: 0.9,
   lanceRush: 1.5 };   // 병사: 유령 창기세 중 창 돌격
 let SKILL_TAGS = null;
 function balMult(p, tag) {
+  if (!BAL_ON) return 1;
   if (tag.startsWith("평타")) { const b = hgOf(p.helm.id) >= 2 && BAL.b3[p.helm.id]; return BAL.basic * (b ? b[clamp((parseInt(tag.slice(3)) || 1) - 1, 0, 2)] : 1); }
   SKILL_TAGS = SKILL_TAGS || HELMETS.flatMap((h) => [...(h.pool || []), ...(Object.getOwnPropertyDescriptor(h, "skills")?.value || [])].map((k) => k.name));
   if (!SKILL_TAGS.some((n) => tag.startsWith(n))) return 1;
@@ -1871,8 +1873,8 @@ function execHit(p, box, canExec, mul, xk = 1) {   // xk: 처형 기준 배율 (
 function wolfShatter(e) {                                  // 언 적을 깨뜨림: 파편이 튀고 둘레에 피해, 2단계부터 옆 적에게 냉기, 사냥 본능
   snd("shatter");
   const g = Math.max(0, hgOf("frostwolf")); spawn({ kind: "gfx", key: "wstar", x: e.x, y: e.y - 16, t: 0, rate: 1.3, add: true, front: true }); shake(3, 0.15); light(e.x, e.y - 16, 46, "#e8f6ff", 0.8, 0.2); texts.push({ x: e.x, y: e.y - 54, vy: -40, t: 0.7, s: "깨짐!", c: "#e8f6ff" });
-  let near = null; for (const t of enemies) if (t !== e && live(t) && Math.hypot(t.x - e.x, t.y - e.y) < 46) { damage(t, 4, { quiet: true }); if (!near || Math.abs(t.x - e.x) < Math.abs(near.x - e.x)) near = t; }
-  if (g >= 1 && near) addFrost(near, 1);   // 냉기는 가장 가까운 1마리에게만 번진다 (무리에서 얼리고 깨기가 끝없이 이어지던 것)
+  let near = null; for (const t of enemies) if (t !== e && live(t) && Math.hypot(t.x - e.x, t.y - e.y) < 46) { damage(t, BAL_ON ? 4 : 12, { quiet: true }); if (!BAL_ON && g >= 1) addFrost(t, 1); if (!near || Math.abs(t.x - e.x) < Math.abs(near.x - e.x)) near = t; }
+  if (BAL_ON && g >= 1 && near) addFrost(near, 1);   // 냉기는 가장 가까운 1마리에게만 번진다 (무리에서 얼리고 깨기가 끝없이 이어지던 것)
   player.huntT = 2;
 }
 function wolfClaw(p, dmg, x1) {                            // 평타 한 번: 냉기 1. 3단계는 늑대 정령이 같이 할퀸다
@@ -1932,10 +1934,10 @@ function damage(e, base, o = {}) {
     if (k.x > b[0] - 14 && k.x < b[1] + 14 && k.y > b[2] - 14 && k.y < b[3] + 14) { o = { ...o, mult: (o.mult ?? 1) * 1.5, heavy: true, y: k.y }; texts.push({ x: k.x, y: k.y - 18, vy: -40, t: 0.6, s: "약점!", c: "#ffae35" }); } }
   const p = player, atkBonus = o.quiet ? 0 : stat(p.helm.magic ? "magic" : "phys") + stat(p.src) + stat("atk")
     + (cr("gold", 4) ? Math.min(0.3, Math.floor(p.gold / 100) * 0.03) : 0) + (p.swapAtkT > 0 ? stat("swapAtk") : 0) + Math.max(0, hgOf(p.helm.id)) * 0.15
-    + (p.helm.id === "executioner" ? (p.execSouls ?? 0) * 0.006 + (p.massT > 0 ? (p.massN ?? 0) * 0.1 : 0) : 0);   // 처형인: 원혼 1개당 +0.6%, 대학살 강화 버프
+    + (p.helm.id === "executioner" ? (p.execSouls ?? 0) * (BAL_ON ? 0.006 : 0.01) + (p.massT > 0 ? (p.massN ?? 0) * 0.1 : 0) : 0);   // 처형인: 원혼 1개당 +0.6%, 대학살 강화 버프
   if (p.soul === "salamander" && e.burn > 0 && !o.quiet) o = { ...o, mult: (o.mult ?? 1) * 1.1 };   // 불도마뱀 영혼
   let mult = (o.mult ?? 1) * (p.src === "swap" && cr("ghost", 4) && !o.quiet && !o.noProc ? 2 : 1), shard = 0;
-  if (o.wolf && e.frozen > 0 && !o.quiet) { mult *= 1.6; wolfShatter(e); }   // 서리 늑대: 언 적 깨기 1.6배
+  if (o.wolf && e.frozen > 0 && !o.quiet) { mult *= BAL_ON ? 1.6 : 2; wolfShatter(e); }   // 서리 늑대: 언 적 깨기 2배
   if (e.frozen > 0 && !o.quiet) { if (cr("frost", 4)) { mult *= 1.4; shard = 20; } e.frozen = 0; iceBreak(e); }   // 맞으면 빙결이 풀린다
   const crit = !o.quiet && Math.random() < BASE.critChance + stat("crit") + (o.critAdd ?? 0), dir = o.dir ?? 1;   // critAdd: 사냥꾼 멀수록 치명타
   if (cr("hunt", 2) && !o.quiet && e.hp < e.maxHp * 0.5) mult *= 1.15;
@@ -2256,9 +2258,9 @@ function lineTick(p, dt) {
         if (k >= 1 && !p.drawFull) { p.drawFull = true; fxRing(p.x + p.dir * 14, p.y - 13, 12, RAMP_LEAF); light(p.x + p.dir * 14, p.y - 13, 30, "#8fc05a", 0.8, 0.2); } } }
     else if (p.drawT > 0) { if (p.drawFull) { const g3 = hgOf("hunter") >= 2;
         if (g3) { const bx = p.x + p.dir * 20, by = p.y - 13, len = 280;   // 3단계: 화살 대신 한순간에 앞을 꿰뚫는 초록 레이저 빔
-          for (const e of enemies) if (live(e) && (e.x - bx) * p.dir > -8 && Math.abs(e.x - bx) < len + (e.type.hw ?? 0) && by > e.y - (e.type.hh ?? 30) - 8 && by < e.y + 8) damage(e, 34, { ranged: true, dir: p.dir, kb: 120, heavy: true, ramp: RAMP_LEAF, mult: 1.3 });
+          for (const e of enemies) if (live(e) && (e.x - bx) * p.dir > -8 && Math.abs(e.x - bx) < len + (e.type.hw ?? 0) && by > e.y - (e.type.hh ?? 30) - 8 && by < e.y + 8) damage(e, BAL_ON ? 34 : 42, { ranged: true, dir: p.dir, kb: 120, heavy: true, ramp: RAMP_LEAF, mult: 1.3 });
           spawn({ kind: "gfx", key: "hlbeam", x: bx, y: by, dir: p.dir, t: 0, rate: 1, glowAdd: 0.35 }); shake(4, 0.25); }
-        else shot(p, { dmg: 40, vx: 620, look: "arrow", fx: "hpow", farCrit: true, pierce: true, ramp: RAMP_LEAF }); startAct(p, { dur: 0.22, pose: "shoot", reach: 6, power: true, move: 0.85 }); p.src = "basic";
+        else shot(p, { dmg: BAL_ON ? 40 : 30, vx: 620, look: "arrow", fx: "hpow", farCrit: true, pierce: true, ramp: RAMP_LEAF }); startAct(p, { dur: 0.22, pose: "shoot", reach: 6, power: true, move: 0.85 }); p.src = "basic";
         if (!g3) spawn({ kind: "gfx", key: "hrel", x: p.x + p.dir * 16, y: p.y - 13, dir: p.dir, t: 0, rate: 1, add: true }); if (g3) { whiteT = Math.max(whiteT, 0.04); light(p.x + p.dir * 24, p.y - 13, 60, "#8fe08a", 0.9, 0.2); } shake(2, 0.12); for (let i = 0; i < 10; i++) spark(p.x + p.dir * 16, p.y - 13, p.dir * rnd(80, 260), rnd(-60, 60), 0.35, RAMP_LEAF, true); }
       p.drawT = 0; p.drawFull = false; } }
   if (p.lanceT > 0) { p.lanceT -= dt; if (Math.random() < dt * 14) spark(p.x + rnd(-8, 8), p.y - rnd(4, 30), rnd(-15, 15), -rnd(30, 70), 0.5, RAMP_GHOST, true); }   // 유령 창기세: 몸에서 청록 불꽃이 피어오른다
