@@ -3148,10 +3148,15 @@ function heroIcon(x, y, s, id) {                          // 화면 위 투구 �
     c2.drawImage(heroImg[id], b[0], b[1] + y0, b[2], ch, Math.round((s - w) / 2), Math.round((s - h) / 2), w, h); HERO_ICON.set(key, cv); }
   g.drawImage(cv, x, y); return true;
 }
-const HEADS = {"boxes":[[0,0,27,14],[28,0,26,18],[55,0,40,17],[96,0,27,30],[124,0,33,30],[158,0,36,36],[195,0,21,24],[217,0,25,24],[243,0,43,34],[287,0,20,22],[308,0,20,28],[329,0,24,46],[354,0,25,29],[380,0,31,25],[412,0,35,29]],"lines":{"soldier":[0,1,2],"hunter":[3,4,5],"frostwolf":[6,7,8],"executioner":[9,10,11],"thief":[12,13,14]}};   // 땅에 놓인 투구·Tab 창 투구: 사용자가 떼어 온 머리 그림 (art/heads/heads_pack.py, 병사는 head_cut.py)
+const HEADS = {"boxes":[[0,0,27,26],[28,0,26,25],[55,0,33,46],[89,0,27,30],[117,0,33,30],[151,0,36,36],[188,0,21,24],[210,0,25,24],[236,0,43,34],[280,0,20,22],[301,0,20,28],[322,0,24,46],[347,0,25,29],[373,0,31,25],[405,0,35,29]],"lines":{"soldier":[0,1,2],"hunter":[3,4,5],"frostwolf":[6,7,8],"executioner":[9,10,11],"thief":[12,13,14]}};   // 땅에 놓인 투구·Tab 창 투구: 사용자가 떼어 온 머리 그림 (art/heads/heads_pack.py)
 const headImg = new Image(); headImg.src = "../assets/hero_heads.png";
 function heroHead(id, st) {                                // 투구 id의 st단계 머리 그림 칸 [x, y, w, h] (없으면 null)
   const L = HEADS.lines[id]; if (!L || !ready(headImg)) return null; return HEADS.boxes[L[clamp(st, 0, L.length - 1)]];
+}
+function headFit(cx2, id, st, x, y, w, h) {             // 머리 그림을 칸(x, y, w, h)에 맞춰 가운데에 (정수배로 키우거나 줄인다)
+  const hd = heroHead(id, st); if (!hd) return false; let k = Math.min(w / hd[2], h / hd[3]); k = k >= 1 ? Math.floor(k) : k;
+  const dw = Math.round(hd[2] * k), dh = Math.round(hd[3] * k); cx2.imageSmoothingEnabled = false;
+  cx2.drawImage(headImg, hd[0], hd[1], hd[2], hd[3], Math.round(x + (w - dw) / 2), Math.round(y + (h - dh) / 2), dw, dh); return true;
 }
 function icon(x, y, s, fn, key) {
   let cv = key && ICON_CACHE.get(key);
@@ -3164,8 +3169,8 @@ function drawHud() {
   const panel = (o) => { g.fillStyle = "#1a1622"; g.fillRect(o.x - 3, o.y - 2, o.s + 6, o.s + 4); };
   g.fillStyle = "#2a1016"; g.fillRect(b.x, b.y, b.w, b.h);
   g.fillStyle = k > 0.3 ? "#c9342c" : "#ff5a3c"; g.fillRect(b.x, b.y, Math.round(b.w * k), b.h); g.fillStyle = "#f07860"; g.fillRect(b.x, b.y, Math.round(b.w * k), 2);
-  panel(HUD.main); if (!heroIcon(HUD.main.x, HUD.main.y, HUD.main.s, helm.id)) icon(HUD.main.x, HUD.main.y, HUD.main.s, () => at(0, 10, () => helm.draw(time)), `m:${helm.id}:${hgOf(helm.id)}:${Math.floor(time * 6) % 6}`);
-  panel(HUD.sub); if (sub && !heroIcon(HUD.sub.x, HUD.sub.y, HUD.sub.s, sub.id)) icon(HUD.sub.x, HUD.sub.y, HUD.sub.s, () => at(0, 9, () => sub.draw(0)), `s:${sub.id}:${hgOf(sub.id)}`);
+  panel(HUD.main); if (!headFit(g, helm.id, hgOf(helm.id), HUD.main.x + 1, HUD.main.y + 1, HUD.main.s - 2, HUD.main.s - 2) && !heroIcon(HUD.main.x, HUD.main.y, HUD.main.s, helm.id)) icon(HUD.main.x, HUD.main.y, HUD.main.s, () => at(0, 10, () => helm.draw(time)), `m:${helm.id}:${hgOf(helm.id)}:${Math.floor(time * 6) % 6}`);
+  panel(HUD.sub); if (sub && !headFit(g, sub.id, hgOf(sub.id), HUD.sub.x + 1, HUD.sub.y + 1, HUD.sub.s - 2, HUD.sub.s - 2) && !heroIcon(HUD.sub.x, HUD.sub.y, HUD.sub.s, sub.id)) icon(HUD.sub.x, HUD.sub.y, HUD.sub.s, () => at(0, 9, () => sub.draw(0)), `s:${sub.id}:${hgOf(sub.id)}`);
   if (p.swapCd > 0) { const h = Math.ceil(HUD.sub.s * p.swapCd / (p.swapMax ?? BASE.swapCd)); g.fillStyle = shade; g.fillRect(HUD.sub.x, HUD.sub.y + HUD.sub.s - h, HUD.sub.s, h); }
   for (let i = 0; i < 2; i++) {
     const s = HUD.skill[i]; panel(s); icon(s.x, s.y, s.s, helm.skills[i].icon, `k:${helm.id}:${helm.skills[i].name}`);
@@ -3434,7 +3439,7 @@ function drawPreview() {
   c.imageSmoothingEnabled = false;                                                                            // 아이콘 칸
   c.fillStyle = "#0e0b14"; c.fillRect(x + 12, y + 12, 52, 52); c.strokeStyle = gc; c.lineWidth = 2; c.strokeRect(x + 13, y + 13, 50, 50);
   if (it) c.drawImage(itemImg.big, it.icon * 48, 0, 48, 48, x + 14, y + 14, 48, 48);
-  else { begin(); helm.draw(time); outline(); c.save(); c.beginPath(); c.rect(x + 14, y + 14, 48, 48); c.clip(); c.drawImage(spr, x + 38 - SX * 1.5, y + 52 - SY * 1.5, SP * 1.5, SP * 1.5); c.restore(); }
+  else if (!headFit(c, helm.id, o.kind === "pickup" ? o.grade ?? 0 : hgOf(helm.id), x + 14, y + 14, 48, 48)) { begin(); helm.draw(time); outline(); c.save(); c.beginPath(); c.rect(x + 14, y + 14, 48, 48); c.clip(); c.drawImage(spr, x + 38 - SX * 1.5, y + 52 - SY * 1.5, SP * 1.5, SP * 1.5); c.restore(); }
   t(name, x + 76, y + 36, 16, "#ffffff"); t(sub, x + 76, y + 58, 11, gc);
   let yy = y + 84;
   c.fillStyle = "#342d44"; c.fillRect(x + 12, yy - 10, CW - 24, 1);
