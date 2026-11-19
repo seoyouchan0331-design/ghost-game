@@ -2,7 +2,7 @@
 # python3 art/heroframes/hero_cut.py <계보> src=<영상>[,zone=left] <동작:시작초:끝초[:fps][:pin]> ... (src= 여러 번 가능, 한 시트로 합침)
 #   병사: soldier src=art/heroframes/soldier_idle_run_source.mp4 idle:1.1:4:10:pin run:4.6:9.6:10:pin src=art/heroframes/soldier_attack_source.mp4,zone=left,only=2 attack:0.4:3.6:12 charge:5.4:8.8:12 src=art/heroframes/soldier_s12_attack_source.mp4,zone=half,n=2,st=0,white=0 attack:0.2:4.4:12 charge:4.6:9.4:12
 #   괴도: thief src=art/heroframes/thief_idle_run_source.mp4 idle:2.583:3.99:20 run:6.3:10.1:10:pin src=art/heroframes/thief_s12_attack_source.mp4,zone=own,n=2,st=0 attack:0:10.1:12 src=art/heroframes/thief_s3_pickpocket_source.mp4,zone=own,n=1,st=2,sc=0.9,fill=1500 pick:0:10.1:12 src=art/heroframes/thief_s3_cuts_source.mp4,zone=own,n=1,st=2,sc=0.9,fill=1500 cuts:0.3:4.6:12 src=art/heroframes/thief_s3_attack_source.mp4,zone=own,n=1,st=2,sc=0.75,fill=1500 attack:0:10.1:12
-#     그다음: 대기 fps 17, seg·pseg 넣고, fx_dropcolor.py thief coin, fx_recolor.py thief drop 2 cuts, fx_recolor.py thief drop 2 pick (원 궤적 지움), fx_recolor.py thief drop 2 attack, fx_clean.py thief 2 attack 0-40,48-85 / 86-101 bright / 30-37 teal (연기·흰 궤적), 3단계 seg 넣기, fx_fillhat.py thief 2 (실크햇 속), fx_coinhalo.py thief 2 idle,run,pick,cuts (금화 검은 테두리), fx_clean.py thief 2 pick 16-121 arcs / cuts 0-51 arcs / pick 18,41,49,58,64,70,82 wide / cuts 9,36,40 wide, 뒷치기 찌르기는 따로: hero_cut.py thieftmp (대기 src + 3단계 src attack:7.55:8.1:24) 앞 9장을 stab3로 붙이고 fx_recolor.py thief 42 2 stab3 (hero_addmove.py), 금화 던지기도 따로: attack:3.38:4.3:24 앞 18장 → throw3, fx_fillhat.py thief 2 idle,run,pick,cuts,throw3, fx_coinhalo.py thief 2 idle,run,pick,cuts,throw3
+#     그다음: 대기 fps 17, seg·pseg 넣고, fx_dropcolor.py thief coin, fx_recolor.py thief drop 2 cuts, fx_recolor.py thief drop 2 pick (원 궤적 지움), fx_recolor.py thief drop 2 attack, fx_clean.py thief 2 attack 0-40,48-85 / 86-101 bright / 30-37 teal (연기·흰 궤적), 3단계 seg 넣기, fx_fillhat.py thief 2 (실크햇 속), fx_coinhalo.py thief 2 idle,run,pick,cuts (금화 검은 테두리), fx_clean.py thief 2 pick 16-121 arcs / cuts 0-51 arcs / pick 18,41,49,58,64,70,82 wide / cuts 9,36,40 wide, 뒷치기 찌르기는 따로: hero_cut.py thieftmp (대기 src + 3단계 src attack:7.55:8.1:24) 앞 9장을 stab3로 붙이고 fx_recolor.py thief 42 2 stab3 (hero_addmove.py), 금화 던지기도 따로: attack:3.38:4.3:24 앞 5장 + nonear=1로 자른 5~17장 → throw3, fx_fillhat.py thief 2 throw3,attack,stab3 full (망토 안쪽), fx_fillhat.py thief 2 idle,run,pick,cuts,throw3, fx_coinhalo.py thief 2 idle,run,pick,cuts,throw3
 #   처형인: executioner h1=43 src=art/heroframes/executioner_idle_run_source.mp4 idle:0.2:2.6:10:pin run:2.9:5.15:10:pin src=art/heroframes/executioner_s12_attack_source.mp4,zone=own,n=2,st=0 attack:0:10.1:12 src=art/heroframes/executioner_s3_attack_source.mp4,zone=own,n=1,st=2 attack:0:10.1:12  (그다음 seg 넣고 fx_recolor.py executioner 356 으로 궤적을 붉게)
 #   서리 늑대: frostwolf src=art/heroframes/frostwolf_idle_run_source.mp4 idle:1.0:5.3:10:pin run:6.0:8.5:10:pin src=art/heroframes/frostwolf_s12_attack_source.mp4,zone=own,n=2,st=0 attack:0:10:12 src=art/heroframes/frostwolf_s3_attack_source.mp4,zone=own,n=1,st=2 attack:0:10:12
 #   지금: 둘째 src = art/heroframes/soldier_s3_attack_source.mp4,zone=half,n=1,st=2 attack:0.2:4.4:12 charge:5.2:9.0:12
@@ -59,7 +59,7 @@ for tok in ARGS:
         # 배율: 앞 영상에서 자른 대기 키에 맞춘다 (없으면 1단계 = H1)
         scales = [(idleH.get(st0 + i) or H1) / c["h"] for i, c in enumerate(chars)] if idleH else [H1 / chars[0]["h"]] * n
         scales = [q * float(opt.get("sc", 1)) for q in scales]   # sc=0.75: 영상 속 캐릭터가 대기 영상보다 크게 찍혔을 때 (대기 키는 머리 불꽃까지 재서 불꽃 없는 영상은 커진다)
-        FILL = int(opt.get("fill", 0))                              # fill=1500: 몸 안쪽이 바탕색과 비슷해 뚫린 구멍(이 크기 미만)을 메운다
+        NONEAR = opt.get("nonear") == "1"; FILL = int(opt.get("fill", 0))                              # fill=1500: 몸 안쪽이 바탕색과 비슷해 뚫린 구멍(이 크기 미만)을 메운다
         continue
     nm, t0, t1, *rest = tok.split(":"); fps = int(rest[0]) if rest else 10; pin = "pin" in rest   # pin: 발을 바닥에 붙인다 (대기·달리기)
     fr = frames(src, float(t0), float(t1), fps)
@@ -75,6 +75,7 @@ for tok in ARGS:
             lb, nb = ndimage.label(halo | ~m); edge = set(np.unique(np.concatenate([lb[0], lb[-1], lb[:, 0], lb[:, -1]]))) - {0}
             m &= ~np.isin(lb, list(edge))
             near = (np.abs(sub - np.median(np.concatenate([sub[:4].reshape(-1, 3), sub[-4:].reshape(-1, 3)]), axis=0)).max(axis=2) < 40) & (lum >= bgl - 7) & (b_ > r_ + 6) & ~((g_ > r_ + 30) & (g_ >= b_ - 10))   # 고리 안쪽처럼 둘러싸인 넓은 남색 빛도 지운다 (검은 테두리보다는 밝은 것만)
+            if NONEAR: near[:] = False                                    # nonear=1: 망토 안쪽처럼 바탕과 비슷한 넓은 남색을 지우지 않는다
             ln, nn = ndimage.label(near); szn = ndimage.sum(near, ln, range(1, nn + 1)); m &= ~np.isin(ln, [i + 1 for i in range(nn) if szn[i] > 400])
             lab, n = ndimage.label(m); sz = ndimage.sum(m, lab, range(1, n + 1)); objs = ndimage.find_objects(lab); keep = []
             for i in range(n):

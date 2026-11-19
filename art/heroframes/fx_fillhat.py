@@ -4,7 +4,7 @@
 import sys, json, numpy as np
 from PIL import Image
 from scipy import ndimage
-LINE, ST = sys.argv[1], int(sys.argv[2]); IT = 2; MV = sys.argv[3].split(",") if len(sys.argv) > 3 else None   # 동작 이름들만 (예: throw3)
+LINE, ST = sys.argv[1], int(sys.argv[2]); FULL = "full" in sys.argv; sys.argv = [x for x in sys.argv if x != "full"]; IT = 3 if FULL else 2; MV = sys.argv[3].split(",") if len(sys.argv) > 3 else None   # 동작 이름들만 (예: throw3)
 s = open("index.html").read(); k = s.index(f"{LINE}: ", s.index("const HERO = {")) + len(LINE) + 2
 H, _ = json.JSONDecoder().raw_decode(s[k:]); B = H["boxes"]
 sheet = np.asarray(Image.open(f"assets/hero_{LINE}.png").convert("RGBA")).copy(); done = set(); n = 0
@@ -15,7 +15,8 @@ for mv, M in H["stages"][ST].items():
         if ci in done: continue
         done.add(ci); x, y, w, h = B[ci]; c = sheet[y:y + h, x:x + w]; m = c[..., 3] > 0
         P = 3; mp = np.pad(m, P); cl = ndimage.binary_fill_holes(ndimage.binary_closing(mp, iterations=IT))[P:-P, P:-P]
-        add = cl & ~m; add[h // 2:] = False
+        add = cl & ~m
+        if not FULL: add[h // 2:] = False                                  # full: 프레임 전체 (망토 안쪽 틈)
         r_, g_, b_ = [c[..., i].astype(int) for i in range(3)]; teal = m & (g_ > r_ + 25) & (b_ > r_ + 15)
         tl = ndimage.uniform_filter(teal.astype(float), 5, mode="constant"); opq = ndimage.uniform_filter(m.astype(float), 5, mode="constant")
         add &= (tl / np.maximum(opq, 1e-3)) < 0.3                       # 불꽃(청록) 사이 틈은 메우지 않는다
