@@ -12,26 +12,27 @@
 </style>
 <canvas id="screen" width="960" height="540"></canvas>
 <style>
-  /* 모바일 임시 버튼: 터치 화면에서만 보인다 (키보드와 같은 키를 누른다) */
+  /* 모바일 조작: 터치 화면에서만 보인다. 왼쪽 조이스틱(이동·↑↓), 오른쪽 버튼(키보드와 같은 키). ⚙ 키세팅으로 위치·크기를 바꾸고 기기에 저장 */
   #pad { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 5; font-family: sans-serif; -webkit-user-select: none; user-select: none; }
   body.touch #pad { display: block; }
-  #pad .b { position: absolute; pointer-events: auto; touch-action: none; width: 13vmin; height: 13vmin; border-radius: 50%; background: rgba(20, 30, 50, 0.45); border: 2px solid rgba(155, 232, 255, 0.55);
-    color: #dff6ff; font-size: 3.6vmin; font-weight: bold; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.05; }
-  #pad .b.on { background: rgba(155, 232, 255, 0.45); }
-  #pad .s { width: 10vmin; height: 10vmin; font-size: 2.8vmin; border-radius: 3vmin; }
+  #pad .b { position: absolute; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(20, 30, 50, 0.45) center / contain no-repeat; border: 2px solid rgba(155, 232, 255, 0.55);
+    color: #dff6ff; font-weight: bold; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.05; box-sizing: border-box; }
+  #pad .b.img { border: none; background-color: transparent; color: transparent; }
+  #pad .b.on { filter: brightness(1.6); }
+  #pad .joy { position: absolute; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(20, 30, 50, 0.3) center / contain no-repeat; border: 2px solid rgba(155, 232, 255, 0.4); box-sizing: border-box; }
+  #pad .joy .knob { position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(155, 232, 255, 0.5) center / contain no-repeat; }
+  #pad .gear { position: absolute; left: 1.5vmin; top: 1.5vmin; width: 7vmin; height: 7vmin; pointer-events: auto; border-radius: 2vmin; background: rgba(20, 30, 50, 0.5); color: #dff6ff; font-size: 4.5vmin; display: flex; align-items: center; justify-content: center; }
+  #pad.edit { background: rgba(5, 5, 12, 0.55); pointer-events: auto; }
+  #pad.edit .b, #pad.edit .joy { outline: 2px dashed rgba(255, 226, 122, 0.7); }
+  #pad.edit .sel { outline: 3px solid #ffe27a; }
+  #padbar { display: none; position: absolute; left: 50%; top: 2vmin; transform: translateX(-50%); pointer-events: auto; gap: 1.5vmin; background: rgba(14, 11, 20, 0.92); border: 2px solid #ffe27a; border-radius: 2vmin; padding: 1.5vmin 2vmin; color: #fff; font-size: 3vmin; align-items: center; }
+  #pad.edit #padbar { display: flex; }
+  #padbar button { font: bold 3vmin sans-serif; padding: 1vmin 2vmin; border-radius: 1.5vmin; border: 2px solid #9be8ff; background: #1b2236; color: #dff6ff; }
   #rotate { display: none; position: fixed; inset: 0; z-index: 9; background: #0b0a10; color: #9be8ff; font: bold 6vmin sans-serif; align-items: center; justify-content: center; text-align: center; }
   @media (orientation: portrait) { body.touch #rotate { display: flex; } }
 </style>
-<div id="pad">
-  <div class="b" data-k="ArrowLeft" style="left:3vmin;bottom:16vmin">◀</div><div class="b" data-k="ArrowRight" style="left:31vmin;bottom:16vmin">▶</div>
-  <div class="b" data-k="ArrowUp" style="left:17vmin;bottom:30vmin">▲</div><div class="b" data-k="ArrowDown" style="left:17vmin;bottom:2vmin">▼</div>
-  <div class="b" data-k="KeyX" style="right:17vmin;bottom:3vmin">공격<br>X</div><div class="b" data-k="KeyC" style="right:3vmin;bottom:17vmin">점프<br>C</div>
-  <div class="b" data-k="KeyZ" style="right:31vmin;bottom:3vmin">대시<br>Z</div><div class="b" data-k="KeyA" style="right:17vmin;bottom:31vmin">스킬<br>A</div>
-  <div class="b" data-k="KeyS" style="right:3vmin;bottom:31vmin">스킬<br>S</div><div class="b" data-k="Space" style="right:31vmin;bottom:17vmin">교체</div>
-  <div class="b s" data-k="KeyD" style="right:45vmin;bottom:3vmin">영혼<br>D</div>
-  <div class="b s" data-k="Tab" style="left:2vmin;top:42vmin">창</div><div class="b s" data-k="Enter" style="left:13vmin;top:42vmin">확인</div>
-  <div class="b s" data-k="Escape" style="left:24vmin;top:42vmin">닫기</div><div class="b s" data-k="KeyM" style="left:35vmin;top:42vmin">소리</div>
-</div>
+<div id="pad"><div class="gear" id="padgear">⚙</div>
+  <div id="padbar"><span id="padname">버튼을 눌러 고르세요</span><button id="padsm">작게</button><button id="padbg">크게</button><button id="padreset">처음대로</button><button id="paddone">완료</button></div></div>
 <div id="rotate">화면을 가로로 돌려 주세요</div>
 <script>
 "use strict";
@@ -1525,15 +1526,56 @@ addEventListener("keydown", (e) => {
   keys[e.code] = true;
 });
 addEventListener("keyup", (e) => { keys[e.code] = false; });
-// 모바일 임시 버튼: 누르면 keydown과 똑같이 keys/pressed를 켜고, 떼면 끈다 (여러 손가락 동시에)
+// 모바일 조작: 조이스틱(이동 ←→, 위·아래로 밀면 ↑↓)과 버튼. 누르면 keydown과 똑같이 keys/pressed를 켜고, 떼면 끈다 (여러 손가락 동시에)
+// 위치(cx, cy: 화면 비율)·크기(s: vmin)는 ⚙ 키세팅에서 끌어 옮기고 크기를 바꾸며, 기기에 저장한다. 버튼 그림 assets/ui/btn_<이름>.png가 있으면 그 그림을 쓴다
+const PAD_DEF = [
+  { id: "joy", joy: true, cx: 0.13, cy: 0.74, s: 30 },
+  { id: "attack", k: "KeyX", t: "공격", cx: 0.83, cy: 0.84, s: 15 }, { id: "jump", k: "KeyC", t: "점프", cx: 0.94, cy: 0.66, s: 13 },
+  { id: "dash", k: "KeyZ", t: "대시", cx: 0.71, cy: 0.88, s: 12 }, { id: "skill1", k: "KeyA", t: "스킬A", cx: 0.79, cy: 0.62, s: 12 },
+  { id: "skill2", k: "KeyS", t: "스킬S", cx: 0.89, cy: 0.45, s: 12 }, { id: "swap", k: "Space", t: "교체", cx: 0.67, cy: 0.68, s: 11 },
+  { id: "soul", k: "KeyD", t: "영혼", cx: 0.59, cy: 0.88, s: 9 }, { id: "menu", k: "Tab", t: "창", cx: 0.6, cy: 0.08, s: 8 },
+  { id: "ok", k: "Enter", t: "확인", cx: 0.52, cy: 0.08, s: 8 }, { id: "back", k: "Escape", t: "닫기", cx: 0.44, cy: 0.08, s: 8 }, { id: "sound", k: "KeyM", t: "소리", cx: 0.37, cy: 0.08, s: 7 },   // 위 가운데 (오른쪽 위는 금화 표시)
+];
+let padCfg = PAD_DEF.map((d) => ({ ...d }));
+try { const sv = JSON.parse(localStorage.getItem("padCfg") || "null"); if (sv) for (const d of padCfg) if (sv[d.id]) Object.assign(d, sv[d.id]); } catch (err) {}
+const padSave = () => { try { localStorage.setItem("padCfg", JSON.stringify(Object.fromEntries(padCfg.map((d) => [d.id, { cx: d.cx, cy: d.cy, s: d.s }])))); } catch (err) {} };
 { const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0 || /[?&]touch=1/.test(location.search);
   if (isTouch) document.body.classList.add("touch");
   addEventListener("keydown", (e) => { if (e.isTrusted) document.body.classList.remove("touch"); });       // 진짜 키보드를 누르면 버튼을 숨긴다 (버튼이 보내는 가짜 키는 제외)
   addEventListener("touchstart", () => document.body.classList.add("touch"), { passive: true });          // 다시 화면을 만지면 버튼이 돌아온다
-  for (const b of document.querySelectorAll("#pad .b")) { const k = b.dataset.k, on = new Set();
-    const down = (e) => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (err) {} on.add(e.pointerId); b.classList.add("on"); if (!keys[k]) { pressed[k] = 0.12; dispatchEvent(new KeyboardEvent("keydown", { code: k })); } keys[k] = true; };
-    const up = (e) => { on.delete(e.pointerId); if (on.size) return; b.classList.remove("on"); keys[k] = false; };
-    b.addEventListener("pointerdown", down); b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up); b.addEventListener("lostpointercapture", up); b.addEventListener("contextmenu", (e) => e.preventDefault()); } }
+  const pad = document.getElementById("pad"), press = (k) => { if (!keys[k]) { pressed[k] = 0.12; dispatchEvent(new KeyboardEvent("keydown", { code: k })); } keys[k] = true; };
+  let edit = false, sel = null;
+  const place = (d) => { const el = d.el; el.style.left = d.cx * 100 + "vw"; el.style.top = d.cy * 100 + "vh"; el.style.width = el.style.height = d.s + "vmin"; if (!d.joy) el.style.fontSize = d.s * 0.26 + "vmin"; };
+  for (const d of padCfg) {
+    const el = document.createElement("div"); d.el = el; el.className = d.joy ? "joy" : "b";
+    const art = new Image(); art.onload = () => { if (d.joy) el.style.backgroundImage = `url(${art.src})`; else { el.classList.add("img"); el.style.backgroundImage = `url(${art.src})`; } }; art.src = `../assets/ui/btn_${d.id}.png`;
+    if (d.joy) { const kn = document.createElement("div"); kn.className = "knob"; el.appendChild(kn); d.knob = kn; const ka = new Image(); ka.onload = () => { kn.style.backgroundImage = `url(${ka.src})`; kn.style.background = `url(${ka.src}) center / contain no-repeat`; }; ka.src = "../assets/ui/btn_knob.png"; }
+    else el.innerHTML = d.t;
+    pad.appendChild(el); place(d);
+    let pid = null, ox = 0, oy = 0;
+    const setJoy = (e) => { const r = el.getBoundingClientRect(), R = r.width / 2; let dx = (e.clientX - r.left - R) / R, dy = (e.clientY - r.top - R) / R; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
+      d.knob.style.left = 50 + dx * 35 + "%"; d.knob.style.top = 50 + dy * 35 + "%";
+      const want = { ArrowLeft: dx < -0.3, ArrowRight: dx > 0.3, ArrowUp: dy < -0.6, ArrowDown: dy > 0.6 };
+      for (const k in want) { if (want[k]) press(k); else keys[k] = false; } };
+    const relJoy = () => { d.knob.style.left = d.knob.style.top = "50%"; for (const k of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) keys[k] = false; };
+    el.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (pid != null && !edit) return; pid = e.pointerId; try { el.setPointerCapture(pid); } catch (err) {}
+      if (edit) { if (sel) sel.el.classList.remove("sel"); sel = d; el.classList.add("sel"); document.getElementById("padname").textContent = d.joy ? "조이스틱" : d.t; ox = e.clientX - d.cx * innerWidth; oy = e.clientY - d.cy * innerHeight; return; }
+      el.classList.add("on"); if (d.joy) setJoy(e); else press(d.k); });
+    el.addEventListener("pointermove", (e) => { if (e.pointerId !== pid) return; if (edit) { d.cx = clamp((e.clientX - ox) / innerWidth, 0.03, 0.97); d.cy = clamp((e.clientY - oy) / innerHeight, 0.05, 0.95); place(d); } else if (d.joy) setJoy(e); });
+    const up = (e) => { if (e.pointerId !== pid) return; pid = null; el.classList.remove("on"); if (edit) { padSave(); return; } if (d.joy) relJoy(); else keys[d.k] = false; };
+    for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) el.addEventListener(ev, up);
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  const setEdit = (on) => { edit = on; pad.classList.toggle("edit", on); if (!on && sel) { sel.el.classList.remove("sel"); sel = null; } for (const k in keys) keys[k] = false; };
+  document.getElementById("padgear").addEventListener("pointerdown", (e) => { e.preventDefault(); setEdit(!edit); });
+  const size = (k) => { if (!sel) return; sel.s = clamp(Math.round(sel.s * k), 5, 45); place(sel); padSave(); };
+  document.getElementById("padsm").onclick = () => size(1 / 1.15); document.getElementById("padbg").onclick = () => size(1.15);
+  document.getElementById("padreset").onclick = () => { for (const d of padCfg) { Object.assign(d, PAD_DEF.find((q) => q.id === d.id)); place(d); } padSave(); };
+  document.getElementById("paddone").onclick = () => setEdit(false);
+  // 캐릭터 창(Tab)이 열려 있을 때: 화면을 눌러 칸 고르기 (같은 칸을 다시 누르면 X를 누른 것처럼: 아이템은 꾹 누르면 분해)
+  screen.addEventListener("pointerdown", (e) => { if (!menuOpen) return; const r = screen.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * 960, y = (e.clientY - r.top) / r.height * 540;
+    const i = menuCellAt(x, y); if (i < 0) return; e.preventDefault(); if (i === menuSel) { press("KeyX"); const off = () => { keys.KeyX = false; removeEventListener("pointerup", off); }; addEventListener("pointerup", off); } menuSel = i; snd("ui"); });
+}
 const take = (code) => { if (pressed[code] > 0) { pressed[code] = 0; return true; } return false; };
 
 // ---------- 게임 상태 ----------
@@ -3453,6 +3495,7 @@ function drawPreview() {
   c.fillStyle = "#342d44"; c.fillRect(x + 12, yy - 6, CW - 24, 1); t(keysTxt, x + CW / 2, yy + 14, 12, "#ffe27a", "center");
 }
 let menuOpen = false, menuT = 0, menuSel = 0, menuHold = 0;
+const menuCellAt = (x, y) => { const X = 90, Y = 56, MX = X + 236; for (let i = 0; i < 11; i++) { const [cx, cy, sz] = i < 2 ? [MX + 36 + i * 88, Y + 62, 64] : [MX + 28 + ((i - 2) % 3) * 58, Y + 252 + (((i - 2) / 3) | 0) * 50, 44]; if (x >= cx - 6 && x <= cx + sz + 6 && y >= cy - 6 && y <= cy + sz + 6) return i; } return -1; };   // drawMenu의 칸 자리와 같게
 const menuCells = () => [...player.slots.map((id) => ({ helm: helmById(id) })), ...Array.from({ length: 9 }, (_, i) => ({ item: player.items[i] }))];
 function updateMenu(dt) {
   if (take("Tab") || (menuOpen && take("Escape"))) { menuOpen = !menuOpen; snd("ui"); }
