@@ -15,15 +15,14 @@
   /* 모바일 조작: 터치 화면에서만 보인다. 왼쪽 조이스틱(이동·↑↓), 오른쪽 버튼(키보드와 같은 키). ⚙ 키세팅으로 위치·크기를 바꾸고 기기에 저장 */
   #pad { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 5; font-family: sans-serif; -webkit-user-select: none; user-select: none; }
   body.touch #pad { display: block; }
-  #pad .b { position: absolute; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(20, 30, 50, 0.45) center / contain no-repeat; border: 2px solid rgba(155, 232, 255, 0.55);
-    color: #dff6ff; font-weight: bold; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.05; box-sizing: border-box; }
-  #pad .b.img { border: none; background-color: transparent; color: transparent; }
-  #pad .b.on { filter: brightness(1.6); }
-  #pad .joy { position: absolute; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(20, 30, 50, 0.3) center / contain no-repeat; border: 2px solid rgba(155, 232, 255, 0.4); box-sizing: border-box; }
-  #pad .joy .knob { position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(155, 232, 255, 0.5) center / contain no-repeat; }
-  #pad .gear { position: absolute; left: 1.5vmin; top: 1.5vmin; width: 7vmin; height: 7vmin; pointer-events: auto; border-radius: 2vmin; background: rgba(20, 30, 50, 0.5); color: #dff6ff; font-size: 4.5vmin; display: flex; align-items: center; justify-content: center; }
-  #pad .b, #pad .joy, #pad .knob, #pad .gear { image-rendering: pixelated; }
-  #pad .gear.img { background: url(assets/ui/btn_gear.png) center / contain no-repeat; color: transparent; }
+  #pad .b { position: absolute; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(255, 255, 255, 0.07); border: 1.5px solid rgba(255, 255, 255, 0.32);
+    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); color: rgba(255, 255, 255, 0.85); display: flex; align-items: center; justify-content: center; box-sizing: border-box; transition: background 0.08s, transform 0.08s; }
+  #pad .b svg { width: 46%; height: 46%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #pad .b .t { font: 600 1em/1 system-ui, sans-serif; letter-spacing: 0.02em; }
+  #pad .b.on { background: rgba(255, 255, 255, 0.24); transform: translate(-50%, -50%) scale(0.94); }
+  #pad .joy { position: absolute; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(255, 255, 255, 0.05); border: 1.5px solid rgba(255, 255, 255, 0.25); box-sizing: border-box; }
+  #pad .joy .knob { position: absolute; left: 50%; top: 50%; width: 40%; height: 40%; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(255, 255, 255, 0.28); border: 1.5px solid rgba(255, 255, 255, 0.5); box-sizing: border-box; }
+  #pad .gear { position: absolute; left: 1.5vmin; top: 1.5vmin; width: 7vmin; height: 7vmin; pointer-events: auto; border-radius: 50%; background: rgba(255, 255, 255, 0.07); border: 1.5px solid rgba(255, 255, 255, 0.3); box-sizing: border-box; color: rgba(255, 255, 255, 0.8); font-size: 4vmin; display: flex; align-items: center; justify-content: center; }
   #pad.edit { background: rgba(5, 5, 12, 0.55); pointer-events: auto; }
   #pad.edit .b, #pad.edit .joy { outline: 2px dashed rgba(255, 226, 122, 0.7); }
   #pad.edit .sel { outline: 3px solid #ffe27a; }
@@ -1529,15 +1528,22 @@ addEventListener("keydown", (e) => {
 });
 addEventListener("keyup", (e) => { keys[e.code] = false; });
 // 모바일 조작: 조이스틱(이동 ←→, 위·아래로 밀면 ↑↓)과 버튼. 누르면 keydown과 똑같이 keys/pressed를 켜고, 떼면 끈다 (여러 손가락 동시에)
-// 위치(cx, cy: 화면 비율)·크기(s: vmin)는 ⚙ 키세팅에서 끌어 옮기고 크기를 바꾸며, 기기에 저장한다. 버튼 그림 assets/ui/btn_<이름>.png가 있으면 그 그림을 쓴다
+// 위치(cx, cy: 화면 비율)·크기(s: vmin)는 ⚙ 키세팅에서 끌어 옮기고 크기를 바꾸며, 기기에 저장한다. 모양은 반투명 원 + 선 아이콘 (그림 파일 없음)
 const PAD_DEF = [
-  { id: "joy", joy: true, cx: 0.13, cy: 0.74, s: 30 },   // 그림: art/ui4/btn_cut.py
+  { id: "joy", joy: true, cx: 0.13, cy: 0.74, s: 30 },
   { id: "attack", k: "KeyX", t: "공격", cx: 0.83, cy: 0.84, s: 15 }, { id: "jump", k: "KeyC", t: "점프", cx: 0.94, cy: 0.66, s: 13 },
   { id: "dash", k: "KeyZ", t: "대시", cx: 0.71, cy: 0.88, s: 12 }, { id: "skill1", k: "KeyA", t: "스킬A", cx: 0.79, cy: 0.62, s: 12 },
   { id: "skill2", k: "KeyS", t: "스킬S", cx: 0.89, cy: 0.45, s: 12 }, { id: "swap", k: "Space", t: "교체", cx: 0.67, cy: 0.68, s: 11 },
   { id: "soul", k: "KeyD", t: "영혼", cx: 0.59, cy: 0.88, s: 9 }, { id: "menu", k: "Tab", t: "창", cx: 0.6, cy: 0.08, s: 8 },
   { id: "ok", k: "Enter", t: "확인", cx: 0.52, cy: 0.08, s: 8 }, { id: "back", k: "Escape", t: "닫기", cx: 0.44, cy: 0.08, s: 8 }, { id: "sound", k: "KeyM", t: "소리", cx: 0.37, cy: 0.08, s: 7 },   // 위 가운데 (오른쪽 위는 금화 표시)
 ];
+const PAD_ICON = {   // 24x24 선 아이콘 (스킬은 글자 A·S)
+  attack: '<path d="M8 16 L19 5 L19 8 L10 17"/><path d="M6 13 L11 18"/><path d="M5 19 L8 16"/>', jump: '<path d="M6 14 L12 8 L18 14"/><path d="M6 19 L12 13 L18 19"/>',
+  dash: '<path d="M4 12 L18 12"/><path d="M13 7 L18 12 L13 17"/><path d="M4 8 L8 8"/><path d="M4 16 L8 16"/>', skill1: '<text x="12" y="17" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor" stroke="none" font-family="system-ui,sans-serif">A</text>',
+  skill2: '<text x="12" y="17" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor" stroke="none" font-family="system-ui,sans-serif">S</text>', swap: '<path d="M5 9 A7 7 0 0 1 18 7"/><path d="M18 3 L18 7 L14 7"/><path d="M19 15 A7 7 0 0 1 6 17"/><path d="M6 21 L6 17 L10 17"/>',
+  soul: '<path d="M12 4 C8 8 7 11 7 14 A5 5 0 0 0 17 14 C17 11 16 8 12 4 Z"/><circle cx="10.5" cy="14" r="0.6"/><circle cx="13.5" cy="14" r="0.6"/>', menu: '<path d="M5 7 L19 7"/><path d="M5 12 L19 12"/><path d="M5 17 L19 17"/>',
+  ok: '<path d="M5 12 L10 17 L19 7"/>', back: '<path d="M7 7 L17 17"/><path d="M17 7 L7 17"/>', sound: '<path d="M5 10 L8 10 L12 6 L12 18 L8 14 L5 14 Z"/><path d="M15.5 9 A4 4 0 0 1 15.5 15"/><path d="M18 6.5 A7.5 7.5 0 0 1 18 17.5"/>',
+};
 let padCfg = PAD_DEF.map((d) => ({ ...d }));
 try { const sv = JSON.parse(localStorage.getItem("padCfg") || "null"); if (sv) for (const d of padCfg) if (sv[d.id]) Object.assign(d, sv[d.id]); } catch (err) {}
 const padSave = () => { try { localStorage.setItem("padCfg", JSON.stringify(Object.fromEntries(padCfg.map((d) => [d.id, { cx: d.cx, cy: d.cy, s: d.s }])))); } catch (err) {} };
@@ -1550,9 +1556,8 @@ const padSave = () => { try { localStorage.setItem("padCfg", JSON.stringify(Obje
   const place = (d) => { const el = d.el; el.style.left = d.cx * 100 + "vw"; el.style.top = d.cy * 100 + "vh"; el.style.width = el.style.height = d.s + "vmin"; if (!d.joy) el.style.fontSize = d.s * 0.26 + "vmin"; };
   for (const d of padCfg) {
     const el = document.createElement("div"); d.el = el; el.className = d.joy ? "joy" : "b";
-    const art = new Image(); art.onload = () => { if (d.joy) el.style.backgroundImage = `url(${art.src})`; else { el.classList.add("img"); el.style.backgroundImage = `url(${art.src})`; } }; art.src = `../assets/ui/btn_${d.id}.png`;
-    if (d.joy) { const kn = document.createElement("div"); kn.className = "knob"; el.appendChild(kn); d.knob = kn; const ka = new Image(); ka.onload = () => { kn.style.background = `url(${ka.src}) center / contain no-repeat`; }; ka.src = "../assets/ui/btn_knob.png"; }
-    else el.innerHTML = d.t;
+    if (d.joy) { const kn = document.createElement("div"); kn.className = "knob"; el.appendChild(kn); d.knob = kn; }
+    else el.innerHTML = PAD_ICON[d.id] ? `<svg viewBox="0 0 24 24">${PAD_ICON[d.id]}</svg>` : `<span class="t">${d.t}</span>`;
     pad.appendChild(el); place(d);
     let pid = null, ox = 0, oy = 0;
     const setJoy = (e) => { const r = el.getBoundingClientRect(), R = r.width / 2; let dx = (e.clientX - r.left - R) / R, dy = (e.clientY - r.top - R) / R; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
@@ -1568,7 +1573,6 @@ const padSave = () => { try { localStorage.setItem("padCfg", JSON.stringify(Obje
     for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) el.addEventListener(ev, up);
     el.addEventListener("contextmenu", (e) => e.preventDefault());
   }
-  { const ga = new Image(); ga.onload = () => document.getElementById("padgear").classList.add("img"); ga.src = "../assets/ui/btn_gear.png"; }   // 톱니 그림
   const setEdit = (on) => { edit = on; pad.classList.toggle("edit", on); if (!on && sel) { sel.el.classList.remove("sel"); sel = null; } for (const k in keys) keys[k] = false; };
   document.getElementById("padgear").addEventListener("pointerdown", (e) => { e.preventDefault(); setEdit(!edit); });
   const size = (k) => { if (!sel) return; sel.s = clamp(Math.round(sel.s * k), 5, 45); place(sel); padSave(); };

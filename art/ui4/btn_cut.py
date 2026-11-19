@@ -1,4 +1,4 @@
-# 모바일 버튼 [ui_buttons]: 4x4 격자 → 칸마다 바탕(밝은 회색)과 다른 가장 큰 덩어리(둥근 버튼) → 96px로 줄여 assets/ui/btn_<이름>.png
+# (지금은 안 씀: 버튼은 코드로 그린 반투명 원 + 선 아이콘) 모바일 버튼 [ui_buttons]: 4x4 격자 → 칸마다 바탕(밝은 회색)과 다른 가장 큰 덩어리(둥근 버튼) → 96px로 줄여 assets/ui/btn_<이름>.png
 import numpy as np
 from PIL import Image
 from scipy import ndimage
