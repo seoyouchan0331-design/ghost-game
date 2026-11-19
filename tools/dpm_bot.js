@@ -1,4 +1,4 @@
-// 실행: rebuild로 play/helm-test.html을 만든 뒤 node tools/dpm_bot.js <play 폴더의 부모> '[{"id":"thief","st":2,"combo":[0,1]}]'  (SECS=60 기본, v: spam|charge|focus 사냥꾼, souls: 처형인 원혼)
+// 실행: rebuild로 play/helm-test.html을 만든 뒤 node tools/dpm_bot.js <play 폴더의 부모> '[{"id":"thief","st":2,"combo":[0,1]}]'  (SECS=60 기본, v: spam|charge|focus 사냥꾼, souls: 처형인 원혼, pack: 허수아비 수 (16px 간격으로 붙어 선다))
 // 허수아비 DPM 자동 측정: 투구·단계·스킬 조합마다 게임 시간을 빠르게 돌리며 최선의 운영을 흉내 낸다
 const { chromium } = require('playwright');
 const SECS = +(process.env.SECS || 60);
@@ -7,20 +7,21 @@ const SECS = +(process.env.SECS || 60);
   const setup = async () => { const pg = await b.newPage({ viewport: { width: 960, height: 540 } }); pg.on('pageerror', e => errs.push(e.message));
   await pg.goto('file://' + process.argv[2] + '/play/helm-test.html'); await pg.waitForTimeout(1200);
   await pg.evaluate(() => {
-    window.__run = (id, st, combo, variant, secs, souls) => {
+    window.__run = (id, st, combo, variant, secs, souls, pack) => {
       tEquip(id, st); const p = player; p.invuln = 1e9; p.gold = 999999;
       if (combo) { p.skPick = p.skPick || {}; p.skPick[id] = combo; }
       p.cds[id] = [0, 0]; p.execSouls = souls || 0; p.x = 160; p.dir = 1; p.act = null;
-      dummyStart(); DUMMY.dur = 1e9; const e = DUMMY.e; e.x = e.minX = e.maxX = 300;
+      dummyStart(); DUMMY.dur = 1e9; const e = DUMMY.e; e.x = e.minX = e.maxX = 300; const all = [e];
+      for (let i = 1; i < (pack || 1); i++) { const q = newEnemy('dummy', 300 + i * 16, 0); q.gy = q.y = e.y; q.x = q.minX = q.maxX = 300 + i * 16; q.hp = q.maxHp; enemies.push(q); all.push(q); }
       let total = 0; const by = {}; const old = window.__onDmg;
-      window.__onDmg = (q, d, tag) => { if (q === e) { total += d; by[tag] = (by[tag] || 0) + d; } };
+      window.__onDmg = (q, d, tag) => { if (all.includes(q)) { total += d; by[tag] = (by[tag] || 0) + d; } };
       const ranged = id === 'hunter', D = ranged ? 170 : 22, steps = Math.round(secs / STEP);
       const helm = p.helm, cds = cdsOf(id);
       for (let i = 0; i < steps; i++) {
-        e.hp = e.maxHp; p.invuln = 1e9; p.hp = p.maxHp ?? p.hp;
+        for (const q of all) q.hp = q.maxHp; p.invuln = 1e9; p.hp = p.maxHp ?? p.hp;
         const a = p.act;
         if (a) {
-          if (a.wm === 'flurry' && a.pick) { e.x = e.minX = e.maxX = p.x + p.dir * 20; }   // 주머니 찢기: 실제 적처럼 끌려간다
+          if (a.wm === 'flurry' && a.pick) all.forEach((q, i) => { q.x = q.minX = q.maxX = p.x + p.dir * (20 + i * 10); });   // 주머니 찢기: 실제 적처럼 끌려간다
           if (a.wm === 'stance' && p.skKey) keys[p.skKey] = a.t < 1.37;
         } else if (!p.dashing) {
           const want = e.x - D; if (Math.abs(p.x - want) > 4 && !(keys.KeyX && ranged)) p.x = want; p.dir = 1;
@@ -46,6 +47,6 @@ const SECS = +(process.env.SECS || 60);
     };
   }); return pg; };
   const jobs = JSON.parse(process.argv[3]); const out = [];
-  for (const j of jobs) { const t0 = Date.now(); const pg = await setup(); const r = await pg.evaluate(([j, S]) => window.__run(j.id, j.st, j.combo, j.v, S, j.souls), [j, SECS]); out.push({ ...j, ...r, wall: Date.now() - t0 }); console.error(JSON.stringify(out[out.length - 1])); await pg.close(); }
+  for (const j of jobs) { const t0 = Date.now(); const pg = await setup(); const r = await pg.evaluate(([j, S]) => window.__run(j.id, j.st, j.combo, j.v, S, j.souls, j.pack), [j, SECS]); out.push({ ...j, ...r, wall: Date.now() - t0 }); console.error(JSON.stringify(out[out.length - 1])); await pg.close(); }
   console.log(JSON.stringify(out)); if (errs.length) console.error('ERR', errs.slice(0, 3)); await b.close();
 })();
