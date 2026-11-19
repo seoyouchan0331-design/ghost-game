@@ -1,0 +1,16 @@
+{
+ "name": "갑옷 속의 유령",
+ "short_name": "갑옷 유령",
+ "start_url": "./",
+ "display": "fullscreen",
+ "orientation": "landscape",
+ "background_color": "#0b0a10",
+ "theme_color": "#0b0a10",
+ "icons": [
+  {
+   "src": "assets/icon_512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  }
+ ]
+}

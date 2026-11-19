@@ -32,7 +32,7 @@
   #rotate { display: none; position: fixed; inset: 0; z-index: 9; background: #0b0a10; color: #9be8ff; font: bold 6vmin sans-serif; align-items: center; justify-content: center; text-align: center; }
   @media (orientation: portrait) { body.touch #rotate { display: flex; } }
 </style>
-<div id="pad"><div class="gear" id="padgear">⚙</div>
+<div id="pad"><div class="gear" id="padgear">⚙</div><div class="gear" id="padfs" style="top:10vmin">⛶</div>
   <div id="padbar"><span id="padname">버튼을 눌러 고르세요</span><button id="padsm">작게</button><button id="padbg">크게</button><button id="padreset">처음대로</button><button id="paddone">완료</button></div></div>
 <div id="rotate">화면을 가로로 돌려 주세요</div>
 <script>
@@ -1553,7 +1553,7 @@ const padSave = () => { try { localStorage.setItem("padCfg", JSON.stringify(Obje
   addEventListener("touchstart", () => document.body.classList.add("touch"), { passive: true });          // 다시 화면을 만지면 버튼이 돌아온다
   const pad = document.getElementById("pad"), press = (k) => { if (!keys[k]) { pressed[k] = 0.12; dispatchEvent(new KeyboardEvent("keydown", { code: k })); } keys[k] = true; };
   let edit = false, sel = null;
-  const place = (d) => { const el = d.el; el.style.left = d.cx * 100 + "vw"; el.style.top = d.cy * 100 + "vh"; el.style.width = el.style.height = d.s + "vmin"; if (!d.joy) el.style.fontSize = d.s * 0.26 + "vmin"; };
+  const place = (d) => { const el = d.el; el.style.left = d.cx * innerWidth + "px"; el.style.top = d.cy * innerHeight + "px"; el.style.width = el.style.height = d.s + "vmin"; if (!d.joy) el.style.fontSize = d.s * 0.26 + "vmin"; };
   for (const d of padCfg) {
     const el = document.createElement("div"); d.el = el; el.className = d.joy ? "joy" : "b";
     if (d.joy) { const kn = document.createElement("div"); kn.className = "knob"; el.appendChild(kn); d.knob = kn; }
@@ -1575,6 +1575,10 @@ const padSave = () => { try { localStorage.setItem("padCfg", JSON.stringify(Obje
   }
   const setEdit = (on) => { edit = on; pad.classList.toggle("edit", on); if (!on && sel) { sel.el.classList.remove("sel"); sel = null; } for (const k in keys) keys[k] = false; };
   document.getElementById("padgear").addEventListener("pointerdown", (e) => { e.preventDefault(); setEdit(!edit); });
+  const goFull = () => { const de = document.documentElement; if (document.fullscreenElement || !de.requestFullscreen) return; de.requestFullscreen({ navigationUI: "hide" }).then(() => { try { screen.orientation.lock("landscape").catch(() => {}); } catch (err) {} }).catch(() => {}); };   // 전체 화면 (주소창 숨김) + 가로 고정
+  document.getElementById("padfs").addEventListener("pointerdown", (e) => { e.preventDefault(); if (document.fullscreenElement) document.exitFullscreen(); else goFull(); });
+  pad.addEventListener("pointerdown", goFull, { once: true });   // 처음 화면을 만질 때 한 번 자동으로 전체 화면
+  addEventListener("resize", () => { for (const d of padCfg) place(d); });   // 전체 화면·회전으로 크기가 바뀌면 다시 놓는다
   const size = (k) => { if (!sel) return; sel.s = clamp(Math.round(sel.s * k), 5, 45); place(sel); padSave(); };
   document.getElementById("padsm").onclick = () => size(1 / 1.15); document.getElementById("padbg").onclick = () => size(1.15);
   document.getElementById("padreset").onclick = () => { for (const d of padCfg) { Object.assign(d, PAD_DEF.find((q) => q.id === d.id)); place(d); } padSave(); };
