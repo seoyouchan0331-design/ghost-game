@@ -433,6 +433,8 @@ const HELMETS = [
             const cyc = ((t * 30 | 0) / (long ? 8 : 5)) | 0;   // 단검 궤적: 다시 맞는 박자마다 금빛 베기 한 줄 (위아래 번갈아)
             if (cyc !== p.act.cyc) { p.act.cyc = cyc; const up = cyc % 2, k = long ? 0.6 : 0.42; spawn({ kind: "gfx", key: "tslash", x: p.x + p.dir * rnd(4, 12), y: up ? p.y - 44 * k - rnd(0, 6) : p.y + 2 - rnd(0, 6), dir: up ? -p.dir : p.dir, t: 0, rate: 1.6, sc: up ? -k : k, front: true }); }
             if (long && !p.act.fl && t >= P[1]) { p.act.fl = true; spawn({ kind: "gfx", key: "tflurry", x: p.x + p.dir * 6, y: p.y - 4, dir: p.dir, t: 0, rate: 1, sc: 0.6, front: true }); } }   // 3막 묘기·꿰뚫기: 단검 난무
+          if (long && t < P[2]) for (const e of robbed) if (live(e) && !e.type.giant && !e.type.boss && !e.type.dummy && Math.abs(e.x - p.x) < 70 && Math.abs(e.y - p.y) < 30) {   // 3단계: 맞은 적을 단검에 걸린 채 앞으로 끌고 간다 (긴 난무 내내 맞도록)
+            const tx = p.x + p.dir * 20; e.x += (tx - e.x) * Math.min(1, STEP * 10); e.vx = 0; }
           if (long && !p.act.fin && u3 >= (80 - 55) / 36) { p.act.fin = true; const fin = new Set(); melee(p, { x0: -10, x1: 40, y0: -40, y1: 4, dmg: 24, once: fin, kb: 80, heavy: true });   // 던져 올린 단검을 받아 한 번에 크게 X자로 벤다 (영상 80장): 한 번만, 이펙트 강화
             for (const e of fin) { robbed.add(e); spawn({ kind: "gfx", key: "tcrit", x: e.x, y: e.y - 4, dir: p.dir, t: 0, rate: 1, sc: 0.6, front: true }); }
             spawn({ kind: "gfx", key: "tslash", x: p.x + p.dir * 2, y: p.y + 4, dir: p.dir, t: 0, rate: 1.1, sc: 1.05, front: true }); spawn({ kind: "gfx", key: "tslash", x: p.x + p.dir * 4, y: p.y - 50, dir: -p.dir, t: 0, rate: 1.1, sc: -1.0, front: true });
