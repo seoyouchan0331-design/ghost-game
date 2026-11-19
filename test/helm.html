@@ -2110,7 +2110,8 @@ function fxStab(x, y, dir, len, ramp = STEEL) {          // 찌르기: 앞으로
   light(x + dir * len * 0.6, y, len * 0.6 + 10, ramp[ramp.length - 2], 0.6, 0.15);
 }
 function fxShock(x, y, r, ramp) { flashes.push({ kind: "shock", x, y, r, t: 0, life: 0.4, ramp }); }   // 바닥을 따라 퍼지는 납작한 충격 고리
-const fxSwoosh = (x, y, dir, len, ramp, thrust) => flashes.push({ kind: "swoosh", x, y, dir, len, t: 0, ramp, thrust });
+const THIEF_FX_OFF = true;   // 잠깐: 괴도 모션을 잘 보려고 괴도의 베기 이펙트를 끔 (false로 되돌림)
+const fxSwoosh = (x, y, dir, len, ramp, thrust) => { if (THIEF_FX_OFF && player?.helm?.id === "thief") return; flashes.push({ kind: "swoosh", x, y, dir, len, t: 0, ramp, thrust }); };
 // 대시 잔상: 지금 실루엣을 투구 색으로 찍어 남긴다
 const GHOST_POOL = Array.from({ length: 14 }, () => mk(SP, SP)); let ghostI = 0;   // 잔상 판은 미리 만들어 돌려 쓴다 (매번 새로 만들면 폰에서 버벅임)
 function fxGhost(p) {
