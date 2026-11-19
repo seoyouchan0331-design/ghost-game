@@ -3143,7 +3143,7 @@ function heroIcon(x, y, s, id) {                          // 화면 위 투구 �
     c2.drawImage(heroImg[id], b[0], b[1] + y0, b[2], ch, Math.round((s - w) / 2), Math.round((s - h) / 2), w, h); HERO_ICON.set(key, cv); }
   g.drawImage(cv, x, y); return true;
 }
-const HEADS = {"boxes":[[0,0,27,14],[28,0,26,18],[55,0,40,17],[96,0,27,15],[124,0,33,21],[158,0,36,21],[195,0,21,15],[217,0,25,19],[243,0,43,22],[287,0,20,16],[308,0,20,21],[329,0,39,21],[369,0,25,16],[395,0,31,22],[427,0,35,24]],"lines":{"soldier":[0,1,2],"hunter":[3,4,5],"frostwolf":[6,7,8],"executioner":[9,10,11],"thief":[12,13,14]}};   // 땅에 놓인 투구: 라인업 그림에서 단계별 머리만 떼어 낸 그림 (art/heads/head_cut.py)
+const HEADS = {"boxes":[[0,0,27,14],[28,0,26,18],[55,0,40,17],[96,0,27,30],[124,0,33,30],[158,0,36,36],[195,0,21,24],[217,0,25,24],[243,0,43,34],[287,0,20,22],[308,0,20,28],[329,0,24,46],[354,0,25,29],[380,0,31,25],[412,0,35,29]],"lines":{"soldier":[0,1,2],"hunter":[3,4,5],"frostwolf":[6,7,8],"executioner":[9,10,11],"thief":[12,13,14]}};   // 땅에 놓인 투구·Tab 창 투구: 사용자가 떼어 온 머리 그림 (art/heads/heads_pack.py, 병사는 head_cut.py)
 const headImg = new Image(); headImg.src = "../assets/hero_heads.png";
 function heroHead(id, st) {                                // 투구 id의 st단계 머리 그림 칸 [x, y, w, h] (없으면 null)
   const L = HEADS.lines[id]; if (!L || !ready(headImg)) return null; return HEADS.boxes[L[clamp(st, 0, L.length - 1)]];
@@ -3477,7 +3477,9 @@ function drawMenu() {
   const t = (str, x, y, size = 14, col = "#e4def0", al = "left") => { c.font = `${fs(size)}px ${FONT}`; c.textAlign = al; c.fillStyle = col; c.fillText(str, x, y); };
   const head = (str, cx, y) => { pan("nameplate", cx - 66, y - 23, 132, 34); t(str, cx, y, 11, "#b5efff", "center"); };
   const col = (x, y, w, h) => { c.fillStyle = "#1b1624"; c.fillRect(x, y, w, h); nine("window", x - 8, y - 46, w + 16, h + 54, 64, 22); };   // 위 모서리 유령불이 달린 철 틀
-  const helmIcon = (h, cx, cy, k) => { begin(); h.draw(time); outline(); c.imageSmoothingEnabled = false; c.drawImage(spr, cx - SX * k, cy - SY * k, SP * k, SP * k); };
+  const helmIcon = (h, cx, cy, k) => { const hd = heroHead(h.id, hgOf(h.id)); c.imageSmoothingEnabled = false;   // 머리 그림이 있으면 그걸로 (큰 것은 줄여 칸에 맞춘다)
+    if (hd) { const kk = Math.min(k, (k * 30) / Math.max(hd[2], hd[3])); c.drawImage(headImg, hd[0], hd[1], hd[2], hd[3], Math.round(cx - hd[2] * kk / 2), Math.round(cy - 16 * k - hd[3] * kk / 2), Math.round(hd[2] * kk), Math.round(hd[3] * kk)); return; }
+    begin(); h.draw(time); outline(); c.drawImage(spr, cx - SX * k, cy - SY * k, SP * k, SP * k); };
   c.fillStyle = "rgba(14,11,20,0.9)"; c.fillRect(X, Y, PW, PH);
   // 왼쪽: 각인. 가진 개수와 2개·4개 효과(켜지면 밝게)
   col(X + 16, Y + 16, 204, PH - 32); head("각인", X + 118, Y + 40);
