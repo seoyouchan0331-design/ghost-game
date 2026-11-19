@@ -367,53 +367,6 @@ const HELMETS = [
     } },
   },
   {
-    id: "mage", name: "견습 마법사 고깔", atk: "마법탄 1발 12 (느린 연사)", passive: "스킬 쿨타임 -15%", grade: "녹슨", type: "밸런스", ramp: RAMP_MAGE, magic: true, cdMult: 0.85,   // 패시브: 스킬 쿨 -15%
-    draw(t) {
-      hood();
-      const rows = [[-7, 13], [-7, 12], [-7, 11], [-7, 10], [-7, 9], [-8, 9], [-8, 8], [-9, 8], [-9, 7], [-10, 6], [-11, 6], [-12, 5], [-13, 5], [-14, 4]];
-      rows.forEach(([x, w], i) => { R(x, -11 - i, w, 1, C.purple); R(x, -11 - i, 2, 1, C.purple3); R(x + w - 2, -11 - i, 1, 1, C.purple2); });
-      R(-16, -23, 4, 3, C.purple); R(-17, -21, 2, 3, C.purple3);
-      R(-2, -17, 3, 1, C.gold); R(-1, -18, 1, 3, C.gold); R(-7, -12, 13, 1, C.cloth3); R(-8, -11, 2, 2, C.cloth3);
-      E(0, -9, 12, 2, C.purple); R(-11, -10, 23, 1, C.purple2); R(-10, -8, 21, 1, C.purple3); R(9, -9, 2, 1, C.purple3); R(-13, -8, 2, 2, C.purple3);
-    },
-    weapon(hx, hy, acting, t) {                   // 지팡이
-      R(hx, hy - 18, 2, 26, C.wood); R(hx, hy - 18, 1, 26, C.wood2); R(hx - 2, hy - 21, 2, 4, C.wood2); R(hx + 2, hy - 21, 2, 4, C.wood2); R(hx - 2, hy - 18, 6, 1, C.wood);
-      flame(hx + 1, hy - 20, 2, acting ? 9 : 6, t, GHOST);
-    },
-    basic: { steps: [                             // 마법탄 1발 12 마법, 느린 연사
-      { dur: 0.38, hitT: 0.12, pose: "cast", reach: 8, fire(p) { shot(p, { dmg: 12, vx: 270, look: "bolt", chill: hgOf("mage") >= 1 ? 0.1 : 0 }); } },
-    ] },
-    skills: [
-      { name: "불꽃 화살", cd: 4, icon() { R(-7, 0, 9, 1, "#ffe27a"); R(-5, -1, 6, 3, "#f2701f"); R(1, -2, 5, 5, "#ffae35"); R(3, -1, 4, 3, "#fff"); },
-        use(p) {                                 // 직선 관통 28 마법 + 화상
-          startAct(p, { dur: 0.3, pose: "cast", reach: 10, events: [{ t: 0.1, fn() { shot(p, { dmg: 28, vx: 420, look: "fire", pierce: true, burn: 3, ramp: RAMP_FIRE }); if (hgOf("mage") >= 1) setTimeout(() => shot(player, { dmg: 28, vx: 420, vy: -25, look: "fire", pierce: true, burn: 3, ramp: RAMP_FIRE }), 120); light(p.x + p.dir * 14, p.y - 14, 40, "#ffae35", 0.6, 0.2); } }] });
-        } },
-      { name: "마력 폭발", cd: 10, icon() { E(0, 0, 5, 5, C.purple2); E(0, 0, 3, 3, "#e0c8ff"); R(-1, -1, 3, 3, C.white); R(-8, 0, 2, 1, C.white); R(7, 0, 2, 1, C.white); R(0, -8, 1, 2, C.white); R(0, 7, 1, 2, C.white); },
-        use(p) {                                 // 주변 원형 40 마법
-          startAct(p, { dur: 0.45, pose: "slam", events: [{ t: 0.16, fn() { blast(p.x, p.y - 12, 58, 40, p.helm.ramp); } }] });
-          for (let i = 0; i < 10; i++) { const a = rnd(0, 6.28), d = rnd(30, 55); spark(p.x + Math.cos(a) * d, p.y - 12 + Math.sin(a) * d, -Math.cos(a) * d * 5, -Math.sin(a) * d * 5, 0.16, p.helm.ramp, true); }
-        } },
-    ],
-    swap: { name: "등장 폭발", use(p) { startAct(p, { dur: 0.25, pose: "slam", events: [{ t: 0.05, fn() { blast(p.x, p.y - 12, 38, 22, p.helm.ramp); } }] }); } },
-  },
-  {
-    id: "smith", name: "대장장이 두건", atk: "망치 2연타 18·26 (느림)", passive: "맞힐 때마다 열기 (최대 5, 열기마다 피해 +4%)", grade: "녹슨", type: "파워", ramp: RAMP_FIRE,
-    draw(t) { hood(); R(-6, -9, 12, 2, C.iron2); R(2, -10, 3, 3, C.flame1); },
-    weapon(hx, hy, acting) { R(hx - 1, hy - (acting ? 4 : 14), 2, 14, C.wood); R(hx - 4, hy - (acting ? 8 : 18), 9, 5, C.iron2); R(hx - 4, hy - (acting ? 8 : 18), 9, 1, C.iron3); if ((player.heat ?? 0) >= 5) R(hx - 3, hy - (acting ? 7 : 17), 7, 3, "#ffae35"); },
-    basic: { steps: [
-      { dur: 0.42, hitT: 0.17, pose: "slam", reach: 22, fire(p) { smithHit(p, 18, false); } },
-      { dur: 0.52, hitT: 0.2, pose: "slam", reach: 26, fire(p) { smithHit(p, 26, true); } },
-    ] },
-    skills: [
-      { name: "달군 망치", cd: 7, icon() { R(-1, -2, 2, 8, C.wood); R(-5, -6, 10, 5, "#ffae35"); R(-4, -5, 8, 2, "#ffe27a"); },
-        use(p) { startAct(p, { dur: 0.4, pose: "slam", events: [{ t: 0.16, fn() { blast(p.x + p.dir * 26, p.y - 8, 34, 30 + (p.heat ?? 0) * 4, RAMP_FIRE); shake(3, 0.15); dust(p.x + p.dir * 26, p.y, 1, 5); dust(p.x + p.dir * 26, p.y, -1, 5); } }] }); } },
-      { name: "모루 낙하", cd: 12, icon() { R(-6, -2, 12, 4, C.iron2); R(-3, 2, 6, 3, C.iron1); R(-6, -2, 12, 1, C.iron3); },
-        use(p) { const n = hgOf("smith") >= 2 ? 3 : 1;          // 모루의 주인: 모루 3개
-          startAct(p, { dur: 0.3, pose: "cast", events: Array.from({ length: n }, (_, k) => ({ t: 0.05 + k * 0.18, fn() { const x = clamp(p.x + p.dir * (50 + k * 40), ROOM_L, ROOM_R); spawn({ kind: "skySpear", x, gy: groundAt(x, p.y - 20), y: p.y - 150, dir: p.dir, dmg: 40, done: false, life: 0.7, anvil: true }); } })) }); } },
-    ],
-    swap: { name: "불꽃 튀기기", use(p) { blast(p.x, p.y - 8, 40, 22, RAMP_FIRE); for (let i = 0; i < 12; i++) spark(p.x, p.y - 10, rnd(-160, 160), -rnd(60, 200), 0.5, RAMP_FIRE, false); startAct(p, { dur: 0.25, pose: "slam" }); } },
-  },
-  {
     id: "thief", name: "떠돌이 도둑 복면", atk: "단검 3연타 8·8·12 (아주 빠름, 마법)", passive: "평타 15%로 금화 2개 — 적에게서 떨어진 금화는 터진다 (마법)", grade: "녹슨", type: "스피드", ramp: RAMP_GOLD, magic: true,   // 괴도 (스컬 무법자 방식). 영상 전이라 그림은 코드
     draw(t) { hood(); R(-6, -4, 12, 3, C.iron0); },
     weapon(hx, hy, acting) { if (acting) { R(hx, hy, 9, 2, C.steel); R(hx + 9, hy, 2, 1, C.white); } else { R(hx, hy - 6, 2, 7, C.steel); } },
@@ -458,40 +411,6 @@ const HELMETS = [
     swap: { name: "길거리 생존법", use(p) { const hit = new Set(), g3 = hgOf("thief") >= 2, D = g3 ? THF3.back[0] : 0.32, T = D * (g3 ? THF3.back[1] : 0.45); p.streetT = 3; startAct(p, { dur: D, pose: "punch", wm: "back", vx: g3 ? 0 : -200, tick() { if (g3) p.vx = 0; if (!g3 && !p.act.fx && p.act.t >= T - 0.05) { p.act.fx = true; spawn({ kind: "gfx", key: "tslash", x: p.x + p.dir * (g3 ? -8 : 4), y: p.y + 2, dir: p.dir, t: 0, rate: 1.2, sc: g3 ? 0.85 : 0.55, front: true }); } if (p.act.t < T) return;   // 이펙트는 영상 속 칼 궤적 자리에 (1·2단계. 3단계는 영상 속 궤적을 노랗게 칠해 그대로 씀: back3)   // 칼이 영상에서 휘둘러지는 순간부터 맞는다   // 뒤로 물러나며 단검 휘두르기 18 (마법). 맞은 적에게서 금화 5개, 3초 동안 평타가 맞을 때마다 금화 1개
       const n0 = hit.size; melee(p, { x0: g3 ? -56 : -4, x1: g3 ? 36 : 30, y0: -30, y1: 2, dmg: 18, once: hit, kb: 60 });   // 3단계: 뛰어올라 몸을 돌려 뒤쪽까지 크게 벤다 (영상 동작)
       [...hit].slice(n0).forEach((e) => { dropTCoins(e, 5); tHitFx(e, p.dir, 0.7); }); } }); } },
-  },
-  {
-    id: "wood", name: "나무꾼 모자", atk: "도끼 2연타 15·20", passive: "30% 확률로 한 번 더 벰", grade: "녹슨", type: "파워", ramp: RAMP_LEAF,
-    draw(t) { hood(); R(-6, -11, 12, 3, C.cloth); },
-    weapon(hx, hy, acting) { R(hx - 1, hy - (acting ? 2 : 14), 2, 14, C.wood2); R(hx + 1, hy - (acting ? 4 : 16), 5, 6, C.steel2); R(hx + 5, hy - (acting ? 4 : 16), 1, 6, C.white); },
-    basic: { steps: [
-      { dur: 0.36, hitT: 0.14, pose: "slam", reach: 24, fire(p) { woodHit(p, 15); } },
-      { dur: 0.44, hitT: 0.17, pose: "slam", reach: 26, fire(p) { woodHit(p, 20); } },
-    ] },
-    skills: [
-      { name: "도끼 회전", cd: 8, icon() { E(0, 0, 5, 5, C.steel2); E(0, 0, 2, 2, C.wood); },
-        use(p) { const hits = new Map(); startAct(p, { dur: 0.6, pose: "ram", tick() { for (const e of enemies) if (live(e) && Math.abs(e.x - p.x) < 30 && Math.abs(e.y - p.y) < 30 && (hits.get(e) ?? -1) < Math.floor(p.act.t / 0.15)) { hits.set(e, Math.floor(p.act.t / 0.15)); damage(e, 7, { dir: Math.sign(e.x - p.x) || 1, kb: 40, ramp: RAMP_LEAF }); } } }); } },
-      { name: "가시덩굴", cd: 12, icon() { for (const x of [-4, 0, 4]) { R(x, -4, 2, 8, C.green); R(x - 1, -2, 1, 1, C.green3); } },
-        use(p) { const far = hgOf("wood") >= 2 ? 999 : 200, n = hgOf("wood") >= 2 ? 99 : 3;   // 고목: 방 전체
-          enemies.filter((e) => live(e) && Math.abs(e.x - p.x) < far).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x)).slice(0, n).forEach((e) => thorns(e, 20, hgOf("wood") >= 2 ? 2.5 : 1.5));
-          startAct(p, { dur: 0.25, pose: "cast" }); } },
-    ],
-    swap: { name: "나무 쓰러뜨리기", use(p) { startAct(p, { dur: 0.35, pose: "slam", events: [{ t: 0.15, fn() { melee(p, { x0: 0, x1: 56, y0: -30, y1: 0, dmg: 28, kb: 160, heavy: true, swap: true }); shake(3, 0.2); dust(p.x + p.dir * 40, p.y, p.dir, 6); } }] }); } },
-  },
-  {
-    id: "shield", name: "방패병 투구", atk: "방패 치기 2연타 14·18 (밀어냄)", passive: "받는 피해 -10%", grade: "녹슨", type: "파워", ramp: RAMP_IRON,
-    draw(t) { hood(); R(-7, -7, 14, 2, C.iron2); },
-    weapon(hx, hy, acting) { R(hx - 2 + (acting ? 4 : 0), hy - 12, 6, 16, C.iron1); R(hx - 1 + (acting ? 4 : 0), hy - 11, 4, 14, C.iron2); R(hx + (acting ? 4 : 0), hy - 6, 2, 3, C.gold); },
-    basic: { steps: [
-      { dur: 0.34, hitT: 0.12, dmg: 14, reach: 18, pose: "punch", lunge: 40 },
-      { dur: 0.42, hitT: 0.15, dmg: 18, reach: 20, pose: "ram", lunge: 70, heavy: true },
-    ] },
-    skills: [
-      { name: "방패 버티기", cd: 8, icon() { R(-4, -6, 8, 12, C.iron2); R(-3, -5, 6, 10, C.iron3); R(-1, -1, 2, 2, C.gold); },
-        use(p) { p.guardT = Math.max(p.guardT ?? 0, 1.2); p.shieldGuard = true; p.wallGuard = hgOf("shield") >= 1; startAct(p, { dur: 1.2, pose: "punch", events: [{ t: 1.1, fn() { melee(p, { x0: 0, x1: 30, y0: -28, y1: 0, dmg: 32, kb: 200, heavy: true }); shake(3, 0.15); fxRing(p.x + p.dir * 16, p.y - 12, 18, RAMP_IRON); } }] }); } },
-      { name: "방패 돌진", cd: 10, icon() { R(-2, -5, 6, 10, C.iron2); R(-8, -2, 4, 1, C.white); R(-8, 2, 4, 1, C.white); },
-        use(p) { const hit = new Set(); startAct(p, { dur: 0.3, pose: "ram", vx: 320, ghost: true, tick() { melee(p, { x0: 0, x1: 22, y0: -28, y1: 0, dmg: 28, kb: 220, stun: 1.2, heavy: true, once: hit }); } }); } },
-    ],
-    swap: { name: "방패 내려찍기", use(p) { p.guardT = Math.max(p.guardT ?? 0, 1); p.shieldGuard = true; startAct(p, { dur: 0.3, pose: "slam", events: [{ t: 0.1, fn() { melee(p, { x0: -34, x1: 34, y0: -30, y1: 4, dmg: 20, kb: 150, heavy: true, swap: true }); fxRing(p.x, p.y, 34, RAMP_IRON); } }] }); } },
   },
 ];
 for (const h of HELMETS) if (h.id !== "empty") { const d0 = h.draw; h.draw = function (t) { if (helmPic(h.id, Math.max(0, hgOf(h.id)))) return; d0.call(this, t); stageDeco(h.id, hgOf(h.id)); }; }   // 투구 그림 (없으면 코드 그림 + 단계 장식)
@@ -1344,11 +1263,7 @@ const LINES = {
   executioner: { names: ["녹슨 처형인 두건", "처형인", "단두대의 집행자"], add: ["체력 30% 이하 적 처형 (모험가·보스 10%)", "(원혼 수집은 공격 영상과 함께)", "처형할 때 단두대 연출 (공격 영상과 함께)"] },
   frostwolf: { names: ["얼어붙은 늑대 가죽", "서리 늑대", "겨울 늑대왕"], add: ["냉기 3 → 빙결, 언 적 깨기 2배, 깨면 사냥 본능 (공격·이동 +20%)", "깨질 때 파편이 옆 적에게 냉기 1", "평타마다 얼음 늑대 정령이 같이 할퀸다 · 사냥 본능 +30%"] },
   hunter: { names: ["사냥꾼 두건", "레인저 모자", "숲의 정령 궁수"], add: ["멀수록 치명타 확률 (최대 +50%)", "X 꾹: 집중 — 다 모이면 강한 화살, 스킬도 강화", "주변에 적이 없으면 집중이 빨라진다 · 초록 레이저"] },
-  smith: { names: ["대장장이 두건", "불꽃 대장장이 두건", "모루의 주인"], add: ["맞힐 때마다 열기 (피해 +4%씩, 최대 5)", "열기 5에서 망치에 화상", "모루 낙하가 모루 3개"] },
   thief: { names: ["떠돌이 도둑 복면", "괴도의 깃털 모자", "밤의 괴도 실크햇"], add: ["평타 15%로 금화 2개, 적에게서 떨어진 금화는 터진다 (5)", "금화 폭발이 커진다 (7)", "금화 폭발이 더 커진다 (9)"] },
-  wood: { names: ["나무꾼 모자", "숲지기 두건", "고목의 투구"], add: ["30% 확률로 한 번 더 벰", "때리면 20% 확률로 가시덩굴", "가시덩굴이 방 전체 적에게, 오래 묶음"] },
-  shield: { names: ["방패병 투구", "성벽 수비대 투구"], add: ["받는 피해 -10%", "버티는 동안 맞으면 주변에 충격파 (20)"] },
-  mage: { names: ["견습 마법사 고깔", "서리 마법사 고깔", "빙하 대마법사 관", "겨울 왕관"], add: ["스킬 쿨타임 -15%", "마법탄 10% 확률 빙결", "주변 냉기: 가까운 적에게 초당 피해 4", "30초마다 모든 적 2초 빙결"] },
 };
 const lineMax = (id) => (LINES[id] ? LINES[id].names.length - 1 : 3);
 // 진화 단계 장식 (그림이 오기 전 임시): 코드 투구 위에 단계마다 띠·깃털·서리를 덧그린다
@@ -1356,8 +1271,6 @@ function stageDeco(id, g0) {
   if (g0 < 1) return;
   if (id === "soldier") { R(-7, -6, 14, 1, C.steel); R(-6, -5, 1, 1, C.white); R(4, -5, 1, 1, C.white); if (g0 >= 2) { R(-7, -6, 14, 1, C.gold); R(-1, -14, 2, 4, C.red); R(-2, -16, 2, 3, C.red); R(-3, -17, 2, 2, C.red2); } }
   if (id === "hunter") { R(-3, -4, 9, 2, C.cloth2); R(-2, -4, 1, 1, C.cream); if (g0 >= 2) { R(-7, -11, 14, 3, "#24202f"); R(-7, -14, 3, 3, C.purple2); R(-8, -16, 2, 2, C.purple); } }
-  if (id === "mage") { const ice = ["#58b4ec", "#9bdcff", "#e8f6ff"]; R(-8, -2, 16, 1, ice[1]); R(-6, -3, 2, 1, ice[2]); R(3, -3, 2, 1, ice[2]); if (g0 >= 2) { R(-4, -12, 2, 4, ice[0]); R(1, -14, 2, 5, ice[1]); R(5, -11, 2, 3, ice[0]); }
-    if (g0 >= 3) { R(-6, -16, 12, 2, "#d8e8f0"); for (const x of [-6, -2, 2]) R(x, -19, 2, 3, "#f0f8ff"); R(-1, -21, 2, 2, "#ffffff"); } }
 }
 function hName(h) { const L2 = LINES[h.id], g = hgOf(h.id); return L2 ? L2.names[clamp(g, 0, L2.names.length - 1)] : h.name; }   // 각성 쇳조각 / 분해하면 얻는 쇳조각
 // 성채의 영구 강화: 3갈래 × 4개. mod 값은 레벨만큼 곱해져 stat()에 더해진다. 앞 칸을 1레벨 이상 올려야 다음 칸이 열린다
@@ -2070,8 +1983,6 @@ function hurtPlayer(dmg, dir, by) {
   if ((p.invuln > 0 && !(by && p.invulnBy === by)) || state !== "play") return;
   snd("hurt");
   p.invulnBy = by;
-  if (p.helm.id === "shield") dmg = Math.max(1, Math.round(dmg * 0.9));   // 방패병: 받는 피해 -10%
-  if (p.guardT > 0 && p.wallGuard && p.helm.id === "shield") { p.wallGuard = false; blast(p.x, p.y - 10, 44, 20, RAMP_IRON); shake(3, 0.2); }   // 성벽 수비대: 버티다 맞으면 충격파
   if (p.guardT > 0) dmg = Math.max(1, Math.round(dmg * 0.3));   // 돌거북 영혼 / 방패 버티기
   if (cr("iron", 4) && !(p.ironCd > 0)) { p.ironCd = 15; p.invuln = 0.5; fxRing(p.x, p.y - 12, 18, ["#1d1c28", "#474658", "#9aa4b8", "#dfe6f0", "#ffffff"]); texts.push({ x: p.x, y: p.y - 46, vy: -30, t: 0.7, s: "막음", c: "#dfe6f0" }); return; }   // 철벽 4
   if (cr("iron", 2)) dmg *= 0.9;
@@ -2324,20 +2235,6 @@ function drawFxFront() {
 // =====================================================================================
 //  플레이어
 // =====================================================================================
-function smithHit(p, dmg, heavy) {                               // 대장장이: 열기만큼 피해 ↑, 불꽃 대장장이는 열기 5에서 화상
-  const n = melee(p, { x0: 0, x1: 30, y0: -26, y1: 0, dmg, heavy, mult: 1 + 0.04 * (p.heat ?? 0), kb: heavy ? 150 : 90 });
-  fxSwoosh(p.x + p.dir * 24, p.y - 10, p.dir, 11, RAMP_FIRE, false);
-  if (n) { p.heat = Math.min(5, (p.heat ?? 0) + 1); p.heatT = 3; if (p.heat >= 5 && hgOf("smith") >= 1) for (const e of enemies) if (live(e) && Math.abs(e.x - (p.x + p.dir * 18)) < 26 && Math.abs(e.y - p.y) < 30) e.burn = Math.max(e.burn ?? 0, 3); }
-}
-function woodHit(p, dmg) {                                         // 나무꾼: 30% 한 번 더, 숲지기는 20% 가시덩굴
-  const n = melee(p, { x0: 0, x1: 32, y0: -26, y1: 0, dmg, kb: 100 }); fxSwoosh(p.x + p.dir * 22, p.y - 10, p.dir, 11, RAMP_LEAF, false);
-  if (n && Math.random() < 0.3) { melee(p, { x0: 0, x1: 32, y0: -26, y1: 0, dmg: Math.round(dmg * 0.7), kb: 60 }); fxSwoosh(p.x + p.dir * 22, p.y - 14, p.dir, 9, RAMP_LEAF, false); }
-  if (n && hgOf("wood") >= 1 && Math.random() < 0.2) { const e = enemies.filter((q) => live(q) && Math.abs(q.x - (p.x + p.dir * 20)) < 30).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0]; if (e) thorns(e, 10, 0.8); }
-}
-function thorns(e, dmg, root) {                                    // 가시덩굴: 적 발밑에서 솟아 피해 + 묶음
-  for (let i = 0; i < 8; i++) spark(e.x + rnd(-8, 8), e.y - rnd(0, 6), rnd(-20, 20), -rnd(80, 180), 0.4, RAMP_LEAF, false);
-  flashes.push({ kind: "stab", x: e.x, y: e.y, dir: 1, len: 20, t: 0, ramp: RAMP_LEAF, up: true }); damage(e, dmg, { dir: 1, kb: 0, ramp: RAMP_LEAF }); if (live(e) && !e.type.boss && !e.type.giant) e.stun = Math.max(e.stun ?? 0, root);
-}
 function lineTick(p, dt) {
   if (p.huntT > 0) p.huntT -= dt; if (p.iceT > 0) p.iceT -= dt; if (p.massT > 0) p.massT -= dt; if (p.streetT > 0) p.streetT -= dt;
   if (p.helm.id === "hunter" && hgOf("hunter") >= 1) {               // 레인저: 공격을 꾹 누르면 모아 쏘기 (다 모이면 놓을 때 강한 관통 화살)
@@ -2352,14 +2249,6 @@ function lineTick(p, dt) {
         if (!g3) spawn({ kind: "gfx", key: "hrel", x: p.x + p.dir * 16, y: p.y - 13, dir: p.dir, t: 0, rate: 1, add: true }); if (g3) { whiteT = Math.max(whiteT, 0.04); light(p.x + p.dir * 24, p.y - 13, 60, "#8fe08a", 0.9, 0.2); } shake(2, 0.12); for (let i = 0; i < 10; i++) spark(p.x + p.dir * 16, p.y - 13, p.dir * rnd(80, 260), rnd(-60, 60), 0.35, RAMP_LEAF, true); }
       p.drawT = 0; p.drawFull = false; } }
   if (p.lanceT > 0) { p.lanceT -= dt; if (Math.random() < dt * 14) spark(p.x + rnd(-8, 8), p.y - rnd(4, 30), rnd(-15, 15), -rnd(30, 70), 0.5, RAMP_GHOST, true); }   // 유령 창기세: 몸에서 청록 불꽃이 피어오른다
-  if (p.heatT > 0 && (p.heatT -= dt) <= 0) p.heat = 0;               // 대장장이 열기는 3초 안 때리면 식는다                                        // 계보 단계 능력 (진화하면 켜진다)
-  const id = p.helm.id, g0 = hgOf(id);
-  if (id === "mage" && g0 >= 2 && (p.auraT = (p.auraT ?? 0) - dt) <= 0) {   // 빙하 대마법사: 주변 냉기
-    p.auraT = 0.25; for (const e of enemies) if (live(e) && Math.abs(e.x - p.x) < 60 && Math.abs(e.y - p.y) < 50) { damage(e, 1, { quiet: true, kb: 0, ramp: ["#0c1430", "#58b4ec", "#9bdcff", "#e8f6ff", "#ffffff"] }); }
-    if (Math.random() < 0.5) spark(p.x + rnd(-60, 60), p.y - rnd(0, 40), 0, -20, 0.5, ["#0c1430", "#58b4ec", "#9bdcff", "#e8f6ff", "#ffffff"], false); }
-  if (id === "mage" && g0 >= 3 && (p.winterT = (p.winterT ?? 30) - dt) <= 0) {   // 겨울 왕관: 30초마다 모든 적 빙결
-    p.winterT = 30; whiteT = Math.max(whiteT, 0.12); banner = { s: "겨울 왕관: 얼어붙어라!", t: 1.2 }; fxRing(p.x, p.y - 12, 120, ["#0c1430", "#58b4ec", "#9bdcff", "#e8f6ff", "#ffffff"]);
-    for (const e of enemies) if (live(e) && !e.type.boss && !e.type.giant) e.frozen = 2; }
 }
 function updatePlayer(dt) {
   if (player.helm) lineTick(player, dt);
