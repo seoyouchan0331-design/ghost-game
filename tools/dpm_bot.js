@@ -20,6 +20,7 @@ const SECS = +(process.env.SECS || 60);
         e.hp = e.maxHp; p.invuln = 1e9; p.hp = p.maxHp ?? p.hp;
         const a = p.act;
         if (a) {
+          if (a.wm === 'flurry' && a.pick) { e.x = e.minX = e.maxX = p.x + p.dir * 20; }   // 주머니 찢기: 실제 적처럼 끌려간다
           if (a.wm === 'stance' && p.skKey) keys[p.skKey] = a.t < 1.37;
         } else if (!p.dashing) {
           const want = e.x - D; if (Math.abs(p.x - want) > 4 && !(keys.KeyX && ranged)) p.x = want; p.dir = 1;
