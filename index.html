@@ -44,7 +44,7 @@
    ===================================================================================== */
 
 // ---------- 기본 설정 ----------
-const BAL_ON = window.BAL_ON === true;   // 밸런스 시험안: 투구 시험장에서만 켠다 (본게임은 원래 수치)
+const BAL_ON = window.BAL_ON !== false;   // 밸런스 1차 (허수아비 DPM 기준). 본게임·시험장 모두 켜짐 (false로 두면 예전 수치)
 const W = 480, H = 270, SCALE = 2, FLOOR = 238, ROOM_L = 20, TS = 16;
 let ROOM_R = W - 20, camX = 0, camY = 0, L = null, slowT = 0, layoutPool = [];   // L = 지금 방의 프리팹
 const GRAV = 1100, STEP = 1 / 120;
@@ -275,7 +275,7 @@ const HELMETS = [
     } },
   },
   {
-    id: "frostwolf", name: "얼어붙은 늑대 가죽", atk: "할퀴기 3연타 9·9·14 (빠름, 냉기)", passive: "냉기 3이면 빙결, 언 적을 치면 깨짐 (2배) · 깨면 사냥 본능", grade: "녹슨", type: "스피드", ramp: ICE,
+    id: "frostwolf", name: "얼어붙은 늑대 가죽", atk: "할퀴기 3연타 9·9·14 (빠름, 냉기)", passive: "냉기 3이면 빙결, 언 적을 치면 깨짐 (1.6배) · 깨면 사냥 본능", grade: "녹슨", type: "스피드", ramp: ICE,
     draw(t) {
       flame(-1, -17, 2, 5, t, GHOST);
       E(0, -11, 7, 6, "#8a8f9c"); E(-1, -12, 5, 4, "#b8bcc8"); R(-6, -19, 3, 5, "#8a8f9c"); R(3, -19, 3, 5, "#8a8f9c"); R(-5, -18, 1, 3, "#e8ecf4"); R(4, -18, 1, 3, "#e8ecf4");
@@ -1262,7 +1262,7 @@ const AWAKE_COST = [10, 30, 100], SCRAP_OF = [5, 15, 40, 80];
 const LINES = {
   soldier: { names: ["병사 투구", "창병 투구", "근위 창대장 투구"], add: ["3번째 공격 1.5배", "대시가 공격이 된다 (닿은 적 14)", "때릴수록 돌진 게이지, 가득 차면 창 돌격 3연속 · S 유령 창기세"] },
   executioner: { names: ["녹슨 처형인 두건", "처형인", "단두대의 집행자"], add: ["체력 30% 이하 적 처형 (모험가·보스 10%)", "(원혼 수집은 공격 영상과 함께)", "처형할 때 단두대 연출 (공격 영상과 함께)"] },
-  frostwolf: { names: ["얼어붙은 늑대 가죽", "서리 늑대", "겨울 늑대왕"], add: ["냉기 3 → 빙결, 언 적 깨기 2배, 깨면 사냥 본능 (공격·이동 +20%)", "깨질 때 파편이 옆 적에게 냉기 1", "평타마다 얼음 늑대 정령이 같이 할퀸다 · 사냥 본능 +30%"] },
+  frostwolf: { names: ["얼어붙은 늑대 가죽", "서리 늑대", "겨울 늑대왕"], add: ["냉기 3 → 빙결, 언 적 깨기 1.6배, 깨면 사냥 본능 (공격·이동 +20%)", "깨질 때 파편이 가장 가까운 적 1마리에게 냉기 1", "평타마다 얼음 늑대 정령이 같이 할퀸다 · 사냥 본능 +30%"] },
   hunter: { names: ["사냥꾼 두건", "레인저 모자", "숲의 정령 궁수"], add: ["멀수록 치명타 확률 (최대 +50%)", "X 꾹: 집중 — 다 모이면 강한 화살, 스킬도 강화", "주변에 적이 없으면 집중이 빨라진다 · 초록 레이저"] },
   thief: { names: ["떠돌이 도둑 복면", "괴도의 깃털 모자", "밤의 괴도 실크햇"], add: ["평타 15%로 금화 2개, 적에게서 떨어진 금화는 터진다 (5)", "금화 폭발이 커진다 (7)", "금화 폭발이 더 커진다 (9)"] },
 };
@@ -1937,7 +1937,7 @@ function damage(e, base, o = {}) {
     + (p.helm.id === "executioner" ? (p.execSouls ?? 0) * (BAL_ON ? 0.006 : 0.01) + (p.massT > 0 ? (p.massN ?? 0) * 0.1 : 0) : 0);   // 처형인: 원혼 1개당 +0.6%, 대학살 강화 버프
   if (p.soul === "salamander" && e.burn > 0 && !o.quiet) o = { ...o, mult: (o.mult ?? 1) * 1.1 };   // 불도마뱀 영혼
   let mult = (o.mult ?? 1) * (p.src === "swap" && cr("ghost", 4) && !o.quiet && !o.noProc ? 2 : 1), shard = 0;
-  if (o.wolf && e.frozen > 0 && !o.quiet) { mult *= BAL_ON ? 1.6 : 2; wolfShatter(e); }   // 서리 늑대: 언 적 깨기 2배
+  if (o.wolf && e.frozen > 0 && !o.quiet) { mult *= BAL_ON ? 1.6 : 2; wolfShatter(e); }   // 서리 늑대: 언 적 깨기 1.6배
   if (e.frozen > 0 && !o.quiet) { if (cr("frost", 4)) { mult *= 1.4; shard = 20; } e.frozen = 0; iceBreak(e); }   // 맞으면 빙결이 풀린다
   const crit = !o.quiet && Math.random() < BASE.critChance + stat("crit") + (o.critAdd ?? 0), dir = o.dir ?? 1;   // critAdd: 사냥꾼 멀수록 치명타
   if (cr("hunt", 2) && !o.quiet && e.hp < e.maxHp * 0.5) mult *= 1.15;
