@@ -378,7 +378,7 @@ const HELMETS = [
           p.gold -= 10; const g3 = hgOf("thief") >= 2, D = g3 ? THF3.throw[0] : 0.36;   // 금화는 영상에서 손을 뿌리는 순간에 나간다
           startAct(p, { dur: D, pose: "cast", wm: "throw", events: [{ t: D * (g3 ? THF3.throw[1] : 0.75), fn() { snd("coin");
           for (let i = 0; i < 10; i++) spawn({ kind: "tcoin", tag: "금화 던지기", x: p.x + p.dir * (g3 ? 12 : 8), y: p.y - (g3 ? 36 : 18), vx: p.dir * rnd(140, 330), vy: -rnd(60, 230), t: 0, thrown: true, front: true }); } }] }); } },
-      { name: "주머니 찢기", get cd() { return hgOf("thief") >= 2 ? 8 + EX_PICK3[3] : 8; }, icon() { R(-6, -1, 12, 2, C.steel); R(-3, -5, 6, 4, "#8a5a2a"); R(-1, -3, 2, 2, "#ffd24a"); },
+      { name: "주머니 찢기", get cd() { return hgOf("thief") >= 2 ? 6 + EX_PICK3[3] : 8; }, icon() { R(-6, -1, 12, 2, C.steel); R(-3, -5, 6, 4, "#8a5a2a"); R(-1, -3, 2, 2, "#ffd24a"); },
         use(p) { const hit = new Set(), robbed = new Set(), long = hgOf("thief") >= 2, P = EX_PICK3, D = long ? P[3] : 0.45;   // 무적 단검 난무: 맞은 적에게서 터지는 금화 4개 (1%로 금화 +100 대박), 5초 동안 맞을 때마다 금화 1개. 3단계는 칼 돌리기 → 연속 베기 → X자 → 칼을 망토에 넣는 순간 금화가 한꺼번에
           for (const e of enemies) e.pickDone = false; p.invuln = Math.max(p.invuln, D); startAct(p, { dur: D, pose: "punch", wm: "flurry", vx: 0, pick: true, tick() {
           const t = p.act.t, u3 = (t - P[1]) / (P[2] - P[1]), toss = long && u3 > (71 - 55) / 36 && u3 < (91 - 55) / 36, on = !long || (t >= P[0] && t < P[2] && !toss); p.act.vx = long && t >= P[0] && t < P[1] ? 20 : 0;   // toss: 3막에서 단검을 하늘로 던져 올린 동안(영상 71~78장)은 손에 칼이 없어 공격하지 않는다
@@ -389,7 +389,7 @@ const HELMETS = [
             if (long && !p.act.fl && t >= P[1]) { p.act.fl = true; spawn({ kind: "gfx", key: "tflurry", x: p.x + p.dir * 6, y: p.y - 4, dir: p.dir, t: 0, rate: 1, sc: 0.6, front: true }); } }   // 3막 묘기·꿰뚫기: 단검 난무
           if (long && t < P[2]) for (const e of robbed) if (live(e) && !e.type.giant && !e.type.boss && !e.type.dummy && Math.abs(e.x - p.x) < 70 && Math.abs(e.y - p.y) < 30) {   // 3단계: 맞은 적을 단검에 걸린 채 앞으로 끌고 간다 (긴 난무 내내 맞도록)
             const tx = p.x + p.dir * 20; e.x += (tx - e.x) * Math.min(1, STEP * 10); e.vx = 0; }
-          if (long && !p.act.fin && u3 >= (80 - 55) / 36) { p.act.fin = true; const fin = new Set(); melee(p, { x0: -10, x1: 40, y0: -40, y1: 4, dmg: 24, once: fin, kb: 80, heavy: true });   // 던져 올린 단검을 받아 한 번에 크게 X자로 벤다 (영상 80장): 한 번만, 이펙트 강화
+          if (long && !p.act.fin && u3 >= (80 - 55) / 36) { p.act.fin = true; const fin = new Set(); melee(p, { x0: -10, x1: 40, y0: -40, y1: 4, dmg: 40, once: fin, kb: 80, heavy: true });   // 던져 올린 단검을 받아 한 번에 크게 X자로 벤다 (영상 80장): 한 번만, 이펙트 강화
             for (const e of fin) { robbed.add(e); spawn({ kind: "gfx", key: "tcrit", x: e.x, y: e.y - 4, dir: p.dir, t: 0, rate: 1, sc: 0.6, front: true }); }
             spawn({ kind: "gfx", key: "tslash", x: p.x + p.dir * 2, y: p.y + 4, dir: p.dir, t: 0, rate: 1.1, sc: 1.05, front: true }); spawn({ kind: "gfx", key: "tslash", x: p.x + p.dir * 4, y: p.y - 50, dir: -p.dir, t: 0, rate: 1.1, sc: -1.0, front: true });
             shake(4, 0.2); hitstop = Math.max(hitstop ?? 0, 0.08); light(p.x + p.dir * 18, p.y - 20, 60, "#ffd24a", 1, 0.25); snd("crit"); }
@@ -1798,6 +1798,17 @@ const EX_HIT = [   // 처형인: 영상 구간에서 칼이 닿는 순간 (동�
   { t1: 0.34, t2: 0.28, slam: 0.64, spin: [0.29, 0.55], cleave: 0.5 },
   { t1: 0.48, t2: 0.34, t3: 0.42, slam: 0.56, spin: [0.14, 0.45], cleave: 0.33 },
 ], exHit = () => EX_HIT[clamp(hgOf("executioner"), 0, 2)];
+// 밸런스 (허수아비 DPM 측정 tools/dpm_bot.js 기준, 목표: 1단계 약 3000 · 2단계 약 3600 · 3단계 약 5000~5500, 스킬 비중 30% 안팎)
+const BAL = { skill: 1.8, basic: 0.9,
+  b3: { frostwolf: [0.85, 0.85, 0.6], executioner: [1.12, 1.12, 1.12], soldier: [1.3, 1.3, 1.3], thief: [13 / 8, 13 / 8, 20 / 12] },   // 3단계 평타 1·2·3타 배율
+  lanceRush: 1.5 };   // 병사: 유령 창기세 중 창 돌격
+let SKILL_TAGS = null;
+function balMult(p, tag) {
+  if (tag.startsWith("평타")) { const b = hgOf(p.helm.id) >= 2 && BAL.b3[p.helm.id]; return BAL.basic * (b ? b[clamp((parseInt(tag.slice(3)) || 1) - 1, 0, 2)] : 1); }
+  SKILL_TAGS = SKILL_TAGS || HELMETS.flatMap((h) => [...(h.pool || []), ...(Object.getOwnPropertyDescriptor(h, "skills")?.value || [])].map((k) => k.name));
+  if (!SKILL_TAGS.some((n) => tag.startsWith(n))) return 1;
+  return BAL.skill * (p.helm.id === "soldier" && p.lanceT > 0 && tag.startsWith("창 돌격") ? BAL.lanceRush : 1);
+}
 const EX_STEPS = [
   { dur: 0.5, get hitT() { return 0.5 * exHit().t1; }, pose: "slam", reach: 32, wm: "t1", fire(p) { execHit(p, { x0: 0, x1: 34, y0: -34, y1: 4, dmg: 22, kb: 90 }); shake(1.5, 0.08); } },
   { dur: 0.6, get hitT() { return 0.6 * exHit().t2; }, pose: "slam", reach: 36, wm: "t2", fire(p) { execHit(p, { x0: -4, x1: 40, y0: -40, y1: 4, dmg: 32, kb: 150, heavy: true }, true); shake(2.5, 0.12); } },
@@ -1920,7 +1931,7 @@ function damage(e, base, o = {}) {
     if (k.x > b[0] - 14 && k.x < b[1] + 14 && k.y > b[2] - 14 && k.y < b[3] + 14) { o = { ...o, mult: (o.mult ?? 1) * 1.5, heavy: true, y: k.y }; texts.push({ x: k.x, y: k.y - 18, vy: -40, t: 0.6, s: "약점!", c: "#ffae35" }); } }
   const p = player, atkBonus = o.quiet ? 0 : stat(p.helm.magic ? "magic" : "phys") + stat(p.src) + stat("atk")
     + (cr("gold", 4) ? Math.min(0.3, Math.floor(p.gold / 100) * 0.03) : 0) + (p.swapAtkT > 0 ? stat("swapAtk") : 0) + Math.max(0, hgOf(p.helm.id)) * 0.15
-    + (p.helm.id === "executioner" ? (p.execSouls ?? 0) * 0.01 + (p.massT > 0 ? (p.massN ?? 0) * 0.1 : 0) : 0);   // 처형인: 원혼 1개당 +1%, 대학살 강화 버프
+    + (p.helm.id === "executioner" ? (p.execSouls ?? 0) * 0.006 + (p.massT > 0 ? (p.massN ?? 0) * 0.1 : 0) : 0);   // 처형인: 원혼 1개당 +0.6%, 대학살 강화 버프
   if (p.soul === "salamander" && e.burn > 0 && !o.quiet) o = { ...o, mult: (o.mult ?? 1) * 1.1 };   // 불도마뱀 영혼
   let mult = (o.mult ?? 1) * (p.src === "swap" && cr("ghost", 4) && !o.quiet && !o.noProc ? 2 : 1), shard = 0;
   if (o.wolf && e.frozen > 0 && !o.quiet) { mult *= 2; wolfShatter(e); }   // 서리 늑대: 언 적 깨기
@@ -1931,6 +1942,7 @@ function damage(e, base, o = {}) {
   if (e.type.backHit && !o.quiet && o.sx != null && (o.sx - e.x) * e.dir < 0) { mult *= 1.5; texts.push({ x: e.x, y: e.y - 52, vy: -40, t: 0.5, s: "등 뒤!", c: "#ffae35" }); }   // 중갑 기사: 등 뒤 1.5배
   const blocked = (!!e.type.shield || e.st === "guard") && !stat("pierce") && e.stun <= 0 && !e.frozen && !o.above && !o.quiet && o.sx != null && (o.sx - e.x) * e.dir > 0;   // 방패 정면
   const dmgTag = o.tag || objTag || (p.act && p.act.tag) || "기타";
+  if (!o.quiet) mult *= balMult(p, dmgTag);   // 밸런스 (BAL): 스킬 1.8배·평타 0.9배, 투구별 3단계 평타 보정
   const dmg = Math.max(1, Math.round(base * mult * (1 + atkBonus) * (crit ? BASE.critMult + (cr("hunt", 4) ? 0.5 : 0) : 1) * (blocked ? 0.2 : 1) * (e.st === "potion" ? 1.5 : 1) * (e.auraT > 0 ? 0.7 : 1) * (e.ward > 0 ? 0.5 : 1)));
   if (e.st === "charge") { e.chargeDmg += dmg; if (e.chargeDmg >= e.maxHp * ULT_CANCEL) { advGroggy(e, GROGGY_CANCEL); fxRing(e.x, e.y - 20, 30, RAMP_GHOST); hitstop = 0.12; shake(4, 0.25); texts.push({ x: e.x, y: e.y - 70, vy: -30, t: 1, s: "캔슬!", c: "#63c8ea" }); } }
   const armor = e.st === "charge" || e.st === "potion" || e.st === "leap" || !!e.type.sarmor;
@@ -2243,9 +2255,9 @@ function lineTick(p, dt) {
         if (k >= 1 && !p.drawFull) { p.drawFull = true; fxRing(p.x + p.dir * 14, p.y - 13, 12, RAMP_LEAF); light(p.x + p.dir * 14, p.y - 13, 30, "#8fc05a", 0.8, 0.2); } } }
     else if (p.drawT > 0) { if (p.drawFull) { const g3 = hgOf("hunter") >= 2;
         if (g3) { const bx = p.x + p.dir * 20, by = p.y - 13, len = 280;   // 3단계: 화살 대신 한순간에 앞을 꿰뚫는 초록 레이저 빔
-          for (const e of enemies) if (live(e) && (e.x - bx) * p.dir > -8 && Math.abs(e.x - bx) < len + (e.type.hw ?? 0) && by > e.y - (e.type.hh ?? 30) - 8 && by < e.y + 8) damage(e, 42, { ranged: true, dir: p.dir, kb: 120, heavy: true, ramp: RAMP_LEAF, mult: 1.3 });
+          for (const e of enemies) if (live(e) && (e.x - bx) * p.dir > -8 && Math.abs(e.x - bx) < len + (e.type.hw ?? 0) && by > e.y - (e.type.hh ?? 30) - 8 && by < e.y + 8) damage(e, 34, { ranged: true, dir: p.dir, kb: 120, heavy: true, ramp: RAMP_LEAF, mult: 1.3 });
           spawn({ kind: "gfx", key: "hlbeam", x: bx, y: by, dir: p.dir, t: 0, rate: 1, glowAdd: 0.35 }); shake(4, 0.25); }
-        else shot(p, { dmg: 30, vx: 620, look: "arrow", fx: "hpow", farCrit: true, pierce: true, ramp: RAMP_LEAF }); startAct(p, { dur: 0.22, pose: "shoot", reach: 6, power: true, move: 0.85 }); p.src = "basic";
+        else shot(p, { dmg: 40, vx: 620, look: "arrow", fx: "hpow", farCrit: true, pierce: true, ramp: RAMP_LEAF }); startAct(p, { dur: 0.22, pose: "shoot", reach: 6, power: true, move: 0.85 }); p.src = "basic";
         if (!g3) spawn({ kind: "gfx", key: "hrel", x: p.x + p.dir * 16, y: p.y - 13, dir: p.dir, t: 0, rate: 1, add: true }); if (g3) { whiteT = Math.max(whiteT, 0.04); light(p.x + p.dir * 24, p.y - 13, 60, "#8fe08a", 0.9, 0.2); } shake(2, 0.12); for (let i = 0; i < 10; i++) spark(p.x + p.dir * 16, p.y - 13, p.dir * rnd(80, 260), rnd(-60, 60), 0.35, RAMP_LEAF, true); }
       p.drawT = 0; p.drawFull = false; } }
   if (p.lanceT > 0) { p.lanceT -= dt; if (Math.random() < dt * 14) spark(p.x + rnd(-8, 8), p.y - rnd(4, 30), rnd(-15, 15), -rnd(30, 70), 0.5, RAMP_GHOST, true); }   // 유령 창기세: 몸에서 청록 불꽃이 피어오른다
