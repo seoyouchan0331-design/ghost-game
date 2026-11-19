@@ -5,10 +5,10 @@ import sys, json
 from PIL import Image
 out = {}
 for arg in sys.argv[1:]:
-    key, rest = arg.split("="); src, sid = rest.rsplit(":", 1)
+    key, rest = arg.split("="); src, sid = rest.rsplit(":", 1); sid, _, st0 = sid.partition("@")   # 효과id@85: 85번 프레임부터 (앞부분 버림)
     name = sid.split("/")[1]; j = json.load(open(f"{src}/{sid}/{name}.json")); im = Image.open(f"{src}/{sid}/{name}.png").convert("RGBA")
     m = j["meta"]["pixelfx"]; fw, fh = m["frameSize"]; fr = [f["frame"] for f in j["frames"]]
-    cells = [im.crop((f["x"], f["y"], f["x"] + fw, f["y"] + fh)) for f in fr]
+    cells = [im.crop((f["x"], f["y"], f["x"] + fw, f["y"] + fh)) for f in fr][int(st0 or 0):]
     while cells and cells[-1].getbbox() is None: cells.pop()
     bb = [c.getbbox() for c in cells if c.getbbox()]; x0 = min(b[0] for b in bb); y0 = min(b[1] for b in bb); x1 = max(b[2] for b in bb); y1 = max(b[3] for b in bb)
     w, h = x1 - x0, y1 - y0; cols = max(1, 2048 // w); rows = (len(cells) + cols - 1) // cols

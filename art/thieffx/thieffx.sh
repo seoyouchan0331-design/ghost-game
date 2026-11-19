@@ -10,3 +10,6 @@ R melee/dagger-flurry "{\"palette\":$G7}" fl
 R pickups/collect-burst "{\"palette\":$G8}" cb
 R spawn/poof '{"palette":["#1a1626","#34304a","#555068","#77728a","#9b97ac","#c4c0d2"]}' pd
 python3 art/hunterfx/hunterfx_pack.py thit=$O/hit:impacts/hit-spark tcrit=$O/crit:impacts/crit-hit tflurry=$O/fl:melee/dagger-flurry tboom=$O/cb:pickups/collect-burst tpoof=$O/pd:spawn/poof
+R melee/sword-slash "{\"palette\":$G7}" sl
+(cd "$PF" && node tools/render.mjs explosions/smoke-bomb --sheet --bg none --no-actor --out "$O/sm")
+python3 art/hunterfx/hunterfx_pack.py tslash=$O/sl:melee/sword-slash tcloud=$O/sm:explosions/smoke-bomb@84
