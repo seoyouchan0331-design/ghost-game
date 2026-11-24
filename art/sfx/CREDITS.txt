@@ -1,0 +1,6 @@
+효과음 (assets/sfx/<키>_<번호>.mp3) — 전부 CC0 (퍼블릭 도메인), 출처 표기 의무 없음. 잘라 낸 무음·음량 맞춤만 했다.
+- 80 CC0 RPG SFX (rubberduck) https://opengameart.org/content/80-cc0-rpg-sfx
+- 100 CC0 SFX (rubberduck) https://opengameart.org/content/100-cc0-sfx
+- 50 RPG sound effects (Kenney) https://opengameart.org/content/50-rpg-sound-effects
+- Swishes Sound Pack https://opengameart.org/content/swishes-sound-pack
+- 51 UI sound effects (Kenney) https://opengameart.org/content/51-ui-sound-effects-buttons-switches-and-clicks

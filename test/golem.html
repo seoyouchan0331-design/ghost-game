@@ -456,7 +456,7 @@ const SFX = {}; for (const k of ["golem_roar", "golem_collapse"]) { try { SFX[k]
 let muted = false;
 // 합성 효과음 (파일 없음, WebAudio): 쿵(낮게 떨어지는 사인파) + 거친 잡음(저역) + 딱(짧은 고역 잡음)을 섞는다
 let AC = null, NOISE = null;
-function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); const n = AC.sampleRate * 2; NOISE = AC.createBuffer(1, n, AC.sampleRate); const d = NOISE.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; } catch (err) { AC = null; } } if (AC && AC.state === "suspended") AC.resume(); return AC; }
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); const n = AC.sampleRate * 2; NOISE = AC.createBuffer(1, n, AC.sampleRate); const d = NOISE.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; sfxLoad(); } catch (err) { AC = null; } } if (AC && AC.state === "suspended") AC.resume(); return AC; }
 function envGain(c, t0, v, att, dur) { const g2 = c.createGain(); g2.gain.setValueAtTime(0.0001, t0); g2.gain.exponentialRampToValueAtTime(Math.max(0.0002, v), t0 + att); g2.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); g2.connect(c.destination); return g2; }
 function noiseSrc(c, t0, dur, type, f0, f1, out) { const src = c.createBufferSource(); src.buffer = NOISE; src.loop = true; const f = c.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(f0, t0); f.frequency.exponentialRampToValueAtTime(f1, t0 + dur); src.connect(f); f.connect(out); src.start(t0, Math.random()); src.stop(t0 + dur + 0.05); }
 function hitSound(kind, big = 1) {
@@ -471,8 +471,17 @@ function hitSound(kind, big = 1) {
 }
 // 게임 효과음 (전부 합성, 파일 없음). snd("이름"). 같은 소리는 35ms 안에 한 번만 (여러 적을 한꺼번에 때릴 때 겹쳐 커지지 않게)
 let sfxVol = 0.7; const sndLast = {};
+// 녹음된 효과음 (CC0, art/sfx/CREDITS.txt): assets/sfx/<키>_<번호>.mp3, 여러 개면 무작위. 못 불러오면(로컬 파일 등) 아래 합성음을 쓴다
+const SFX_N = {"swing":4,"thrust":2,"claw":2,"heavy":2,"hit":2,"hitH":2,"hitR":1,"crit":1,"block":1,"kill":1,"hurt":1,"jump":2,"jump2":1,"dash":2,"land":2,"coin":2,"scrap":2,"item":2,"evolve":1,"swap":2,"door":1,"chest":1,"arrow":2,"arrowP":1,"cast":1,"blast":1,"freeze":1,"shatter":2,"execute":1,"ui":2};
+const SFX_V = { swing: 0.45, thrust: 0.45, claw: 0.5, heavy: 0.6, hit: 0.8, hitH: 0.9, hitR: 0.6, crit: 0.55, block: 0.6, kill: 0.7, hurt: 0.7, jump: 0.35, jump2: 0.35, dash: 0.45, land: 0.35,
+  coin: 0.5, scrap: 0.5, item: 0.6, evolve: 0.7, swap: 0.55, door: 0.6, chest: 0.6, arrow: 0.4, arrowP: 0.55, cast: 0.5, blast: 0.8, freeze: 0.55, shatter: 0.6, execute: 0.9, ui: 0.5 };   // 키마다 음량
+const SFX_BUF = {}; let sfxLoading = false;
+function sfxLoad() { if (sfxLoading || !AC) return; sfxLoading = true;
+  for (const k in SFX_N) for (let i = 0; i < SFX_N[k]; i++) fetch(`../assets/sfx/${k}_${i}.mp3`).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject())).then((ab) => AC.decodeAudioData(ab)).then((buf) => { (SFX_BUF[k] = SFX_BUF[k] || []).push(buf); }).catch(() => {}); }
 function snd(k, big = 1) {
   if (muted) return; const c = ac(); if (!c) return; const now = c.currentTime; if (now - (sndLast[k] ?? -1) < 0.035) return; sndLast[k] = now;
+  const bs = SFX_BUF[k]; if (bs && bs.length) { const s0 = c.createBufferSource(), g0 = c.createGain(); s0.buffer = bs[(Math.random() * bs.length) | 0];   // 녹음된 소리: 높낮이를 조금씩 흔든다 (big이면 낮고 크게)
+    s0.playbackRate.value = (0.93 + Math.random() * 0.14) / Math.sqrt(Math.max(1, big)); g0.gain.value = sfxVol * (SFX_V[k] ?? 0.6) * Math.min(1.6, big); s0.connect(g0); g0.connect(c.destination); s0.start(now + 0.004); return; }
   const t0 = now + 0.004, V = sfxVol * 0.9 * big;
   const tone = (type, f0, f1, dur, v, dt = 0, att = 0.004) => { const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t0 + dt); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dt + dur); o.connect(envGain(c, t0 + dt, v, att, dur)); o.start(t0 + dt); o.stop(t0 + dt + dur + 0.05); };
   const nz = (type, f0, f1, dur, v, dt = 0, att = 0.003) => noiseSrc(c, t0 + dt, dur, type, f0, f1, envGain(c, t0 + dt, v, att, dur));
